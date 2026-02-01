@@ -25,6 +25,15 @@ npm run dev:client
 
 The app runs at `http://localhost:5173` and proxies API calls to the local server at `http://localhost:5174`.
 
+### Project Root Detection
+
+The server looks for a `PBS/` folder in:
+1. The current working directory (where you run `npm run dev:server` or `npm run start`)
+2. The parent directory
+3. The grandparent directory
+
+Recommended: run the server from the project root so `PBS/` is found at the same level as `server/`.
+
 ## Build + Run (Production)
 
 ```bash

@@ -1,6 +1,6 @@
 import express from "express";
 import { z } from "zod";
-import { promises as fs } from "fs";
+import { promises as fs, accessSync } from "fs";
 import path from "path";
 import { ApiError, ProjectStatus, TypesFile } from "@pbs/shared";
 import { exportTypesFile, parseTypesFile } from "./pbs.js";
@@ -19,7 +19,18 @@ type SupportedFile = (typeof supportedFiles)[number];
 type ReadableFile = (typeof readableFiles)[number];
 
 function projectRoot(): string {
-  return process.cwd();
+  const cwd = process.cwd();
+  const candidates = [cwd, path.resolve(cwd, ".."), path.resolve(cwd, "..", "..")];
+  for (const candidate of candidates) {
+    const pbsPath = path.join(candidate, "PBS");
+    try {
+      accessSync(pbsPath);
+      return candidate;
+    } catch {
+      continue;
+    }
+  }
+  return cwd;
 }
 
 function pbsDir(): string {
