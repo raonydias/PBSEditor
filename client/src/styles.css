@@ -93,7 +93,7 @@ body {
 
 .editor-layout {
   display: grid;
-  grid-template-columns: 280px 1fr;
+  grid-template-columns: 420px 1fr;
   gap: 20px;
   animation: fadeIn 0.4s ease;
 }
@@ -111,7 +111,9 @@ body {
   flex-direction: column;
   gap: 8px;
   max-height: 70vh;
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 6px;
   margin-top: 12px;
 }
 
@@ -124,6 +126,7 @@ body {
   text-align: left;
   cursor: pointer;
   transition: border 0.2s ease, transform 0.2s ease;
+  width: calc(100% - 6px);
 }
 
 .list-item.active {
@@ -160,6 +163,12 @@ body {
   margin-bottom: 12px;
 }
 
+.button-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .field-list {
   display: flex;
   flex-direction: column;
@@ -170,6 +179,10 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.field-row.single {
+  grid-template-columns: 1fr;
 }
 
 .label {
@@ -199,10 +212,25 @@ body {
   cursor: pointer;
 }
 
+.primary:disabled {
+  background: #3b3f4b;
+  color: #9aa1b2;
+  cursor: not-allowed;
+}
+
 .ghost {
   background: transparent;
   border: 1px solid #2b3245;
   color: var(--text);
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.danger {
+  background: transparent;
+  border: 1px solid #5a2a2a;
+  color: var(--danger);
   padding: 8px 12px;
   border-radius: 10px;
   cursor: pointer;
@@ -237,6 +265,11 @@ body {
 
 .error {
   color: var(--danger);
+}
+
+.field-error {
+  color: var(--danger);
+  font-size: 12px;
 }
 
 .muted {

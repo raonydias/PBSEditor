@@ -22,7 +22,12 @@ export default function PokemonPage() {
 
   return (
     <div className="panel">
-      <h1>Pokemon Editor (Skeleton)</h1>
+      <div className="panel-header">
+        <h1>Pokemon Editor (Skeleton)</h1>
+        <button className="ghost" disabled>
+          Add New
+        </button>
+      </div>
       <p className="muted">
         This page will be expanded to load <strong>pokemon.txt</strong>. For now it demonstrates
         cross-file dropdowns sourced from <strong>types.txt</strong>.

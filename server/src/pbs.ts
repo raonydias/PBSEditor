@@ -51,9 +51,10 @@ export function exportTypesFile(data: TypesFile): string {
   for (const entry of sorted) {
     lines.push(`[${entry.id}]`);
     for (const field of entry.fields) {
+      if (field.value.trim() === "") continue;
       lines.push(`${field.key}=${field.value}`);
     }
-    lines.push("");
+    lines.push("#-------------------------------");
   }
 
   return lines.join("\n").trimEnd() + "\n";
