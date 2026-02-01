@@ -550,6 +550,19 @@ function TrainerTypeDetail({
           </button>
         </div>
       </div>
+      <div className="pokemon-sprite pokemon-sprite-left trainer-sprite">
+        <img
+          src={`/assets/graphics/Trainers/${entry.id}.png`}
+          key={entry.id}
+          alt=""
+          onLoad={(event) => {
+            event.currentTarget.style.visibility = "visible";
+          }}
+          onError={(event) => {
+            event.currentTarget.style.visibility = "hidden";
+          }}
+        />
+      </div>
       <div className="field-list">
         <div className="field-row single">
           <label className="label">Trainer Type ID</label>

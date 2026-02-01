@@ -984,16 +984,43 @@ export default function PokemonFormsPage() {
         <div className="list">
           {filteredEntries.map((entry) => {
             const { pokemonId, formNumber } = parseFormId(entry.id);
-            const baseName = getFieldValueFromList(pokemon.entries, pokemonId, "Name");
+            const safePokemonId = pokemonId.trim().toUpperCase();
+            const safeFormNumber = formNumber.trim();
+            const baseName = getFieldValueFromList(pokemon.entries, safePokemonId, "Name");
+            const formSuffix = safeFormNumber ? `_${safeFormNumber}` : "";
+            const iconFormSrc = `/assets/graphics/Pokemon/Icons/${safePokemonId}${formSuffix}.png`;
+            const iconBaseSrc = `/assets/graphics/Pokemon/Icons/${safePokemonId}.png`;
             return (
               <button
                 key={entry.id}
-                className={`list-item ${entry.id === activeId ? "active" : ""}`}
+                className={`list-item list-item-iconic ${entry.id === activeId ? "active" : ""}`}
                 onClick={() => setActiveId(entry.id)}
               >
-                <div className="list-title">{entry.id}</div>
-                <div className="list-sub">
-                  {baseName ? `${baseName} (Form ${formNumber || "?"})` : "(unknown)"}
+                <div className="list-item-content">
+                  <div className="list-item-text">
+                    <div className="list-title">{entry.id}</div>
+                    <div className="list-sub">
+                      {baseName ? `${baseName} (Form ${formNumber || "?"})` : "(unknown)"}
+                    </div>
+                  </div>
+                  <span className="list-item-icon" aria-hidden="true">
+                    <img
+                      src={iconFormSrc}
+                      alt=""
+                      loading="lazy"
+                      onError={(event) => {
+                        const img = event.currentTarget;
+                        if (img.dataset.fallback === "base") {
+                          img.dataset.fallback = "missing";
+                          img.src = "/assets/graphics/Pokemon/Icons/000.png";
+                          return;
+                        }
+                        if (img.dataset.fallback === "missing") return;
+                        img.dataset.fallback = "base";
+                        img.src = iconBaseSrc;
+                      }}
+                    />
+                  </span>
                 </div>
               </button>
             );
@@ -1122,10 +1149,14 @@ function PokemonFormDetail({
   pokemonOptions,
 }: DetailProps) {
   const { pokemonId, formNumber } = parseFormId(entry.id);
+  const safePokemonId = pokemonId.trim().toUpperCase();
+  const safeFormNumber = formNumber.trim();
   const [idDraft, setIdDraft] = useState(pokemonId);
   const [formDraft, setFormDraft] = useState(formNumber);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const validateTimer = useRef<number | null>(null);
+  const frontBaseSrc = `/assets/graphics/Pokemon/Front/${safePokemonId}.png`;
+  const frontFormSrc = `/assets/graphics/Pokemon/Front/${safePokemonId}_${safeFormNumber}.png`;
 
   useEffect(() => {
     setIdDraft(pokemonId);
@@ -1236,6 +1267,32 @@ function PokemonFormDetail({
             Delete
           </button>
         </div>
+      </div>
+      <div className="pokemon-sprite pokemon-sprite-left">
+        <img
+          src={frontFormSrc}
+          key={`${pokemonId}-${formNumber || "base"}`}
+          alt=""
+          width={96}
+          height={96}
+          onLoad={(event) => {
+            event.currentTarget.style.visibility = "visible";
+          }}
+          onError={(event) => {
+            const img = event.currentTarget;
+            if (img.dataset.fallback === "base") {
+              img.dataset.fallback = "missing";
+              img.src = "/assets/graphics/Pokemon/Front/000.png";
+              return;
+            }
+            if (img.dataset.fallback === "missing") {
+              img.style.visibility = "hidden";
+              return;
+            }
+            img.dataset.fallback = "base";
+            img.src = frontBaseSrc;
+          }}
+        />
       </div>
       <div className="field-list">
         <div className="field-row single">

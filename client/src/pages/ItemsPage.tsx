@@ -709,6 +709,25 @@ function ItemDetail({
           </button>
         </div>
       </div>
+      <div className="pokemon-sprite pokemon-sprite-left item-sprite">
+        <img
+          src={`/assets/graphics/Items/${entry.id}.png`}
+          key={entry.id}
+          alt=""
+          onLoad={(event) => {
+            event.currentTarget.style.visibility = "visible";
+          }}
+          onError={(event) => {
+            const img = event.currentTarget;
+            if (img.dataset.fallback === "1") {
+              img.style.visibility = "hidden";
+              return;
+            }
+            img.dataset.fallback = "1";
+            img.src = "/assets/graphics/Items/000.png";
+          }}
+        />
+      </div>
       <div className="field-list">
         <div className="field-row single">
           <label className="label">Item ID</label>

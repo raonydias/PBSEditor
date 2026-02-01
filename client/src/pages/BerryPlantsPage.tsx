@@ -447,6 +447,23 @@ function BerryPlantDetail({
           </button>
         </div>
       </div>
+      <div className="pokemon-sprite pokemon-sprite-left">
+        <div className="berry-sprite">
+          <img
+            src={`/assets/graphics/Characters/berrytree_${entry.id}.png`}
+            key={entry.id}
+            alt=""
+            width={128}
+            height={256}
+            onLoad={(event) => {
+              event.currentTarget.style.visibility = "visible";
+            }}
+            onError={(event) => {
+              event.currentTarget.style.visibility = "hidden";
+            }}
+          />
+        </div>
+      </div>
       <div className="field-list">
         <div className="field-row single">
           <label className="label">Berry Plant ID</label>

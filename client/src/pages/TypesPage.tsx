@@ -15,6 +15,7 @@ export default function TypesPage() {
   const [filter, setFilter] = useState("");
   const dirty = useDirty();
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [typesSpriteHeight, setTypesSpriteHeight] = useState<number | null>(null);
 
   const ensureTypeDefaults = (entry: PBSEntry) => {
     const defaults = buildDefaultTypeEntry(entry.id, entry.order);
@@ -57,6 +58,21 @@ export default function TypesPage() {
 
   useEffect(() => {
     dirty.setCurrentKey("types");
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (!cancelled) setTypesSpriteHeight(img.height);
+    };
+    img.onerror = () => {
+      if (!cancelled) setTypesSpriteHeight(null);
+    };
+    img.src = "/assets/graphics/UI/types.png";
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const activeEntry = useMemo(() => {
@@ -378,6 +394,7 @@ export default function TypesPage() {
             onSetIdError={setIdError}
             fieldErrors={fieldErrors}
             typeOptions={typeOptions}
+            spriteHeight={typesSpriteHeight}
           />
         ) : (
           <div className="panel">Select a type to edit.</div>
@@ -431,6 +448,7 @@ type DetailProps = {
   onSetIdError: (value: string | null) => void;
   fieldErrors: Record<string, string>;
   typeOptions: string[];
+  spriteHeight: number | null;
 };
 
 function TypeDetail({
@@ -444,6 +462,7 @@ function TypeDetail({
   onSetIdError,
   fieldErrors,
   typeOptions,
+  spriteHeight,
 }: DetailProps) {
   const [idDraft, setIdDraft] = useState(entry.id);
 
@@ -465,6 +484,13 @@ function TypeDetail({
       fields: [...entry.fields, { key: "NewKey", value: "" }],
     });
   };
+  const iconPositionRaw = entry.fields.find((field) => field.key === "IconPosition")?.value ?? "0";
+  const iconPositionValue = Number(iconPositionRaw);
+  const iconPositionValid =
+    Number.isFinite(iconPositionValue) && Number.isInteger(iconPositionValue) && iconPositionValue >= 0;
+  const iconPosition = iconPositionValid ? iconPositionValue : 0;
+  const iconInBounds =
+    iconPositionValid && (spriteHeight ? (iconPosition + 1) * 28 <= spriteHeight : false);
 
   return (
     <div className="panel">
@@ -482,6 +508,18 @@ function TypeDetail({
           </button>
         </div>
       </div>
+      {iconInBounds && (
+        <div className="pokemon-sprite pokemon-sprite-left">
+          <div
+            className="type-sprite"
+            style={{
+              backgroundImage: "url(/assets/graphics/UI/types.png)",
+              backgroundPosition: `0 -${iconPosition * 28}px`,
+            }}
+            aria-hidden="true"
+          />
+        </div>
+      )}
       <div className="field-list">
         <div className="field-row single">
           <label className="label">Type ID</label>

@@ -949,11 +949,28 @@ export default function PokemonPage() {
           {filteredEntries.map((entry) => (
             <button
               key={entry.id}
-              className={`list-item ${entry.id === activeId ? "active" : ""}`}
+              className={`list-item list-item-iconic ${entry.id === activeId ? "active" : ""}`}
               onClick={() => setActiveId(entry.id)}
             >
-              <div className="list-title">{entry.id}</div>
-              <div className="list-sub">{getFieldValue(entry, "Name") || "(no name)"}</div>
+              <div className="list-item-content">
+                <div className="list-item-text">
+                  <div className="list-title">{entry.id}</div>
+                  <div className="list-sub">{getFieldValue(entry, "Name") || "(no name)"}</div>
+                </div>
+                <span className="list-item-icon" aria-hidden="true">
+                  <img
+                    src={`/assets/graphics/Pokemon/Icons/${entry.id}.png`}
+                    alt=""
+                    loading="lazy"
+                    onError={(event) => {
+                      const img = event.currentTarget;
+                      if (img.dataset.fallback === "1") return;
+                      img.dataset.fallback = "1";
+                      img.src = "/assets/graphics/Pokemon/Icons/000.png";
+                    }}
+                  />
+                </span>
+              </div>
             </button>
           ))}
         </div>
@@ -1165,6 +1182,27 @@ function PokemonDetail({
             Delete
           </button>
         </div>
+      </div>
+      <div className="pokemon-sprite pokemon-sprite-left">
+        <img
+          src={`/assets/graphics/Pokemon/Front/${entry.id}.png`}
+          key={entry.id}
+          alt=""
+          width={96}
+          height={96}
+          onLoad={(event) => {
+            event.currentTarget.style.visibility = "visible";
+          }}
+          onError={(event) => {
+            const img = event.currentTarget;
+            if (img.dataset.fallback === "1") {
+              img.style.visibility = "hidden";
+              return;
+            }
+            img.dataset.fallback = "1";
+            img.src = "/assets/graphics/Pokemon/Front/000.png";
+          }}
+        />
       </div>
       <div className="field-list">
         <div className="field-row single">
