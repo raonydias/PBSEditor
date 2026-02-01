@@ -1,5 +1,5 @@
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AbilitiesFile, ItemsFile, MovesFile, PBSEntry, PokemonFile, TypesFile } from "@pbs/shared";
 import { getAbilities, getItems, getMoves, getPokemon, getTypes } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
@@ -104,6 +104,8 @@ export default function PokemonPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [idError, setIdError] = useState<string | null>(null);
+  const [entryErrors, setEntryErrors] = useState<Record<string, Record<string, string>>>({});
+  const [entryIdErrors, setEntryIdErrors] = useState<Record<string, string | null>>({});
   const [filter, setFilter] = useState("");
   const [snapshot, setSnapshot] = useState<string | null>(null);
   const dirty = useDirty();
@@ -206,6 +208,18 @@ export default function PokemonPage() {
       }),
     }));
     setActiveId(nextId);
+    setEntryErrors((prev) => {
+      if (!(entry.id in prev)) return prev;
+      const next = { ...prev, [nextId]: prev[entry.id] };
+      delete next[entry.id];
+      return next;
+    });
+    setEntryIdErrors((prev) => {
+      if (!(entry.id in prev)) return prev;
+      const next = { ...prev, [nextId]: prev[entry.id] };
+      delete next[entry.id];
+      return next;
+    });
   };
   const validateEntryFields = (entry: PBSEntry) => {
     const errors: Record<string, string> = {};
@@ -284,6 +298,27 @@ export default function PokemonPage() {
     }
     if (abilityParts[1] && !abilityOptions.includes(abilityParts[1])) {
       errors.Abilities = "Ability2 must be a valid Ability ID.";
+    }
+
+    const movesPairs = parseMovePairs(getField("Moves"));
+    for (const pair of movesPairs) {
+      if (!pair.level && !pair.move) continue;
+      if (!pair.level) {
+        errors.Moves = "Move entries need a level.";
+        break;
+      }
+      if (!/^\d+$/.test(pair.level) || Number(pair.level) < 0) {
+        errors.Moves = "Move levels must be integers of at least 0.";
+        break;
+      }
+      if (!pair.move) {
+        errors.Moves = "Move entries need a Move ID.";
+        break;
+      }
+      if (!moveOptions.includes(pair.move)) {
+        errors.Moves = "Move entries must use valid Move IDs.";
+        break;
+      }
     }
 
     const hiddenAbilities = splitList(getField("HiddenAbilities"));
@@ -420,17 +455,33 @@ export default function PokemonPage() {
 
     return errors;
   };
-  const fieldErrors = useMemo(() => {
-    if (!activeEntry) return {};
-    return validateEntryFields(activeEntry);
-  }, [activeEntry, typeOptions, abilityOptions, moveOptions, itemOptions, pokemonOptions]);
+  const validateAndStoreEntry = (entry: PBSEntry) => {
+    const fieldErrorMap = validateEntryFields(entry);
+    const idErrorMessage = validateEntryId(entry, entry.id);
+    setEntryErrors((prev) => ({ ...prev, [entry.id]: fieldErrorMap }));
+    setEntryIdErrors((prev) => ({ ...prev, [entry.id]: idErrorMessage }));
+    return { fieldErrorMap, idErrorMessage };
+  };
+
+  const validateAllEntries = () => {
+    const nextFieldErrors: Record<string, Record<string, string>> = {};
+    const nextIdErrors: Record<string, string | null> = {};
+    for (const entry of data.entries) {
+      nextFieldErrors[entry.id] = validateEntryFields(entry);
+      nextIdErrors[entry.id] = validateEntryId(entry, entry.id);
+    }
+    setEntryErrors(nextFieldErrors);
+    setEntryIdErrors(nextIdErrors);
+  };
+
+  const fieldErrors = activeEntry ? entryErrors[activeEntry.id] ?? {} : {};
 
   const collectEntryErrors = (entry: PBSEntry) => {
     const errors: string[] = [];
-    const idErrorMessage = validateEntryId(entry, entry.id);
+    const idErrorMessage = entryIdErrors[entry.id];
     if (idErrorMessage) errors.push(`ID: ${idErrorMessage}`);
-    const fieldErrorMap = validateEntryFields(entry);
-    for (const [key, message] of Object.entries(fieldErrorMap)) {
+    const fieldErrorMap = entryErrors[entry.id] ?? {};
+    for (const [key, message] of Object.entries(fieldErrorMap ?? {})) {
       errors.push(`${key}: ${message}`);
     }
     return errors;
@@ -440,16 +491,14 @@ export default function PokemonPage() {
     return data.entries
       .map((entry) => ({ entry, errors: collectEntryErrors(entry) }))
       .filter((item) => item.errors.length > 0);
-  }, [data.entries, typeOptions, abilityOptions, moveOptions, itemOptions, pokemonOptions]);
+  }, [data.entries, entryErrors, entryIdErrors]);
 
-  const hasInvalidEntries = useMemo(() => {
-    for (const entry of data.entries) {
-      if (Object.keys(validateEntryFields(entry)).length > 0) return true;
-      const idErrorMessage = validateEntryId(entry, entry.id);
-      if (idErrorMessage) return true;
-    }
-    return false;
-  }, [data.entries, typeOptions, abilityOptions, moveOptions, itemOptions, pokemonOptions]);
+  const hasInvalidEntries = invalidEntries.length > 0;
+
+  useEffect(() => {
+    if (loading) return;
+    validateAllEntries();
+  }, [loading, typeOptions.length, abilityOptions.length, moveOptions.length, itemOptions.length]);
 
   useEffect(() => {
     if (!snapshot) return;
@@ -469,6 +518,9 @@ export default function PokemonPage() {
     }));
     setActiveId(newId);
     setStatus(`Added ${newId}. Remember to export when ready.`);
+    const fieldErrorMap = validateEntryFields(newEntry);
+    setEntryErrors((prev) => ({ ...prev, [newId]: fieldErrorMap }));
+    setEntryIdErrors((prev) => ({ ...prev, [newId]: validateEntryId(newEntry, newId) }));
   };
 
   const handleDuplicateEntry = (entry: PBSEntry) => {
@@ -489,6 +541,9 @@ export default function PokemonPage() {
     }));
     setActiveId(newId);
     setStatus(`Duplicated ${entry.id} as ${newId}.`);
+    const fieldErrorMap = validateEntryFields(duplicated);
+    setEntryErrors((prev) => ({ ...prev, [newId]: fieldErrorMap }));
+    setEntryIdErrors((prev) => ({ ...prev, [newId]: validateEntryId(duplicated, newId) }));
   };
 
   const handleDeleteEntry = (entry: PBSEntry) => {
@@ -505,6 +560,16 @@ export default function PokemonPage() {
         null;
       setActiveId(nextActive);
       return { ...prev, entries: nextEntries };
+    });
+    setEntryErrors((prev) => {
+      const next = { ...prev };
+      delete next[entry.id];
+      return next;
+    });
+    setEntryIdErrors((prev) => {
+      const next = { ...prev };
+      delete next[entry.id];
+      return next;
     });
     setStatus(`Deleted ${entry.id}.`);
   };
@@ -556,6 +621,7 @@ export default function PokemonPage() {
       { key: "EVs", value: "" },
       { key: "CatchRate", value: "255" },
       { key: "Happiness", value: "70" },
+      { key: "Moves", value: "" },
       { key: "Abilities", value: "" },
       { key: "HiddenAbilities", value: "" },
       { key: "TutorMoves", value: "" },
@@ -634,6 +700,7 @@ export default function PokemonPage() {
             onChange={updateEntry}
             onRename={updateEntryId}
             onValidateId={validateEntryId}
+            onValidateEntry={validateAndStoreEntry}
             onDuplicate={handleDuplicateEntry}
             onDelete={handleDeleteEntry}
             idError={idError}
@@ -674,7 +741,7 @@ export default function PokemonPage() {
         <div className="export-warning">
           Exports never overwrite <strong>PBS/pokemon.txt</strong>. Output goes to <strong>PBS_Output/pokemon.txt</strong>.
         </div>
-        <div className="export-actions">
+        <div className="export-actions" onMouseEnter={validateAllEntries}>
           {status && <span className="status">{status}</span>}
           {error && <span className="error">{error}</span>}
           <button className="primary" disabled>
@@ -692,6 +759,7 @@ type DetailProps = {
   onChange: (entry: PBSEntry) => void;
   onRename: (entry: PBSEntry, nextId: string) => void;
   onValidateId: (entry: PBSEntry, nextId: string) => string | null;
+  onValidateEntry: (entry: PBSEntry) => void;
   onDuplicate: (entry: PBSEntry) => void;
   onDelete: (entry: PBSEntry) => void;
   idError: string | null;
@@ -709,6 +777,7 @@ function PokemonDetail({
   onChange,
   onRename,
   onValidateId,
+  onValidateEntry,
   onDuplicate,
   onDelete,
   idError,
@@ -722,10 +791,28 @@ function PokemonDetail({
 }: DetailProps) {
   const [idDraft, setIdDraft] = useState(entry.id);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const validateTimer = useRef<number | null>(null);
 
   useEffect(() => {
     setIdDraft(entry.id);
   }, [entry.id]);
+
+  useEffect(() => {
+    return () => {
+      if (validateTimer.current !== null) {
+        window.clearTimeout(validateTimer.current);
+      }
+    };
+  }, []);
+
+  const scheduleValidate = () => {
+    if (validateTimer.current !== null) {
+      window.clearTimeout(validateTimer.current);
+    }
+    validateTimer.current = window.setTimeout(() => {
+      onValidateEntry(entry);
+    }, 0);
+  };
 
   const updateField = (index: number, key: string, value: string) => {
     const nextFields = entry.fields.map((field, idx) =>
@@ -785,7 +872,7 @@ function PokemonDetail({
   };
 
   return (
-    <div className="panel">
+    <div className="panel" onBlurCapture={scheduleValidate}>
       <div className="panel-header">
         <h2>{entry.id}</h2>
         <div className="button-row">
@@ -996,9 +1083,11 @@ function PokemonDetail({
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input" value="Ability1" readOnly />
-                <select
+                <input
                   className="input"
+                  list="ability-options"
                   value={ability1}
+                  placeholder="(none)"
                   onChange={(event) => {
                     const next = event.target.value;
                     if (!next) {
@@ -1007,32 +1096,87 @@ function PokemonDetail({
                       updateAbilities(next, ability2);
                     }
                   }}
-                >
-                  <option value="">(none)</option>
-                  {abilityOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
+                />
                 {ability1 && (
                   <>
                     <input className="input" value="Ability2" readOnly />
-                    <select
+                    <input
                       className="input"
+                      list="ability-options"
                       value={ability2}
+                      placeholder="(none)"
                       onChange={(event) => updateAbilities(ability1, event.target.value)}
-                    >
-                      <option value="">(none)</option>
-                      {abilityOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </>
                 )}
                 {fieldErrors.Abilities && <span className="field-error">{fieldErrors.Abilities}</span>}
+              </div>
+            );
+          }
+
+          if (field.key === "Moves") {
+            const pairs = ensureMovePairs(parseMovePairs(field.value));
+            return (
+              <div key={`${field.key}-${index}`} className="list-field">
+                <div className="list-field-header">
+                  <div className="list-field-label">Moves</div>
+                </div>
+                <div className="moves-grid">
+                  {pairs.map((pair, pairIndex) => (
+                    <div key={`move-${pairIndex}`} className="moves-row">
+                      <input
+                        className="input moves-level"
+                        value={pair.level}
+                        placeholder="Level"
+                        onChange={(event) => {
+                          const next = event.target.value;
+                          const nextPairs = updateMovePair(pairs, pairIndex, next, pair.move, false);
+                          setFieldValue("Moves", buildMovesString(nextPairs));
+                        }}
+                        onBlur={() => {
+                          const nextPairs = updateMovePair(pairs, pairIndex, pair.level, pair.move, true);
+                          setFieldValue("Moves", buildMovesString(nextPairs));
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            const nextPairs = updateMovePair(pairs, pairIndex, pair.level, pair.move, true);
+                            setFieldValue("Moves", buildMovesString(nextPairs));
+                          }
+                        }}
+                      />
+                      <input
+                        className="input"
+                        list="move-options"
+                        value={pair.move}
+                        placeholder="Select move..."
+                        onChange={(event) => {
+                          const nextPairs = updateMovePair(pairs, pairIndex, pair.level, event.target.value, false);
+                          setFieldValue("Moves", buildMovesString(nextPairs));
+                        }}
+                        onBlur={() => {
+                          const nextPairs = updateMovePair(pairs, pairIndex, pair.level, pair.move, true);
+                          setFieldValue("Moves", buildMovesString(nextPairs));
+                        }}
+                      />
+                      <button
+                        className="ghost"
+                        onClick={() => {
+                          const nextPairs = pairs.filter((_, idx) => idx !== pairIndex);
+                          setFieldValue("Moves", buildMovesString(nextPairs));
+                        }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                {fieldErrors.Moves && <span className="field-error">{fieldErrors.Moves}</span>}
+                <datalist id="move-options">
+                  {moveOptions.map((option) => (
+                    <option key={option} value={option} />
+                  ))}
+                </datalist>
               </div>
             );
           }
@@ -1046,6 +1190,9 @@ function PokemonDetail({
                 options={abilityOptions}
                 onChange={(nextValue) => updateField(index, field.key, nextValue)}
                 error={fieldErrors[field.key]}
+                inputMode="datalist"
+                datalistId="ability-options"
+                renderDatalist={false}
               />
             );
           }
@@ -1059,6 +1206,7 @@ function PokemonDetail({
                 options={moveOptions}
                 onChange={(nextValue) => updateField(index, field.key, nextValue)}
                 error={fieldErrors[field.key]}
+                inputMode="datalist"
               />
             );
           }
@@ -1072,6 +1220,7 @@ function PokemonDetail({
                 options={moveOptions}
                 onChange={(nextValue) => updateField(index, field.key, nextValue)}
                 error={fieldErrors[field.key]}
+                inputMode="datalist"
               />
             );
           }
@@ -1107,18 +1256,13 @@ function PokemonDetail({
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input" value="Incense" readOnly />
-                <select
+                <input
                   className="input"
+                  list="item-options"
                   value={field.value}
+                  placeholder="(none)"
                   onChange={(event) => updateField(index, field.key, event.target.value)}
-                >
-                  <option value="">(none)</option>
-                  {itemOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
+                />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
             );
@@ -1261,18 +1405,13 @@ function PokemonDetail({
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input" value={field.key} readOnly />
-                <select
+                <input
                   className="input"
+                  list="item-options"
                   value={field.value}
+                  placeholder="(none)"
                   onChange={(event) => updateField(index, field.key, event.target.value)}
-                >
-                  <option value="">(none)</option>
-                  {itemOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
+                />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
             );
@@ -1290,6 +1429,16 @@ function PokemonDetail({
             </div>
           );
         })}
+        <datalist id="ability-options">
+          {abilityOptions.map((option) => (
+            <option key={option} value={option} />
+          ))}
+        </datalist>
+        <datalist id="item-options">
+          {itemOptions.map((option) => (
+            <option key={option} value={option} />
+          ))}
+        </datalist>
       </div>
     </div>
   );
@@ -1301,6 +1450,9 @@ type SelectListFieldProps = {
   options: readonly string[];
   onChange: (nextValue: string) => void;
   error?: string;
+  inputMode?: "select" | "datalist";
+  datalistId?: string;
+  renderDatalist?: boolean;
 };
 
 function SelectListField({
@@ -1309,10 +1461,14 @@ function SelectListField({
   options,
   onChange,
   error,
+  inputMode = "select",
+  datalistId,
+  renderDatalist = true,
 }: SelectListFieldProps) {
   const items = splitList(value);
   const canCollapse = items.length > 5;
   const [collapsed, setCollapsed] = useState(canCollapse);
+  const resolvedDatalistId = datalistId ?? `${label}-options`;
 
   useEffect(() => {
     if (!canCollapse) setCollapsed(false);
@@ -1350,34 +1506,60 @@ function SelectListField({
         <div className="list-field-items">
           {items.map((item, index) => (
             <div key={`${label}-${index}`} className="list-field-row">
-              <select
-                className="input"
-                value={item}
-                onChange={(event) => updateAt(index, event.target.value)}
-              >
-                {options.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
+              {inputMode === "datalist" ? (
+                <input
+                  className="input"
+                  list={resolvedDatalistId}
+                  value={item}
+                  onChange={(event) => updateAt(index, event.target.value)}
+                />
+              ) : (
+                <select
+                  className="input"
+                  value={item}
+                  onChange={(event) => updateAt(index, event.target.value)}
+                >
+                  {options.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              )}
               <button className="ghost" onClick={() => removeAt(index)}>
                 Remove
               </button>
             </div>
           ))}
           <div className="list-field-row">
-            <select className="input" value="" onChange={(event) => updateAt(items.length, event.target.value)}>
-              <option value="">Add {label}...</option>
-              {options
-                .filter((option) => !items.includes(option))
-                .map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-            </select>
+            {inputMode === "datalist" ? (
+              <input
+                className="input"
+                list={resolvedDatalistId}
+                value=""
+                placeholder={`Add ${label}...`}
+                onChange={(event) => updateAt(items.length, event.target.value)}
+              />
+            ) : (
+              <select className="input" value="" onChange={(event) => updateAt(items.length, event.target.value)}>
+                <option value="">Add {label}...</option>
+                {options
+                  .filter((option) => !items.includes(option))
+                  .map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+              </select>
+            )}
           </div>
+          {inputMode === "datalist" && renderDatalist && (
+            <datalist id={resolvedDatalistId}>
+              {options.map((option) => (
+                <option key={option} value={option} />
+              ))}
+            </datalist>
+          )}
         </div>
       )}
       {error && <span className="field-error">{error}</span>}
@@ -1534,6 +1716,47 @@ function buildEVsString(map: Map<string, string>) {
     if (!value) continue;
     if (Number(value) <= 0) continue;
     tokens.push(id, value);
+  }
+  return tokens.join(",");
+}
+
+function parseMovePairs(value: string) {
+  if (!value.trim()) return [];
+  const parts = value.split(",").map((part) => part.trim());
+  const pairs: { level: string; move: string }[] = [];
+  for (let index = 0; index < parts.length; index += 2) {
+    pairs.push({ level: parts[index] ?? "", move: parts[index + 1] ?? "" });
+  }
+  return pairs;
+}
+
+function ensureMovePairs(pairs: { level: string; move: string }[]) {
+  if (pairs.length === 0) return [{ level: "", move: "" }];
+  const last = pairs[pairs.length - 1];
+  if (last.level || last.move) return [...pairs, { level: "", move: "" }];
+  return pairs;
+}
+
+function updateMovePair(
+  pairs: { level: string; move: string }[],
+  index: number,
+  level: string,
+  move: string,
+  sortNow: boolean
+) {
+  const next = pairs.map((pair, idx) => (idx === index ? { level, move } : pair));
+  if (!sortNow) return next;
+  const withData = next.filter((pair) => pair.level.trim() !== "");
+  const withoutLevel = next.filter((pair) => pair.level.trim() === "");
+  withData.sort((a, b) => Number(a.level) - Number(b.level));
+  return [...withData, ...withoutLevel];
+}
+
+function buildMovesString(pairs: { level: string; move: string }[]) {
+  const tokens: string[] = [];
+  for (const pair of pairs) {
+    if (!pair.level && !pair.move) continue;
+    tokens.push(pair.level, pair.move);
   }
   return tokens.join(",");
 }

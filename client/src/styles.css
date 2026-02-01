@@ -365,6 +365,23 @@ body {
   text-align: center;
 }
 
+.moves-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.moves-row {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.moves-level {
+  text-align: center;
+}
+
 .list-field-row {
   display: grid;
   grid-template-columns: 1fr auto;
