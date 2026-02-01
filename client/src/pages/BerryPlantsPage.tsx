@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { PBSEntry, TypesFile } from "@pbs/shared";
-import { exportTypes, getTypes } from "../api";
+import { BerryPlantsFile, PBSEntry } from "@pbs/shared";
+import { exportBerryPlants, getBerryPlants } from "../api";
 
-const emptyFile: TypesFile = { entries: [] };
+const emptyFile: BerryPlantsFile = { entries: [] };
 
-export default function TypesPage() {
-  const [data, setData] = useState<TypesFile>(emptyFile);
+export default function BerryPlantsPage() {
+  const [data, setData] = useState<BerryPlantsFile>(emptyFile);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
@@ -14,7 +14,7 @@ export default function TypesPage() {
 
   useEffect(() => {
     let isMounted = true;
-    getTypes()
+    getBerryPlants()
       .then((result) => {
         if (!isMounted) return;
         setData(result);
@@ -50,10 +50,10 @@ export default function TypesPage() {
 
   const validateEntryId = (entry: PBSEntry, nextIdRaw: string) => {
     const nextId = nextIdRaw.trim().toUpperCase();
-    if (!nextId) return "Type ID cannot be empty.";
-    if (!/^[A-Z]+$/.test(nextId)) return "Type ID must be A-Z only.";
+    if (!nextId) return "Berry Plant ID cannot be empty.";
+    if (!/^[A-Z]+$/.test(nextId)) return "Berry Plant ID must be A-Z only.";
     if (data.entries.some((item) => item.id.toLowerCase() === nextId.toLowerCase() && item.id !== entry.id)) {
-      return `Type ${nextId} already exists.`;
+      return `Berry Plant ${nextId} already exists.`;
     }
     return null;
   };
@@ -64,12 +64,7 @@ export default function TypesPage() {
       ...prev,
       entries: prev.entries.map((item) => {
         if (item.id !== entry.id) return item;
-        const nextFields = item.fields.map((field) => {
-          if (field.key !== "Name") return field;
-          if (field.value.trim().toLowerCase() !== entry.id.toLowerCase()) return field;
-          return { ...field, value: toTitleCase(nextId) };
-        });
-        return { ...item, id: nextId, fields: nextFields };
+        return { ...item, id: nextId };
       }),
     }));
     setActiveId(nextId);
@@ -78,40 +73,35 @@ export default function TypesPage() {
   const validateEntryFields = (entry: PBSEntry) => {
     const errors: Record<string, string> = {};
     const getField = (key: string) => entry.fields.find((field) => field.key === key)?.value ?? "";
-    const typeIds = new Set(data.entries.map((item) => item.id));
 
-    const name = getField("Name").trim();
-    if (!name) errors.Name = "Name is required.";
-
-    const iconPosition = getField("IconPosition").trim();
-    if (!iconPosition) {
-      errors.IconPosition = "IconPosition is required.";
-    } else if (!/^-?\d+$/.test(iconPosition)) {
-      errors.IconPosition = "IconPosition must be an integer.";
+    const hours = getField("HoursPerStage").trim();
+    if (!hours) {
+      errors.HoursPerStage = "HoursPerStage is required.";
+    } else if (!/^-?\d+$/.test(hours)) {
+      errors.HoursPerStage = "HoursPerStage must be an integer.";
     }
 
-    const optionalBoolKeys = ["IsSpecialType", "IsPseudoType"];
-    for (const key of optionalBoolKeys) {
-      const value = getField(key).trim().toLowerCase();
-      if (value && value !== "true" && value !== "false") {
-        errors[key] = `${key} must be true or false.`;
-      }
+    const drying = getField("DryingPerHour").trim();
+    if (!drying) {
+      errors.DryingPerHour = "DryingPerHour is required.";
+    } else if (!/^-?\d+$/.test(drying)) {
+      errors.DryingPerHour = "DryingPerHour must be an integer.";
     }
 
-    const listKeys = ["Weaknesses", "Resistances", "Immunities"];
-    for (const key of listKeys) {
-      const raw = getField(key).trim();
-      if (!raw) continue;
-      const parts = raw.split(",").map((part) => part.trim()).filter(Boolean);
-      for (const part of parts) {
-        if (!/^[A-Z]+$/.test(part)) {
-          errors[key] = `${key} must use valid Type IDs.`;
-          break;
-        }
-        if (!typeIds.has(part)) {
-          errors[key] = `${key} has unknown Type ID: ${part}`;
-          break;
-        }
+    const yieldValue = getField("Yield").trim();
+    if (!yieldValue) {
+      errors.Yield = "Yield is required.";
+    } else {
+      const parts = yieldValue.split(",").map((part) => part.trim());
+      if (parts.length !== 2 || parts.some((part) => part === "")) {
+        errors.Yield = "Yield must be two integers separated by a comma.";
+      } else if (parts.some((part) => !/^-?\d+$/.test(part))) {
+        errors.Yield = "Yield must be two integers.";
+      } else {
+        const min = Number(parts[0]);
+        const max = Number(parts[1]);
+        if (min < 1) errors.Yield = "MinYield must be at least 1.";
+        else if (max <= min) errors.Yield = "MaxYield must be greater than MinYield.";
       }
     }
 
@@ -136,8 +126,8 @@ export default function TypesPage() {
     setStatus(null);
     setError(null);
     try {
-      await exportTypes(data);
-      setStatus("Exported to PBS_Output/types.txt");
+      await exportBerryPlants(data);
+      setStatus("Exported to PBS_Output/berry_plants.txt");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
@@ -148,8 +138,8 @@ export default function TypesPage() {
     setStatus(null);
     setError(null);
     setIdError(null);
-    const newId = nextAvailableId("NEWTYPE");
-    const newEntry: PBSEntry = buildDefaultTypeEntry(newId, nextOrder());
+    const newId = nextAvailableId("NEWBERRYPLANT");
+    const newEntry: PBSEntry = buildDefaultBerryPlantEntry(newId, nextOrder());
     setData((prev) => ({
       ...prev,
       entries: [...prev.entries, newEntry],
@@ -229,36 +219,24 @@ export default function TypesPage() {
     return result;
   };
 
-  const buildDefaultTypeEntry = (id: string, order: number): PBSEntry => ({
+  const buildDefaultBerryPlantEntry = (id: string, order: number): PBSEntry => ({
     id,
     order,
     fields: [
-      { key: "Name", value: toTitleCase(id) },
-      { key: "IconPosition", value: "0" },
-      { key: "IsSpecialType", value: "" },
-      { key: "IsPseudoType", value: "" },
-      { key: "Weaknesses", value: "" },
-      { key: "Resistances", value: "" },
-      { key: "Immunities", value: "" },
-      { key: "Flags", value: "" },
+      { key: "HoursPerStage", value: "3" },
+      { key: "DryingPerHour", value: "15" },
+      { key: "Yield", value: "2,5" },
     ],
   });
 
-  const typeOptions = useMemo(() => data.entries.map((entry) => entry.id), [data.entries]);
-
-  const toTitleCase = (value: string) => {
-    const lower = value.toLowerCase();
-    return lower ? lower[0].toUpperCase() + lower.slice(1) : "";
-  };
-
   if (loading) {
-    return <div className="panel">Loading types.txt...</div>;
+    return <div className="panel">Loading berry_plants.txt...</div>;
   }
 
   if (error && data.entries.length === 0) {
     return (
       <div className="panel">
-        <h1>Types Editor</h1>
+        <h1>Berry Plants Editor</h1>
         <p className="error">{error}</p>
       </div>
     );
@@ -268,7 +246,7 @@ export default function TypesPage() {
     <div className="editor-layout">
       <section className="list-panel">
         <div className="panel-header">
-          <h1>Types Editor</h1>
+          <h1>Berry Plants Editor</h1>
           <button className="ghost" onClick={handleAddEntry}>
             Add New
           </button>
@@ -281,14 +259,14 @@ export default function TypesPage() {
               onClick={() => setActiveId(entry.id)}
             >
               <div className="list-title">{entry.id}</div>
-              <div className="list-sub">{entry.fields.find((f) => f.key === "Name")?.value ?? "(no name)"}</div>
+              <div className="list-sub">{entry.fields.find((f) => f.key === "HoursPerStage")?.value ?? "?"}h/stage</div>
             </button>
           ))}
         </div>
       </section>
       <section className="detail-panel">
         {activeEntry ? (
-          <TypeDetail
+          <BerryPlantDetail
             entry={activeEntry}
             onChange={updateEntry}
             onRename={updateEntryId}
@@ -298,21 +276,20 @@ export default function TypesPage() {
             idError={idError}
             onSetIdError={setIdError}
             fieldErrors={fieldErrors}
-            typeOptions={typeOptions}
           />
         ) : (
-          <div className="panel">Select a type to edit.</div>
+          <div className="panel">Select a berry plant to edit.</div>
         )}
       </section>
       <section className="export-bar">
         <div className="export-warning">
-          Exports never overwrite <strong>PBS/types.txt</strong>. Output goes to <strong>PBS_Output/types.txt</strong>.
+          Exports never overwrite <strong>PBS/berry_plants.txt</strong>. Output goes to <strong>PBS_Output/berry_plants.txt</strong>.
         </div>
         <div className="export-actions">
           {status && <span className="status">{status}</span>}
           {error && <span className="error">{error}</span>}
           <button className="primary" onClick={handleExport} disabled={Boolean(idError) || hasInvalidEntries}>
-            Export types.txt
+            Export berry_plants.txt
           </button>
         </div>
       </section>
@@ -330,10 +307,9 @@ type DetailProps = {
   idError: string | null;
   onSetIdError: (value: string | null) => void;
   fieldErrors: Record<string, string>;
-  typeOptions: string[];
 };
 
-function TypeDetail({
+function BerryPlantDetail({
   entry,
   onChange,
   onRename,
@@ -343,28 +319,29 @@ function TypeDetail({
   idError,
   onSetIdError,
   fieldErrors,
-  typeOptions,
 }: DetailProps) {
   const [idDraft, setIdDraft] = useState(entry.id);
 
   useEffect(() => {
     setIdDraft(entry.id);
   }, [entry.id]);
+
   const updateField = (index: number, key: string, value: string) => {
-    const lowerBoolKeys = ["IsSpecialType", "IsPseudoType"];
-    const nextValue = lowerBoolKeys.includes(key) ? value.toLowerCase() : value;
     const nextFields = entry.fields.map((field, idx) =>
-      idx === index ? { key, value: nextValue } : field
+      idx === index ? { key, value } : field
     );
     onChange({ ...entry, fields: nextFields });
   };
 
-  const addField = () => {
-    onChange({
-      ...entry,
-      fields: [...entry.fields, { key: "NewKey", value: "" }],
-    });
+  const getFieldValue = (key: string) => entry.fields.find((field) => field.key === key)?.value ?? "";
+  const setFieldValue = (key: string, value: string) => {
+    const index = entry.fields.findIndex((field) => field.key === key);
+    if (index === -1) return;
+    updateField(index, key, value);
   };
+
+  const yieldValue = getFieldValue("Yield");
+  const [yieldMin, yieldMax] = yieldValue.split(",").map((part) => part.trim());
 
   return (
     <div className="panel">
@@ -374,9 +351,6 @@ function TypeDetail({
           <button className="ghost" onClick={() => onDuplicate(entry)}>
             Duplicate
           </button>
-          <button className="ghost" onClick={addField}>
-            Add Field
-          </button>
           <button className="danger" onClick={() => onDelete(entry)}>
             Delete
           </button>
@@ -384,7 +358,7 @@ function TypeDetail({
       </div>
       <div className="field-list">
         <div className="field-row single">
-          <label className="label">Type ID</label>
+          <label className="label">Berry Plant ID</label>
           <input
             className="input"
             value={idDraft}
@@ -403,27 +377,41 @@ function TypeDetail({
       </div>
       <div className="field-list">
         {entry.fields.map((field, index) => {
-          const listKeys = ["Weaknesses", "Resistances", "Immunities"];
-          if (listKeys.includes(field.key)) {
+          if (field.key === "Yield") {
             return (
-              <ListFieldEditor
-                key={`${field.key}-${index}`}
-                label={field.key}
-                value={field.value}
-                options={typeOptions}
-                onChange={(nextValue) => updateField(index, field.key, nextValue)}
-                error={fieldErrors[field.key]}
-              />
+              <div key={`${field.key}-${index}`} className="yield-grid">
+                <div className="field-row">
+                  <input className="input" value="MinYield" readOnly />
+                  <input
+                    className="input"
+                    value={yieldMin ?? ""}
+                    onChange={(event) => {
+                      const nextMin = event.target.value;
+                      const nextValue = `${nextMin},${yieldMax ?? ""}`;
+                      setFieldValue("Yield", nextValue);
+                    }}
+                  />
+                </div>
+                <div className="field-row">
+                  <input className="input" value="MaxYield" readOnly />
+                  <input
+                    className="input"
+                    value={yieldMax ?? ""}
+                    onChange={(event) => {
+                      const nextMax = event.target.value;
+                      const nextValue = `${yieldMin ?? ""},${nextMax}`;
+                      setFieldValue("Yield", nextValue);
+                    }}
+                  />
+                </div>
+                {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
+              </div>
             );
           }
 
           return (
             <div key={`${field.key}-${index}`} className="field-row">
-              <input
-                className="input"
-                value={field.key}
-                onChange={(event) => updateField(index, event.target.value, field.value)}
-              />
+              <input className="input" value={field.key} readOnly />
               <input
                 className="input"
                 value={field.value}
@@ -434,78 +422,6 @@ function TypeDetail({
           );
         })}
       </div>
-    </div>
-  );
-}
-
-type ListFieldEditorProps = {
-  label: string;
-  value: string;
-  options: string[];
-  onChange: (nextValue: string) => void;
-  error?: string;
-};
-
-function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEditorProps) {
-  const items = value
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  const handleSelectChange = (index: number, next: string) => {
-    const nextItems = [...items];
-    if (next === "") {
-      nextItems.splice(index, 1);
-    } else if (index === items.length) {
-      nextItems.push(next);
-    } else {
-      nextItems[index] = next;
-    }
-    const normalized = nextItems.map((item) => item.toUpperCase());
-    const deduped = normalized.filter((item, idx) => normalized.indexOf(item) === idx);
-    onChange(deduped.join(","));
-  };
-
-  return (
-    <div className="list-field">
-      <div className="list-field-label">{label}</div>
-      <div className="list-field-items">
-        {items.map((item, index) => (
-          <div key={`${label}-${index}`} className="list-field-row">
-            <select
-              className="input"
-              value={item}
-              onChange={(event) => handleSelectChange(index, event.target.value)}
-            >
-              {options.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-            <button className="ghost" onClick={() => handleSelectChange(index, "")}>
-              Remove
-            </button>
-          </div>
-        ))}
-        <div className="list-field-row">
-          <select
-            className="input"
-            value=""
-            onChange={(event) => handleSelectChange(items.length, event.target.value)}
-          >
-            <option value="">Add type...</option>
-            {options
-              .filter((option) => !items.includes(option))
-              .map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-          </select>
-        </div>
-      </div>
-      {error && <span className="field-error">{error}</span>}
     </div>
   );
 }

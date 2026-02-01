@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import { ProjectStatus } from "@pbs/shared";
 import { getProjectStatus } from "./api";
 import TypesPage from "./pages/TypesPage";
+import AbilitiesPage from "./pages/AbilitiesPage";
+import BerryPlantsPage from "./pages/BerryPlantsPage";
+import RibbonsPage from "./pages/RibbonsPage";
 import PokemonPage from "./pages/PokemonPage";
 
 export default function App() {
@@ -29,6 +32,18 @@ export default function App() {
             Types
             {missing.has("types.txt") && <span className="badge">Missing</span>}
           </NavLink>
+          <NavLink to="/abilities" className="nav-link">
+            Abilities
+            {missing.has("abilities.txt") && <span className="badge">Missing</span>}
+          </NavLink>
+          <NavLink to="/berry-plants" className="nav-link">
+            Berry Plants
+            {missing.has("berry_plants.txt") && <span className="badge">Missing</span>}
+          </NavLink>
+          <NavLink to="/ribbons" className="nav-link">
+            Ribbons
+            {missing.has("ribbons.txt") && <span className="badge">Missing</span>}
+          </NavLink>
           <NavLink to="/pokemon" className="nav-link">
             Pokemon
             {missing.has("pokemon.txt") && <span className="badge">Missing</span>}
@@ -48,6 +63,9 @@ export default function App() {
         <Routes>
           <Route path="/" element={<TypesPage />} />
           <Route path="/types" element={<TypesPage />} />
+          <Route path="/abilities" element={<AbilitiesPage />} />
+          <Route path="/berry-plants" element={<BerryPlantsPage />} />
+          <Route path="/ribbons" element={<RibbonsPage />} />
           <Route path="/pokemon" element={<PokemonPage />} />
         </Routes>
       </main>

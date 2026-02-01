@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { PBSEntry, TypesFile } from "@pbs/shared";
-import { exportTypes, getTypes } from "../api";
+import { PBSEntry, RibbonsFile } from "@pbs/shared";
+import { exportRibbons, getRibbons } from "../api";
 
-const emptyFile: TypesFile = { entries: [] };
+const emptyFile: RibbonsFile = { entries: [] };
 
-export default function TypesPage() {
-  const [data, setData] = useState<TypesFile>(emptyFile);
+export default function RibbonsPage() {
+  const [data, setData] = useState<RibbonsFile>(emptyFile);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
@@ -14,7 +14,7 @@ export default function TypesPage() {
 
   useEffect(() => {
     let isMounted = true;
-    getTypes()
+    getRibbons()
       .then((result) => {
         if (!isMounted) return;
         setData(result);
@@ -50,10 +50,10 @@ export default function TypesPage() {
 
   const validateEntryId = (entry: PBSEntry, nextIdRaw: string) => {
     const nextId = nextIdRaw.trim().toUpperCase();
-    if (!nextId) return "Type ID cannot be empty.";
-    if (!/^[A-Z]+$/.test(nextId)) return "Type ID must be A-Z only.";
+    if (!nextId) return "Ribbon ID cannot be empty.";
+    if (!/^[A-Z]+$/.test(nextId)) return "Ribbon ID must be A-Z only.";
     if (data.entries.some((item) => item.id.toLowerCase() === nextId.toLowerCase() && item.id !== entry.id)) {
-      return `Type ${nextId} already exists.`;
+      return `Ribbon ${nextId} already exists.`;
     }
     return null;
   };
@@ -78,41 +78,18 @@ export default function TypesPage() {
   const validateEntryFields = (entry: PBSEntry) => {
     const errors: Record<string, string> = {};
     const getField = (key: string) => entry.fields.find((field) => field.key === key)?.value ?? "";
-    const typeIds = new Set(data.entries.map((item) => item.id));
 
     const name = getField("Name").trim();
     if (!name) errors.Name = "Name is required.";
+
+    const description = getField("Descriptions").trim();
+    if (!description) errors.Descriptions = "Descriptions is required.";
 
     const iconPosition = getField("IconPosition").trim();
     if (!iconPosition) {
       errors.IconPosition = "IconPosition is required.";
     } else if (!/^-?\d+$/.test(iconPosition)) {
       errors.IconPosition = "IconPosition must be an integer.";
-    }
-
-    const optionalBoolKeys = ["IsSpecialType", "IsPseudoType"];
-    for (const key of optionalBoolKeys) {
-      const value = getField(key).trim().toLowerCase();
-      if (value && value !== "true" && value !== "false") {
-        errors[key] = `${key} must be true or false.`;
-      }
-    }
-
-    const listKeys = ["Weaknesses", "Resistances", "Immunities"];
-    for (const key of listKeys) {
-      const raw = getField(key).trim();
-      if (!raw) continue;
-      const parts = raw.split(",").map((part) => part.trim()).filter(Boolean);
-      for (const part of parts) {
-        if (!/^[A-Z]+$/.test(part)) {
-          errors[key] = `${key} must use valid Type IDs.`;
-          break;
-        }
-        if (!typeIds.has(part)) {
-          errors[key] = `${key} has unknown Type ID: ${part}`;
-          break;
-        }
-      }
     }
 
     return errors;
@@ -136,8 +113,8 @@ export default function TypesPage() {
     setStatus(null);
     setError(null);
     try {
-      await exportTypes(data);
-      setStatus("Exported to PBS_Output/types.txt");
+      await exportRibbons(data);
+      setStatus("Exported to PBS_Output/ribbons.txt");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
@@ -148,8 +125,8 @@ export default function TypesPage() {
     setStatus(null);
     setError(null);
     setIdError(null);
-    const newId = nextAvailableId("NEWTYPE");
-    const newEntry: PBSEntry = buildDefaultTypeEntry(newId, nextOrder());
+    const newId = nextAvailableId("NEWRIBBON");
+    const newEntry: PBSEntry = buildDefaultRibbonEntry(newId, nextOrder());
     setData((prev) => ({
       ...prev,
       entries: [...prev.entries, newEntry],
@@ -229,22 +206,16 @@ export default function TypesPage() {
     return result;
   };
 
-  const buildDefaultTypeEntry = (id: string, order: number): PBSEntry => ({
+  const buildDefaultRibbonEntry = (id: string, order: number): PBSEntry => ({
     id,
     order,
     fields: [
       { key: "Name", value: toTitleCase(id) },
       { key: "IconPosition", value: "0" },
-      { key: "IsSpecialType", value: "" },
-      { key: "IsPseudoType", value: "" },
-      { key: "Weaknesses", value: "" },
-      { key: "Resistances", value: "" },
-      { key: "Immunities", value: "" },
+      { key: "Descriptions", value: "???" },
       { key: "Flags", value: "" },
     ],
   });
-
-  const typeOptions = useMemo(() => data.entries.map((entry) => entry.id), [data.entries]);
 
   const toTitleCase = (value: string) => {
     const lower = value.toLowerCase();
@@ -252,13 +223,13 @@ export default function TypesPage() {
   };
 
   if (loading) {
-    return <div className="panel">Loading types.txt...</div>;
+    return <div className="panel">Loading ribbons.txt...</div>;
   }
 
   if (error && data.entries.length === 0) {
     return (
       <div className="panel">
-        <h1>Types Editor</h1>
+        <h1>Ribbons Editor</h1>
         <p className="error">{error}</p>
       </div>
     );
@@ -268,7 +239,7 @@ export default function TypesPage() {
     <div className="editor-layout">
       <section className="list-panel">
         <div className="panel-header">
-          <h1>Types Editor</h1>
+          <h1>Ribbons Editor</h1>
           <button className="ghost" onClick={handleAddEntry}>
             Add New
           </button>
@@ -288,7 +259,7 @@ export default function TypesPage() {
       </section>
       <section className="detail-panel">
         {activeEntry ? (
-          <TypeDetail
+          <RibbonDetail
             entry={activeEntry}
             onChange={updateEntry}
             onRename={updateEntryId}
@@ -298,21 +269,20 @@ export default function TypesPage() {
             idError={idError}
             onSetIdError={setIdError}
             fieldErrors={fieldErrors}
-            typeOptions={typeOptions}
           />
         ) : (
-          <div className="panel">Select a type to edit.</div>
+          <div className="panel">Select a ribbon to edit.</div>
         )}
       </section>
       <section className="export-bar">
         <div className="export-warning">
-          Exports never overwrite <strong>PBS/types.txt</strong>. Output goes to <strong>PBS_Output/types.txt</strong>.
+          Exports never overwrite <strong>PBS/ribbons.txt</strong>. Output goes to <strong>PBS_Output/ribbons.txt</strong>.
         </div>
         <div className="export-actions">
           {status && <span className="status">{status}</span>}
           {error && <span className="error">{error}</span>}
           <button className="primary" onClick={handleExport} disabled={Boolean(idError) || hasInvalidEntries}>
-            Export types.txt
+            Export ribbons.txt
           </button>
         </div>
       </section>
@@ -330,10 +300,9 @@ type DetailProps = {
   idError: string | null;
   onSetIdError: (value: string | null) => void;
   fieldErrors: Record<string, string>;
-  typeOptions: string[];
 };
 
-function TypeDetail({
+function RibbonDetail({
   entry,
   onChange,
   onRename,
@@ -343,18 +312,16 @@ function TypeDetail({
   idError,
   onSetIdError,
   fieldErrors,
-  typeOptions,
 }: DetailProps) {
   const [idDraft, setIdDraft] = useState(entry.id);
 
   useEffect(() => {
     setIdDraft(entry.id);
   }, [entry.id]);
+
   const updateField = (index: number, key: string, value: string) => {
-    const lowerBoolKeys = ["IsSpecialType", "IsPseudoType"];
-    const nextValue = lowerBoolKeys.includes(key) ? value.toLowerCase() : value;
     const nextFields = entry.fields.map((field, idx) =>
-      idx === index ? { key, value: nextValue } : field
+      idx === index ? { key, value } : field
     );
     onChange({ ...entry, fields: nextFields });
   };
@@ -384,7 +351,7 @@ function TypeDetail({
       </div>
       <div className="field-list">
         <div className="field-row single">
-          <label className="label">Type ID</label>
+          <label className="label">Ribbon ID</label>
           <input
             className="input"
             value={idDraft}
@@ -402,110 +369,22 @@ function TypeDetail({
         </div>
       </div>
       <div className="field-list">
-        {entry.fields.map((field, index) => {
-          const listKeys = ["Weaknesses", "Resistances", "Immunities"];
-          if (listKeys.includes(field.key)) {
-            return (
-              <ListFieldEditor
-                key={`${field.key}-${index}`}
-                label={field.key}
-                value={field.value}
-                options={typeOptions}
-                onChange={(nextValue) => updateField(index, field.key, nextValue)}
-                error={fieldErrors[field.key]}
-              />
-            );
-          }
-
-          return (
-            <div key={`${field.key}-${index}`} className="field-row">
-              <input
-                className="input"
-                value={field.key}
-                onChange={(event) => updateField(index, event.target.value, field.value)}
-              />
-              <input
-                className="input"
-                value={field.value}
-                onChange={(event) => updateField(index, field.key, event.target.value)}
-              />
-              {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-type ListFieldEditorProps = {
-  label: string;
-  value: string;
-  options: string[];
-  onChange: (nextValue: string) => void;
-  error?: string;
-};
-
-function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEditorProps) {
-  const items = value
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  const handleSelectChange = (index: number, next: string) => {
-    const nextItems = [...items];
-    if (next === "") {
-      nextItems.splice(index, 1);
-    } else if (index === items.length) {
-      nextItems.push(next);
-    } else {
-      nextItems[index] = next;
-    }
-    const normalized = nextItems.map((item) => item.toUpperCase());
-    const deduped = normalized.filter((item, idx) => normalized.indexOf(item) === idx);
-    onChange(deduped.join(","));
-  };
-
-  return (
-    <div className="list-field">
-      <div className="list-field-label">{label}</div>
-      <div className="list-field-items">
-        {items.map((item, index) => (
-          <div key={`${label}-${index}`} className="list-field-row">
-            <select
+        {entry.fields.map((field, index) => (
+          <div key={`${field.key}-${index}`} className="field-row">
+            <input
               className="input"
-              value={item}
-              onChange={(event) => handleSelectChange(index, event.target.value)}
-            >
-              {options.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-            <button className="ghost" onClick={() => handleSelectChange(index, "")}>
-              Remove
-            </button>
+              value={field.key}
+              onChange={(event) => updateField(index, event.target.value, field.value)}
+            />
+            <input
+              className="input"
+              value={field.value}
+              onChange={(event) => updateField(index, field.key, event.target.value)}
+            />
+            {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
           </div>
         ))}
-        <div className="list-field-row">
-          <select
-            className="input"
-            value=""
-            onChange={(event) => handleSelectChange(items.length, event.target.value)}
-          >
-            <option value="">Add type...</option>
-            {options
-              .filter((option) => !items.includes(option))
-              .map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-          </select>
-        </div>
       </div>
-      {error && <span className="field-error">{error}</span>}
     </div>
   );
 }

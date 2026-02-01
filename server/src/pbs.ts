@@ -1,4 +1,4 @@
-import { PBSEntry, TypesFile } from "@pbs/shared";
+import { AbilitiesFile, BerryPlantsFile, PBSEntry, RibbonsFile, TypesFile } from "@pbs/shared";
 
 type ParsedSection = {
   id: string;
@@ -44,7 +44,85 @@ export function parseTypesFile(text: string): TypesFile {
   return { entries };
 }
 
+export function parseAbilitiesFile(text: string): AbilitiesFile {
+  const sections = parseIniLike(text);
+  const entries: PBSEntry[] = sections.map((section, index) => ({
+    id: section.id,
+    fields: section.fields,
+    order: index,
+  }));
+  return { entries };
+}
+
+export function parseBerryPlantsFile(text: string): BerryPlantsFile {
+  const sections = parseIniLike(text);
+  const entries: PBSEntry[] = sections.map((section, index) => ({
+    id: section.id,
+    fields: section.fields,
+    order: index,
+  }));
+  return { entries };
+}
+
+export function parseRibbonsFile(text: string): RibbonsFile {
+  const sections = parseIniLike(text);
+  const entries: PBSEntry[] = sections.map((section, index) => ({
+    id: section.id,
+    fields: section.fields,
+    order: index,
+  }));
+  return { entries };
+}
+
 export function exportTypesFile(data: TypesFile): string {
+  const sorted = [...data.entries].sort((a, b) => a.order - b.order);
+  const lines: string[] = [];
+
+  for (const entry of sorted) {
+    lines.push(`[${entry.id}]`);
+    for (const field of entry.fields) {
+      if (field.value.trim() === "") continue;
+      lines.push(`${field.key}=${field.value}`);
+    }
+    lines.push("#-------------------------------");
+  }
+
+  return lines.join("\n").trimEnd() + "\n";
+}
+
+export function exportAbilitiesFile(data: AbilitiesFile): string {
+  const sorted = [...data.entries].sort((a, b) => a.order - b.order);
+  const lines: string[] = [];
+
+  for (const entry of sorted) {
+    lines.push(`[${entry.id}]`);
+    for (const field of entry.fields) {
+      if (field.value.trim() === "") continue;
+      lines.push(`${field.key}=${field.value}`);
+    }
+    lines.push("#-------------------------------");
+  }
+
+  return lines.join("\n").trimEnd() + "\n";
+}
+
+export function exportBerryPlantsFile(data: BerryPlantsFile): string {
+  const sorted = [...data.entries].sort((a, b) => a.order - b.order);
+  const lines: string[] = [];
+
+  for (const entry of sorted) {
+    lines.push(`[${entry.id}]`);
+    for (const field of entry.fields) {
+      if (field.value.trim() === "") continue;
+      lines.push(`${field.key}=${field.value}`);
+    }
+    lines.push("#-------------------------------");
+  }
+
+  return lines.join("\n").trimEnd() + "\n";
+}
+
+export function exportRibbonsFile(data: RibbonsFile): string {
   const sorted = [...data.entries].sort((a, b) => a.order - b.order);
   const lines: string[] = [];
 

@@ -13,6 +13,18 @@ export type TypesFile = {
   entries: PBSEntry[];
 };
 
+export type AbilitiesFile = {
+  entries: PBSEntry[];
+};
+
+export type BerryPlantsFile = {
+  entries: PBSEntry[];
+};
+
+export type RibbonsFile = {
+  entries: PBSEntry[];
+};
+
 export type ProjectStatus = {
   root: string;
   hasPbs: boolean;

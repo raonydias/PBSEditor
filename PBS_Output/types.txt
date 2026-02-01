@@ -129,5 +129,8 @@ Immunities=DRAGON
 [SOUND]
 Name=Sound
 IconPosition=0
-IsSpecialType=true
+IsSpecialType=TRUE
+IsPseudoType=FALSE
+Weaknesses=ELECTRIC,DRAGON
+Resistances=WATER,FLYING,FAIRY
 #-------------------------------
