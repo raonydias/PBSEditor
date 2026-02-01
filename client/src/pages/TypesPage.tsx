@@ -12,6 +12,7 @@ export default function TypesPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [idError, setIdError] = useState<string | null>(null);
+  const [filter, setFilter] = useState("");
   const dirty = useDirty();
   const [snapshot, setSnapshot] = useState<string | null>(null);
 
@@ -61,6 +62,12 @@ export default function TypesPage() {
   const activeEntry = useMemo(() => {
     return data.entries.find((entry) => entry.id === activeId) ?? null;
   }, [data.entries, activeId]);
+
+  const filteredEntries = useMemo(() => {
+    const needle = filter.trim().toUpperCase();
+    if (!needle) return data.entries;
+    return data.entries.filter((entry) => entry.id.includes(needle));
+  }, [data.entries, filter]);
 
   useEffect(() => {
     setIdError(null);
@@ -332,13 +339,21 @@ export default function TypesPage() {
     <div className="editor-layout">
       <section className="list-panel">
         <div className="panel-header">
-          <h1>Types Editor</h1>
+          <h1>Types</h1>
           <button className="ghost" onClick={handleAddEntry}>
             Add New
           </button>
         </div>
+        <div className="list-filter">
+          <input
+            className="input"
+            placeholder="Filter by ID..."
+            value={filter}
+            onChange={(event) => setFilter(event.target.value.toUpperCase())}
+          />
+        </div>
         <div className="list">
-          {data.entries.map((entry) => (
+          {filteredEntries.map((entry) => (
             <button
               key={entry.id}
               className={`list-item ${entry.id === activeId ? "active" : ""}`}
@@ -548,6 +563,12 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
     .split(",")
     .map((part) => part.trim())
     .filter(Boolean);
+  const canCollapse = items.length > 5;
+  const [collapsed, setCollapsed] = useState(canCollapse);
+
+  useEffect(() => {
+    if (!canCollapse) setCollapsed(false);
+  }, [canCollapse]);
 
   const handleSelectChange = (index: number, next: string) => {
     const nextItems = [...items];
@@ -565,8 +586,16 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
 
   return (
     <div className="list-field">
-      <div className="list-field-label">{label}</div>
-      <div className="list-field-items">
+      <div className="list-field-header">
+        <div className="list-field-label">{label}</div>
+        {canCollapse && (
+          <button className="ghost" onClick={() => setCollapsed((prev) => !prev)}>
+            {collapsed ? `Show (${items.length}) ▾` : "Hide ▴"}
+          </button>
+        )}
+      </div>
+      {!collapsed && (
+        <div className="list-field-items">
         {items.map((item, index) => (
           <div key={`${label}-${index}`} className="list-field-row">
             <select
@@ -602,6 +631,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
           </select>
         </div>
       </div>
+      )}
       {error && <span className="field-error">{error}</span>}
     </div>
   );
@@ -620,6 +650,12 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
     .map((part) => part.trim())
     .filter(Boolean);
   const [draft, setDraft] = useState("");
+  const canCollapse = items.length > 5;
+  const [collapsed, setCollapsed] = useState(canCollapse);
+
+  useEffect(() => {
+    if (!canCollapse) setCollapsed(false);
+  }, [canCollapse]);
 
   const handleChange = (index: number, next: string) => {
     const nextItems = [...items];
@@ -643,8 +679,16 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
 
   return (
     <div className="list-field">
-      <div className="list-field-label">{label}</div>
-      <div className="list-field-items">
+      <div className="list-field-header">
+        <div className="list-field-label">{label}</div>
+        {canCollapse && (
+          <button className="ghost" onClick={() => setCollapsed((prev) => !prev)}>
+            {collapsed ? `Show (${items.length}) ▾` : "Hide ▴"}
+          </button>
+        )}
+      </div>
+      {!collapsed && (
+        <div className="list-field-items">
         {items.map((item, index) => (
           <div key={`${label}-${index}`} className="list-field-row">
             <input
@@ -673,6 +717,7 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
           />
         </div>
       </div>
+      )}
       {error && <span className="field-error">{error}</span>}
     </div>
   );

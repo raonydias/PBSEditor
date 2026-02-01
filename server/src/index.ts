@@ -8,6 +8,7 @@ import {
   BerryPlantsFile,
   ItemsFile,
   MovesFile,
+  PokemonFile,
   ProjectStatus,
   RibbonsFile,
   TrainerTypesFile,
@@ -25,6 +26,7 @@ import {
   parseBerryPlantsFile,
   parseItemsFile,
   parseMovesFile,
+  parsePokemonFile,
   parseRibbonsFile,
   parseTrainerTypesFile,
   parseTypesFile,
@@ -53,6 +55,7 @@ const readableFiles = [
   "moves.txt",
   "items.txt",
   "trainer_types.txt",
+  "pokemon.txt",
 ] as const;
 const exportableFiles = [
   "types.txt",
@@ -179,6 +182,11 @@ app.get("/api/pbs/:file", async (req, res) => {
     }
     if (file === "items.txt") {
       const parsed = parseItemsFile(raw);
+      res.json(parsed);
+      return;
+    }
+    if (file === "pokemon.txt") {
+      const parsed = parsePokemonFile(raw);
       res.json(parsed);
       return;
     }

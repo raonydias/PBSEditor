@@ -3,6 +3,7 @@ import {
   BerryPlantsFile,
   ItemsFile,
   MovesFile,
+  PokemonFile,
   ProjectStatus,
   RibbonsFile,
   TrainerTypesFile,
@@ -141,6 +142,15 @@ export async function exportItems(data: ItemsFile): Promise<void> {
     const body = await res.text();
     throw new Error(`Export failed: ${body}`);
   }
+}
+
+export async function getPokemon(): Promise<PokemonFile> {
+  const res = await fetch("/api/pbs/pokemon.txt");
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Failed to load pokemon.txt: ${body}`);
+  }
+  return res.json();
 }
 
 export async function getTrainerTypes(): Promise<TrainerTypesFile> {

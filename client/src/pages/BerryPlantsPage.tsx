@@ -12,6 +12,7 @@ export default function BerryPlantsPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [idError, setIdError] = useState<string | null>(null);
+  const [filter, setFilter] = useState("");
   const dirty = useDirty();
   const [snapshot, setSnapshot] = useState<string | null>(null);
 
@@ -61,6 +62,12 @@ export default function BerryPlantsPage() {
   const activeEntry = useMemo(() => {
     return data.entries.find((entry) => entry.id === activeId) ?? null;
   }, [data.entries, activeId]);
+
+  const filteredEntries = useMemo(() => {
+    const needle = filter.trim().toUpperCase();
+    if (!needle) return data.entries;
+    return data.entries.filter((entry) => entry.id.includes(needle));
+  }, [data.entries, filter]);
 
   useEffect(() => {
     setIdError(null);
@@ -301,13 +308,21 @@ export default function BerryPlantsPage() {
     <div className="editor-layout">
       <section className="list-panel">
         <div className="panel-header">
-          <h1>Berry Plants Editor</h1>
+          <h1>Berry Plants</h1>
           <button className="ghost" onClick={handleAddEntry}>
             Add New
           </button>
         </div>
+        <div className="list-filter">
+          <input
+            className="input"
+            placeholder="Filter by ID..."
+            value={filter}
+            onChange={(event) => setFilter(event.target.value.toUpperCase())}
+          />
+        </div>
         <div className="list">
-          {data.entries.map((entry) => (
+          {filteredEntries.map((entry) => (
             <button
               key={entry.id}
               className={`list-item ${entry.id === activeId ? "active" : ""}`}

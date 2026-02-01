@@ -4,6 +4,7 @@ import {
   ItemsFile,
   MovesFile,
   PBSEntry,
+  PokemonFile,
   RibbonsFile,
   TrainerTypesFile,
   TypesFile,
@@ -94,6 +95,16 @@ export function parseMovesFile(text: string): MovesFile {
 }
 
 export function parseItemsFile(text: string): ItemsFile {
+  const sections = parseIniLike(text);
+  const entries: PBSEntry[] = sections.map((section, index) => ({
+    id: section.id,
+    fields: section.fields,
+    order: index,
+  }));
+  return { entries };
+}
+
+export function parsePokemonFile(text: string): PokemonFile {
   const sections = parseIniLike(text);
   const entries: PBSEntry[] = sections.map((section, index) => ({
     id: section.id,
