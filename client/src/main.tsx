@@ -12,6 +12,7 @@ import ItemsPage from "./pages/ItemsPage";
 import TrainerTypesPage from "./pages/TrainerTypesPage";
 import PokemonPage from "./pages/PokemonPage";
 import PokemonFormsPage from "./pages/PokemonFormsPage";
+import EncountersPage from "./pages/EncountersPage";
 import "./styles.css";
 
 const root = document.getElementById("root");
@@ -32,6 +33,7 @@ const router = createBrowserRouter([
       { path: "trainer-types", element: <TrainerTypesPage /> },
       { path: "pokemon", element: <PokemonPage /> },
       { path: "pokemon-forms", element: <PokemonFormsPage /> },
+      { path: "encounters", element: <EncountersPage /> },
     ],
   },
 ]);

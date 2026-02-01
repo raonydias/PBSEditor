@@ -45,6 +45,32 @@ export type PokemonFormsFile = {
   entries: PBSEntry[];
 };
 
+export type EncounterSlot = {
+  chance: string;
+  pokemon: string;
+  formNumber: string;
+  levelMin: string;
+  levelMax: string;
+};
+
+export type EncounterType = {
+  type: string;
+  probability: string;
+  slots: EncounterSlot[];
+};
+
+export type EncounterEntry = {
+  id: string;
+  version: number;
+  name: string;
+  encounterTypes: EncounterType[];
+  order: number;
+};
+
+export type EncountersFile = {
+  entries: EncounterEntry[];
+};
+
 export type ProjectStatus = {
   root: string;
   hasPbs: boolean;

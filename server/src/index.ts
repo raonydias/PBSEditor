@@ -6,6 +6,7 @@ import {
   AbilitiesFile,
   ApiError,
   BerryPlantsFile,
+  EncountersFile,
   ItemsFile,
   MovesFile,
   PokemonFile,
@@ -18,6 +19,7 @@ import {
 import {
   exportAbilitiesFile,
   exportBerryPlantsFile,
+  exportEncountersFile,
   exportItemsFile,
   exportMovesFile,
   exportPokemonFile,
@@ -27,6 +29,7 @@ import {
   exportTypesFile,
   parseAbilitiesFile,
   parseBerryPlantsFile,
+  parseEncountersFile,
   parseItemsFile,
   parseMovesFile,
   parsePokemonFile,
@@ -52,6 +55,7 @@ const supportedFiles = [
   "trainer_types.txt",
   "pokemon.txt",
   "pokemon_forms.txt",
+  "encounters.txt",
 ] as const;
 const readableFiles = [
   "types.txt",
@@ -63,6 +67,7 @@ const readableFiles = [
   "trainer_types.txt",
   "pokemon.txt",
   "pokemon_forms.txt",
+  "encounters.txt",
 ] as const;
 const exportableFiles = [
   "types.txt",
@@ -74,6 +79,7 @@ const exportableFiles = [
   "trainer_types.txt",
   "pokemon.txt",
   "pokemon_forms.txt",
+  "encounters.txt",
 ] as const;
 
 type SupportedFile = (typeof supportedFiles)[number];
@@ -209,6 +215,11 @@ app.get("/api/pbs/:file", async (req, res) => {
       res.json(parsed);
       return;
     }
+    if (file === "encounters.txt") {
+      const parsed = parseEncountersFile(raw);
+      res.json(parsed);
+      return;
+    }
     res.status(500).json(errorBody("Parser not implemented.", file));
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
@@ -237,22 +248,50 @@ app.get("/api/assets/bgm", async (_req, res) => {
   }
 });
 
-const exportSchema = z.object({
-  entries: z
-    .array(
-      z.object({
-        id: z.string().min(1),
-        order: z.number().int().nonnegative(),
-        fields: z.array(
-          z.object({
-            key: z.string().min(1),
-            value: z.string(),
-          })
-        ),
-      })
-    )
-    .min(1),
-});
+const exportSchema = z.union([
+  z.object({
+    entries: z
+      .array(
+        z.object({
+          id: z.string().min(1),
+          order: z.number().int().nonnegative(),
+          fields: z.array(
+            z.object({
+              key: z.string().min(1),
+              value: z.string(),
+            })
+          ),
+        })
+      )
+      .min(1),
+  }),
+  z.object({
+    entries: z
+      .array(
+        z.object({
+          id: z.string().min(1),
+          version: z.number().int().nonnegative(),
+          name: z.string(),
+          order: z.number().int().nonnegative(),
+          encounterTypes: z.array(
+            z.object({
+              type: z.string(),
+              probability: z.string(),
+              slots: z.array(
+                z.object({
+                  chance: z.string(),
+                  pokemon: z.string(),
+                  levelMin: z.string(),
+                  levelMax: z.string(),
+                })
+              ),
+            })
+          ),
+        })
+      )
+      .min(1),
+  }),
+]);
 
 app.post("/api/pbs/:file/export", async (req, res) => {
   const file = req.params.file as SupportedFile;
@@ -278,7 +317,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
       | ItemsFile
       | TrainerTypesFile
       | PokemonFile
-      | PokemonFormsFile;
+      | PokemonFormsFile
+      | EncountersFile;
     const output =
       file === "abilities.txt"
         ? exportAbilitiesFile(payload as AbilitiesFile)
@@ -296,6 +336,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
         ? exportPokemonFormsFile(payload as PokemonFormsFile)
         : file === "trainer_types.txt"
         ? exportTrainerTypesFile(payload as TrainerTypesFile)
+        : file === "encounters.txt"
+        ? exportEncountersFile(payload as EncountersFile)
         : exportTypesFile(payload as TypesFile);
     const outputPath = path.join(pbsOutputDir(), file);
     await fs.writeFile(outputPath, output, "utf-8");
