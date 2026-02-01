@@ -82,6 +82,17 @@ const FLAG_OPTIONS = [
   "InheritFormWithEverStone",
 ] as const;
 
+const STAT_DISPLAY = [
+  { key: "HP", label: "HP", fileIndex: 0 },
+  { key: "ATTACK", label: "Attack", fileIndex: 1 },
+  { key: "DEFENSE", label: "Defense", fileIndex: 2 },
+  { key: "SPECIAL_ATTACK", label: "Special Attack", fileIndex: 4 },
+  { key: "SPECIAL_DEFENSE", label: "Special Defense", fileIndex: 5 },
+  { key: "SPEED", label: "Speed", fileIndex: 3 },
+] as const;
+
+const EV_ORDER = ["HP", "ATTACK", "DEFENSE", "SPEED", "SPECIAL_ATTACK", "SPECIAL_DEFENSE"] as const;
+
 export default function PokemonPage() {
   const [data, setData] = useState<PokemonFile>(emptyPokemon);
   const [types, setTypes] = useState<TypesFile>(emptyTypes);
@@ -236,6 +247,18 @@ export default function PokemonPage() {
       errors.BaseExp = "BaseExp must be at least 1.";
     }
 
+    const baseStats = getField("BaseStats").trim();
+    if (!baseStats) {
+      errors.BaseStats = "BaseStats is required.";
+    } else {
+      const parts = baseStats.split(",").map((part) => part.trim());
+      if (parts.length !== 6 || parts.some((part) => part === "")) {
+        errors.BaseStats = "BaseStats must have 6 values.";
+      } else if (parts.some((part) => !/^\d+$/.test(part) || Number(part) < 1)) {
+        errors.BaseStats = "BaseStats values must be integers of at least 1.";
+      }
+    }
+
     const catchRate = getField("CatchRate").trim();
     if (!catchRate) {
       errors.CatchRate = "CatchRate is required.";
@@ -276,6 +299,27 @@ export default function PokemonPage() {
     const eggMoves = splitList(getField("EggMoves"));
     if (eggMoves.some((value) => !moveOptions.includes(value))) {
       errors.EggMoves = "EggMoves must use valid Move IDs.";
+    }
+
+    const evsRaw = getField("EVs").trim();
+    if (evsRaw) {
+      const parts = evsRaw.split(",").map((part) => part.trim()).filter(Boolean);
+      if (parts.length % 2 !== 0) {
+        errors.EVs = "EVs must be Identifier,Value pairs.";
+      } else {
+        for (let index = 0; index < parts.length; index += 2) {
+          const id = parts[index];
+          const value = parts[index + 1];
+          if (!EV_ORDER.includes(id as (typeof EV_ORDER)[number])) {
+            errors.EVs = "EVs must use valid identifiers.";
+            break;
+          }
+          if (!/^\d+$/.test(value) || Number(value) < 1) {
+            errors.EVs = "EV values must be integers of at least 1.";
+            break;
+          }
+        }
+      }
     }
 
     const eggGroups = splitList(getField("EggGroups"));
@@ -508,6 +552,8 @@ export default function PokemonPage() {
       { key: "GenderRatio", value: "Female50Percent" },
       { key: "GrowthRate", value: "Medium" },
       { key: "BaseExp", value: "100" },
+      { key: "BaseStats", value: "1,1,1,1,1,1" },
+      { key: "EVs", value: "" },
       { key: "CatchRate", value: "255" },
       { key: "Happiness", value: "70" },
       { key: "Abilities", value: "" },
@@ -711,6 +757,8 @@ function PokemonDetail({
   const abilityParts = splitList(abilitiesValue);
   const ability1 = abilityParts[0] ?? "";
   const ability2 = abilityParts[1] ?? "";
+  const baseStats = parseBaseStats(getFieldValue("BaseStats"));
+  const evMap = parseEVMap(getFieldValue("EVs"));
 
   const updateTypes = (primary: string, secondary: string) => {
     if (!primary) {
@@ -896,6 +944,52 @@ function PokemonDetail({
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
             );
+          }
+
+          if (field.key === "BaseStats") {
+            return (
+              <div key={`${field.key}-${index}`} className="list-field">
+                <div className="list-field-label">Base Stats</div>
+                <div className="stats-grid">
+                  {STAT_DISPLAY.map((stat) => (
+                    <div key={stat.key} className="stats-row">
+                      <div className="stats-label">{stat.label}</div>
+                      <input
+                        className="input"
+                        value={baseStats[stat.fileIndex] ?? "1"}
+                        onChange={(event) => {
+                          const next = event.target.value;
+                          const nextStats = [...baseStats];
+                          nextStats[stat.fileIndex] = next;
+                          setFieldValue("BaseStats", nextStats.join(","));
+                        }}
+                      />
+                      <div className="stats-ev-label">EV</div>
+                      <input
+                        className="input stats-ev-input"
+                        value={evMap.get(stat.key) ?? "0"}
+                        onChange={(event) => {
+                          const next = event.target.value.trim();
+                          const nextMap = new Map(evMap);
+                          if (!next || Number(next) === 0) {
+                            nextMap.delete(stat.key);
+                          } else {
+                            nextMap.set(stat.key, next);
+                          }
+                          setFieldValue("EVs", buildEVsString(nextMap));
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+                {fieldErrors.BaseStats && <span className="field-error">{fieldErrors.BaseStats}</span>}
+                {fieldErrors.EVs && <span className="field-error">{fieldErrors.EVs}</span>}
+              </div>
+            );
+          }
+
+          if (field.key === "EVs") {
+            return null;
           }
 
           if (field.key === "Abilities") {
@@ -1404,4 +1498,42 @@ function getFieldValue(entry: PBSEntry, key: string) {
 function normalizeOption(value: string, options: readonly string[]) {
   const match = options.find((option) => option.toLowerCase() === value.toLowerCase());
   return match ?? value;
+}
+
+function parseBaseStats(value: string) {
+  const parts = value
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+  const filled = Array(6).fill("1");
+  for (let index = 0; index < Math.min(parts.length, 6); index += 1) {
+    filled[index] = parts[index];
+  }
+  return filled;
+}
+
+function parseEVMap(value: string) {
+  const parts = value
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const map = new Map<string, string>();
+  for (let index = 0; index < parts.length; index += 2) {
+    const id = parts[index];
+    const val = parts[index + 1];
+    if (!id || val === undefined) continue;
+    map.set(id, val);
+  }
+  return map;
+}
+
+function buildEVsString(map: Map<string, string>) {
+  const tokens: string[] = [];
+  for (const id of EV_ORDER) {
+    const value = map.get(id);
+    if (!value) continue;
+    if (Number(value) <= 0) continue;
+    tokens.push(id, value);
+  }
+  return tokens.join(",");
 }
