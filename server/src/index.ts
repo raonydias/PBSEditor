@@ -9,6 +9,7 @@ import {
   ItemsFile,
   MovesFile,
   PokemonFile,
+  PokemonFormsFile,
   ProjectStatus,
   RibbonsFile,
   TrainerTypesFile,
@@ -20,6 +21,7 @@ import {
   exportItemsFile,
   exportMovesFile,
   exportPokemonFile,
+  exportPokemonFormsFile,
   exportRibbonsFile,
   exportTrainerTypesFile,
   exportTypesFile,
@@ -28,6 +30,7 @@ import {
   parseItemsFile,
   parseMovesFile,
   parsePokemonFile,
+  parsePokemonFormsFile,
   parseRibbonsFile,
   parseTrainerTypesFile,
   parseTypesFile,
@@ -47,6 +50,7 @@ const supportedFiles = [
   "items.txt",
   "trainer_types.txt",
   "pokemon.txt",
+  "pokemon_forms.txt",
 ] as const;
 const readableFiles = [
   "types.txt",
@@ -57,6 +61,7 @@ const readableFiles = [
   "items.txt",
   "trainer_types.txt",
   "pokemon.txt",
+  "pokemon_forms.txt",
 ] as const;
 const exportableFiles = [
   "types.txt",
@@ -67,6 +72,7 @@ const exportableFiles = [
   "items.txt",
   "trainer_types.txt",
   "pokemon.txt",
+  "pokemon_forms.txt",
 ] as const;
 
 type SupportedFile = (typeof supportedFiles)[number];
@@ -192,6 +198,11 @@ app.get("/api/pbs/:file", async (req, res) => {
       res.json(parsed);
       return;
     }
+    if (file === "pokemon_forms.txt") {
+      const parsed = parsePokemonFormsFile(raw);
+      res.json(parsed);
+      return;
+    }
     if (file === "trainer_types.txt") {
       const parsed = parseTrainerTypesFile(raw);
       res.json(parsed);
@@ -265,7 +276,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
       | MovesFile
       | ItemsFile
       | TrainerTypesFile
-      | PokemonFile;
+      | PokemonFile
+      | PokemonFormsFile;
     const output =
       file === "abilities.txt"
         ? exportAbilitiesFile(payload as AbilitiesFile)
@@ -279,6 +291,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
         ? exportItemsFile(payload as ItemsFile)
         : file === "pokemon.txt"
         ? exportPokemonFile(payload as PokemonFile)
+        : file === "pokemon_forms.txt"
+        ? exportPokemonFormsFile(payload as PokemonFormsFile)
         : file === "trainer_types.txt"
         ? exportTrainerTypesFile(payload as TrainerTypesFile)
         : exportTypesFile(payload as TypesFile);

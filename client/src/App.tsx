@@ -75,6 +75,10 @@ export default function App() {
             Pokemon
             {missing.has("pokemon.txt") && <span className="badge">Missing</span>}
           </NavLink>
+          <NavLink to="/pokemon-forms" className="nav-link">
+            Pokemon Forms
+            {missing.has("pokemon_forms.txt") && <span className="badge">Missing</span>}
+          </NavLink>
         </nav>
         <div className="sidebar-footer">
           {statusError ? (

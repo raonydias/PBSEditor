@@ -41,6 +41,10 @@ export type PokemonFile = {
   entries: PBSEntry[];
 };
 
+export type PokemonFormsFile = {
+  entries: PBSEntry[];
+};
+
 export type ProjectStatus = {
   root: string;
   hasPbs: boolean;

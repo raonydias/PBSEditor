@@ -4,6 +4,7 @@ import {
   ItemsFile,
   MovesFile,
   PokemonFile,
+  PokemonFormsFile,
   ProjectStatus,
   RibbonsFile,
   TrainerTypesFile,
@@ -155,6 +156,27 @@ export async function getPokemon(): Promise<PokemonFile> {
 
 export async function exportPokemon(data: PokemonFile): Promise<void> {
   const res = await fetch("/api/pbs/pokemon.txt/export", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Export failed: ${body}`);
+  }
+}
+
+export async function getPokemonForms(): Promise<PokemonFormsFile> {
+  const res = await fetch("/api/pbs/pokemon_forms.txt");
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Failed to load pokemon_forms.txt: ${body}`);
+  }
+  return res.json();
+}
+
+export async function exportPokemonForms(data: PokemonFormsFile): Promise<void> {
+  const res = await fetch("/api/pbs/pokemon_forms.txt/export", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
