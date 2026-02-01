@@ -401,7 +401,7 @@ export default function EncountersPage() {
                       Go to entry
                     </button>
                   </div>
-                  <div className="muted">{errors.join(" • ")}</div>
+                  <div className="muted">{errors.join("\n")}</div>
                 </div>
               ))}
             </div>
@@ -422,7 +422,7 @@ export default function EncountersPage() {
                       Go to entry
                     </button>
                   </div>
-                  <div className="muted">{warnings.join(" • ")}</div>
+                  <div className="muted">{warnings.join("\n")}</div>
                 </div>
               ))}
             </div>
@@ -657,7 +657,7 @@ function EncounterTypeEditor({
           <div className="field-list">
             {slots.map((slot, index) => {
               return (
-                <div key={`${index}-${slot.pokemon}`} className="field-row encounter-slot-row">
+                <div key={`${index}`} className="field-row encounter-slot-row">
                   <input
                     className="input input-mini"
                     placeholder="Chance"
@@ -666,18 +666,18 @@ function EncounterTypeEditor({
                       updateSlot(index, { ...slot, chance: event.target.value.replace(/\D+/g, "") })
                     }
                   />
-                  <select
+                  <input
                     className="input"
+                    list={`encounter-pokemon-${index}`}
+                    placeholder="Select Pokemon"
                     value={slot.pokemon}
-                    onChange={(event) => updateSlot(index, { ...slot, pokemon: event.target.value })}
-                  >
-                    <option value="">Select Pokemon</option>
+                    onChange={(event) => updateSlot(index, { ...slot, pokemon: event.target.value.trim().toUpperCase() })}
+                  />
+                  <datalist id={`encounter-pokemon-${index}`}>
                     {pokemonOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
+                      <option key={option} value={option} />
                     ))}
-                  </select>
+                  </datalist>
                   <input
                     className="input input-mini"
                     placeholder="Form"

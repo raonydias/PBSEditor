@@ -548,6 +548,10 @@ body {
     color: var(--muted);
 }
 
+.list-field .muted {
+    white-space: pre-line;
+}
+
 @keyframes fadeIn {
     from {
         opacity: 0;
