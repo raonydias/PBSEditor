@@ -1,24 +1,71 @@
 import { useEffect, useMemo, useState } from "react";
-import { PBSEntry, TypesFile } from "@pbs/shared";
-import { exportTypes, getTypes } from "../api";
+import { MovesFile, PBSEntry, TypesFile } from "@pbs/shared";
+import { exportMoves, getMoves, getTypes } from "../api";
 
-const emptyFile: TypesFile = { entries: [] };
+const emptyFile: MovesFile = { entries: [] };
+const emptyTypes: TypesFile = { entries: [] };
 
-export default function TypesPage() {
-  const [data, setData] = useState<TypesFile>(emptyFile);
+const CATEGORY_OPTIONS = ["Physical", "Special", "Status"] as const;
+const TARGET_OPTIONS = [
+  "None",
+  "User",
+  "NearAlly",
+  "UserOrNearAlly",
+  "AllAllies",
+  "UserAndAllies",
+  "NearFoe",
+  "RandomNearFoe",
+  "AllNearFoes",
+  "Foe",
+  "AllFoes",
+  "NearOther",
+  "AllNearOthers",
+  "Other",
+  "AllBattlers",
+  "UserSide",
+  "FoeSide",
+  "BothSides",
+] as const;
+
+const FLAG_OPTIONS = [
+  "Contact",
+  "CanProtect",
+  "CanMirrorMove",
+  "ThawsUser",
+  "HighCriticalHitRate",
+  "Biting",
+  "Punching",
+  "Sound",
+  "Powder",
+  "Pulse",
+  "Bomb",
+  "Dance",
+  "CannotMetronome",
+  "TramplesMinimize",
+] as const;
+
+export default function MovesPage() {
+  const [data, setData] = useState<MovesFile>(emptyFile);
+  const [types, setTypes] = useState<TypesFile>(emptyTypes);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [idError, setIdError] = useState<string | null>(null);
 
+  const toTitleCase = (value: string) => {
+    const lower = value.toLowerCase();
+    return lower ? lower[0].toUpperCase() + lower.slice(1) : "";
+  };
+
   useEffect(() => {
     let isMounted = true;
-    getTypes()
-      .then((result) => {
+    Promise.all([getMoves(), getTypes()])
+      .then(([movesResult, typesResult]) => {
         if (!isMounted) return;
-        setData(result);
-        setActiveId(result.entries[0]?.id ?? null);
+        setData(movesResult);
+        setTypes(typesResult);
+        setActiveId(movesResult.entries[0]?.id ?? null);
       })
       .catch((err: Error) => {
         if (!isMounted) return;
@@ -40,6 +87,8 @@ export default function TypesPage() {
   useEffect(() => {
     setIdError(null);
   }, [activeId]);
+
+  const typeOptions = useMemo(() => ["NONE", ...types.entries.map((entry) => entry.id)], [types.entries]);
 
   const updateEntry = (updated: PBSEntry) => {
     setData((prev) => ({
@@ -78,44 +127,96 @@ export default function TypesPage() {
   const validateEntryFields = (entry: PBSEntry) => {
     const errors: Record<string, string> = {};
     const getField = (key: string) => entry.fields.find((field) => field.key === key)?.value ?? "";
-    const typeIds = new Set(data.entries.map((item) => item.id));
 
     const name = getField("Name").trim();
     if (!name) errors.Name = "Name is required.";
 
-    const iconPosition = getField("IconPosition").trim();
-    if (!iconPosition) {
-      errors.IconPosition = "IconPosition is required.";
-    } else if (!/^\d+$/.test(iconPosition)) {
-      errors.IconPosition = "IconPosition must be an integer.";
-    } else if (Number(iconPosition) < 0) {
-      errors.IconPosition = "IconPosition must be 0 or greater.";
+    const type = getField("Type").trim();
+    if (!type) {
+      errors.Type = "Type is required.";
+    } else if (type !== "NONE" && !typeOptions.includes(type)) {
+      errors.Type = "Type must be a valid Type ID or NONE.";
     }
 
-    const optionalBoolKeys = ["IsSpecialType", "IsPseudoType"];
-    for (const key of optionalBoolKeys) {
-      const value = getField(key).trim().toLowerCase();
-      if (value && value !== "true" && value !== "false") {
-        errors[key] = `${key} must be true or false.`;
+    const category = getField("Category").trim();
+    if (!category) {
+      errors.Category = "Category is required.";
+    } else if (!CATEGORY_OPTIONS.includes(category as (typeof CATEGORY_OPTIONS)[number])) {
+      errors.Category = "Category must be Physical, Special, or Status.";
+    }
+
+    const power = getField("Power").trim();
+    if (category !== "Status") {
+      if (!power) {
+        errors.Power = "Power is required.";
+      } else if (!/^\d+$/.test(power)) {
+        errors.Power = "Power must be an integer.";
+      } else if (Number(power) < 0) {
+        errors.Power = "Power must be 0 or greater.";
+      }
+    } else if (power && !/^\d+$/.test(power)) {
+      errors.Power = "Power must be an integer.";
+    }
+
+    const accuracy = getField("Accuracy").trim();
+    if (!accuracy) {
+      errors.Accuracy = "Accuracy is required.";
+    } else if (!/^\d+$/.test(accuracy)) {
+      errors.Accuracy = "Accuracy must be an integer.";
+    } else if (Number(accuracy) < 0 || Number(accuracy) > 100) {
+      errors.Accuracy = "Accuracy must be between 0 and 100.";
+    }
+
+    const totalPP = getField("TotalPP").trim();
+    if (!totalPP) {
+      errors.TotalPP = "TotalPP is required.";
+    } else if (!/^\d+$/.test(totalPP)) {
+      errors.TotalPP = "TotalPP must be an integer.";
+    } else if (Number(totalPP) < 1) {
+      errors.TotalPP = "TotalPP must be at least 1.";
+    }
+
+    const target = getField("Target").trim();
+    if (target && /\s/.test(target)) {
+      errors.Target = "Target must not contain spaces.";
+    }
+
+    const priority = getField("Priority").trim();
+    if (priority) {
+      if (!/^-?\d+$/.test(priority)) {
+        errors.Priority = "Priority must be an integer.";
       }
     }
 
-    const listKeys = ["Weaknesses", "Resistances", "Immunities"];
-    for (const key of listKeys) {
-      const raw = getField(key).trim();
-      if (!raw) continue;
-      const parts = raw.split(",").map((part) => part.trim()).filter(Boolean);
+    const functionCode = getField("FunctionCode").trim();
+    if (!functionCode) {
+      errors.FunctionCode = "FunctionCode is required.";
+    } else if (/\s/.test(functionCode)) {
+      errors.FunctionCode = "FunctionCode must not contain spaces.";
+    }
+
+    const effectChance = getField("EffectChance").trim();
+    if (effectChance) {
+      if (!/^\d+$/.test(effectChance)) {
+        errors.EffectChance = "EffectChance must be an integer.";
+      } else if (Number(effectChance) < 0 || Number(effectChance) > 100) {
+        errors.EffectChance = "EffectChance must be between 0 and 100.";
+      }
+    }
+
+    const flags = getField("Flags").trim();
+    if (flags) {
+      const parts = flags.split(",").map((part) => part.trim()).filter(Boolean);
       for (const part of parts) {
-        if (!/^[A-Z0-9]+$/.test(part)) {
-          errors[key] = `${key} must contain valid Type IDs.`;
-          break;
-        }
-        if (!typeIds.has(part)) {
-          errors[key] = `Unknown Type ID: ${part}`;
+        if (/\s/.test(part)) {
+          errors.Flags = "Flags must not contain spaces.";
           break;
         }
       }
     }
+
+    const description = getField("Description").trim();
+    if (!description) errors.Description = "Description is required.";
 
     return errors;
   };
@@ -123,7 +224,7 @@ export default function TypesPage() {
   const fieldErrors = useMemo(() => {
     if (!activeEntry) return {};
     return validateEntryFields(activeEntry);
-  }, [activeEntry]);
+  }, [activeEntry, typeOptions]);
 
   const collectEntryErrors = (entry: PBSEntry) => {
     const errors: string[] = [];
@@ -140,7 +241,7 @@ export default function TypesPage() {
     return data.entries
       .map((entry) => ({ entry, errors: collectEntryErrors(entry) }))
       .filter((item) => item.errors.length > 0);
-  }, [data.entries]);
+  }, [data.entries, typeOptions]);
 
   const hasInvalidEntries = useMemo(() => {
     for (const entry of data.entries) {
@@ -149,14 +250,14 @@ export default function TypesPage() {
       if (idErrorMessage) return true;
     }
     return false;
-  }, [data.entries]);
+  }, [data.entries, typeOptions]);
 
   const handleExport = async () => {
     setStatus(null);
     setError(null);
     try {
-      await exportTypes(data);
-      setStatus("Exported to PBS_Output/types.txt");
+      await exportMoves(data);
+      setStatus("Exported to PBS_Output/moves.txt");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
@@ -167,8 +268,8 @@ export default function TypesPage() {
     setStatus(null);
     setError(null);
     setIdError(null);
-    const newId = nextAvailableId("NEWTYPE");
-    const newEntry: PBSEntry = buildDefaultTypeEntry(newId, nextOrder());
+    const newId = nextAvailableId("NEWMOVE");
+    const newEntry: PBSEntry = buildDefaultMoveEntry(newId, nextOrder());
     setData((prev) => ({
       ...prev,
       entries: [...prev.entries, newEntry],
@@ -248,36 +349,33 @@ export default function TypesPage() {
     return result;
   };
 
-  const buildDefaultTypeEntry = (id: string, order: number): PBSEntry => ({
+  const buildDefaultMoveEntry = (id: string, order: number): PBSEntry => ({
     id,
     order,
     fields: [
       { key: "Name", value: toTitleCase(id) },
-      { key: "IconPosition", value: "0" },
-      { key: "IsSpecialType", value: "" },
-      { key: "IsPseudoType", value: "" },
-      { key: "Weaknesses", value: "" },
-      { key: "Resistances", value: "" },
-      { key: "Immunities", value: "" },
+      { key: "Type", value: "NONE" },
+      { key: "Category", value: "Status" },
+      { key: "Power", value: "0" },
+      { key: "Accuracy", value: "100" },
+      { key: "TotalPP", value: "5" },
+      { key: "Target", value: "" },
+      { key: "Priority", value: "0" },
+      { key: "FunctionCode", value: "None" },
       { key: "Flags", value: "" },
+      { key: "EffectChance", value: "" },
+      { key: "Description", value: "???" },
     ],
   });
 
-  const typeOptions = useMemo(() => data.entries.map((entry) => entry.id), [data.entries]);
-
-  const toTitleCase = (value: string) => {
-    const lower = value.toLowerCase();
-    return lower ? lower[0].toUpperCase() + lower.slice(1) : "";
-  };
-
   if (loading) {
-    return <div className="panel">Loading types.txt...</div>;
+    return <div className="panel">Loading moves.txt...</div>;
   }
 
   if (error && data.entries.length === 0) {
     return (
       <div className="panel">
-        <h1>Types Editor</h1>
+        <h1>Moves Editor</h1>
         <p className="error">{error}</p>
       </div>
     );
@@ -287,7 +385,7 @@ export default function TypesPage() {
     <div className="editor-layout">
       <section className="list-panel">
         <div className="panel-header">
-          <h1>Types Editor</h1>
+          <h1>Moves Editor</h1>
           <button className="ghost" onClick={handleAddEntry}>
             Add New
           </button>
@@ -307,7 +405,7 @@ export default function TypesPage() {
       </section>
       <section className="detail-panel">
         {activeEntry ? (
-          <TypeDetail
+          <MoveDetail
             entry={activeEntry}
             onChange={updateEntry}
             onRename={updateEntryId}
@@ -320,7 +418,7 @@ export default function TypesPage() {
             typeOptions={typeOptions}
           />
         ) : (
-          <div className="panel">Select a type to edit.</div>
+          <div className="panel">Select a move to edit.</div>
         )}
         {invalidEntries.length > 0 && (
           <section className="panel">
@@ -346,13 +444,13 @@ export default function TypesPage() {
       </section>
       <section className="export-bar">
         <div className="export-warning">
-          Exports never overwrite <strong>PBS/types.txt</strong>. Output goes to <strong>PBS_Output/types.txt</strong>.
+          Exports never overwrite <strong>PBS/moves.txt</strong>. Output goes to <strong>PBS_Output/moves.txt</strong>.
         </div>
         <div className="export-actions">
           {status && <span className="status">{status}</span>}
           {error && <span className="error">{error}</span>}
           <button className="primary" onClick={handleExport} disabled={Boolean(idError) || hasInvalidEntries}>
-            Export types.txt
+            Export moves.txt
           </button>
         </div>
       </section>
@@ -373,7 +471,7 @@ type DetailProps = {
   typeOptions: string[];
 };
 
-function TypeDetail({
+function MoveDetail({
   entry,
   onChange,
   onRename,
@@ -386,15 +484,23 @@ function TypeDetail({
   typeOptions,
 }: DetailProps) {
   const [idDraft, setIdDraft] = useState(entry.id);
+  const [isCustomTarget, setIsCustomTarget] = useState(false);
 
   useEffect(() => {
     setIdDraft(entry.id);
   }, [entry.id]);
+
+  useEffect(() => {
+    const currentTarget = entry.fields.find((field) => field.key === "Target")?.value ?? "";
+    const isCustom =
+      currentTarget !== "" &&
+      !TARGET_OPTIONS.includes(currentTarget as (typeof TARGET_OPTIONS)[number]);
+    setIsCustomTarget(isCustom);
+  }, [entry.id, entry.fields]);
+
   const updateField = (index: number, key: string, value: string) => {
-    const lowerBoolKeys = ["IsSpecialType", "IsPseudoType"];
-    const nextValue = lowerBoolKeys.includes(key) ? value.toLowerCase() : value;
     const nextFields = entry.fields.map((field, idx) =>
-      idx === index ? { key, value: nextValue } : field
+      idx === index ? { key, value } : field
     );
     onChange({ ...entry, fields: nextFields });
   };
@@ -405,6 +511,17 @@ function TypeDetail({
       fields: [...entry.fields, { key: "NewKey", value: "" }],
     });
   };
+
+  const getFieldValue = (key: string) => entry.fields.find((field) => field.key === key)?.value ?? "";
+  const setFieldValue = (key: string, value: string) => {
+    const index = entry.fields.findIndex((field) => field.key === key);
+    if (index === -1) return;
+    updateField(index, key, value);
+  };
+
+  const category = getFieldValue("Category");
+  const power = getFieldValue("Power");
+  const showPowerWarning = category === "Status" && power.trim() !== "" && power !== "0";
 
   return (
     <div className="panel">
@@ -424,7 +541,7 @@ function TypeDetail({
       </div>
       <div className="field-list">
         <div className="field-row single">
-          <label className="label">Type ID</label>
+          <label className="label">Move ID</label>
           <input
             className="input"
             value={idDraft}
@@ -443,27 +560,121 @@ function TypeDetail({
       </div>
       <div className="field-list">
         {entry.fields.map((field, index) => {
-          const listKeys = ["Weaknesses", "Resistances", "Immunities"];
-          if (listKeys.includes(field.key)) {
+          if (field.key === "Type") {
+            return (
+              <div key={`${field.key}-${index}`} className="field-row">
+                <input className="input" value="Type" readOnly />
+                <select
+                  className="input"
+                  value={field.value}
+                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                >
+                  {typeOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
+              </div>
+            );
+          }
+
+          if (field.key === "Category") {
+            return (
+              <div key={`${field.key}-${index}`} className="field-row">
+                <input className="input" value="Category" readOnly />
+                <select
+                  className="input"
+                  value={field.value}
+                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                >
+                  {CATEGORY_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
+              </div>
+            );
+          }
+
+          if (field.key === "Target") {
+            const currentTarget = field.value;
+            const selectValue = currentTarget === "" ? "" : isCustomTarget ? "__custom__" : currentTarget;
+            return (
+              <div key={`${field.key}-${index}`} className="field-row">
+                <input className="input" value="Target" readOnly />
+                <div className="stack">
+                  <select
+                    className="input"
+                    value={selectValue}
+                    onChange={(event) => {
+                      const next = event.target.value;
+                      if (next === "__custom__") {
+                        setIsCustomTarget(true);
+                      } else {
+                        setIsCustomTarget(false);
+                        updateField(index, field.key, next);
+                      }
+                    }}
+                  >
+                    <option value="">Select target...</option>
+                    {TARGET_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                    <option value="__custom__">Custom...</option>
+                  </select>
+                  {isCustomTarget && (
+                    <input
+                      className="input"
+                      placeholder="Custom target"
+                      value={currentTarget}
+                      onChange={(event) => updateField(index, field.key, event.target.value)}
+                    />
+                  )}
+                </div>
+                {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
+              </div>
+            );
+          }
+
+          if (field.key === "Flags") {
             return (
               <ListFieldEditor
                 key={`${field.key}-${index}`}
-                label={field.key}
+                label="Flags"
                 value={field.value}
-                options={typeOptions}
+                options={FLAG_OPTIONS}
                 onChange={(nextValue) => updateField(index, field.key, nextValue)}
                 error={fieldErrors[field.key]}
               />
             );
           }
 
+          if (field.key === "Power") {
+            return (
+              <div key={`${field.key}-${index}`} className="field-row">
+                <input className="input" value="Power" readOnly />
+                <input
+                  className="input"
+                  value={field.value}
+                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                />
+                {showPowerWarning && (
+                  <span className="field-warning">Status moves ignore Power; it will be omitted on export.</span>
+                )}
+                {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
+              </div>
+            );
+          }
+
           return (
             <div key={`${field.key}-${index}`} className="field-row">
-              <input
-                className="input"
-                value={field.key}
-                onChange={(event) => updateField(index, event.target.value, field.value)}
-              />
+              <input className="input" value={field.key} readOnly />
               <input
                 className="input"
                 value={field.value}
@@ -481,7 +692,7 @@ function TypeDetail({
 type ListFieldEditorProps = {
   label: string;
   value: string;
-  options: string[];
+  options: readonly string[];
   onChange: (nextValue: string) => void;
   error?: string;
 };
@@ -493,16 +704,16 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
     .filter(Boolean);
 
   const handleSelectChange = (index: number, next: string) => {
+    const normalized = normalizeOption(next, options);
     const nextItems = [...items];
-    if (next === "") {
+    if (normalized === "") {
       nextItems.splice(index, 1);
     } else if (index === items.length) {
-      nextItems.push(next);
+      nextItems.push(normalized);
     } else {
-      nextItems[index] = next;
+      nextItems[index] = normalized;
     }
-    const normalized = nextItems.map((item) => item.toUpperCase());
-    const deduped = normalized.filter((item, idx) => normalized.indexOf(item) === idx);
+    const deduped = nextItems.filter((item, idx) => nextItems.indexOf(item) === idx);
     onChange(deduped.join(","));
   };
 
@@ -512,40 +723,43 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
       <div className="list-field-items">
         {items.map((item, index) => (
           <div key={`${label}-${index}`} className="list-field-row">
-            <select
+            <input
               className="input"
+              list={`${label}-options`}
               value={item}
               onChange={(event) => handleSelectChange(index, event.target.value)}
-            >
+            />
+            <datalist id={`${label}-options`}>
               {options.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
+                <option key={option} value={option} />
               ))}
-            </select>
-            <button className="ghost" onClick={() => handleSelectChange(index, "")}>
-              Remove
-            </button>
+            </datalist>
+            <button className="ghost" onClick={() => handleSelectChange(index, "")}>Remove</button>
           </div>
         ))}
         <div className="list-field-row">
-          <select
+          <input
             className="input"
+            list={`${label}-options`}
             value=""
+            placeholder="Add flag..."
             onChange={(event) => handleSelectChange(items.length, event.target.value)}
-          >
-            <option value="">Add type...</option>
+          />
+          <datalist id={`${label}-options`}>
             {options
               .filter((option) => !items.includes(option))
               .map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
+                <option key={option} value={option} />
               ))}
-          </select>
+          </datalist>
         </div>
       </div>
       {error && <span className="field-error">{error}</span>}
     </div>
   );
+}
+
+function normalizeOption(value: string, options: readonly string[]) {
+  const match = options.find((option) => option.toLowerCase() === value.toLowerCase());
+  return match ?? value;
 }

@@ -50,10 +50,10 @@ export default function AbilitiesPage() {
 
   const validateEntryId = (entry: PBSEntry, nextIdRaw: string) => {
     const nextId = nextIdRaw.trim().toUpperCase();
-    if (!nextId) return "Ability ID cannot be empty.";
-    if (!/^[A-Z]+$/.test(nextId)) return "Ability ID must be A-Z only.";
+    if (!nextId) return "ID is required.";
+    if (!/^[A-Z0-9]+$/.test(nextId)) return "ID must use A-Z or 0-9 only.";
     if (data.entries.some((item) => item.id.toLowerCase() === nextId.toLowerCase() && item.id !== entry.id)) {
-      return `Ability ${nextId} already exists.`;
+      return "ID must be unique.";
     }
     return null;
   };
@@ -92,6 +92,23 @@ export default function AbilitiesPage() {
     if (!activeEntry) return {};
     return validateEntryFields(activeEntry);
   }, [activeEntry]);
+
+  const collectEntryErrors = (entry: PBSEntry) => {
+    const errors: string[] = [];
+    const idErrorMessage = validateEntryId(entry, entry.id);
+    if (idErrorMessage) errors.push(`ID: ${idErrorMessage}`);
+    const fieldErrorMap = validateEntryFields(entry);
+    for (const [key, message] of Object.entries(fieldErrorMap)) {
+      errors.push(`${key}: ${message}`);
+    }
+    return errors;
+  };
+
+  const invalidEntries = useMemo(() => {
+    return data.entries
+      .map((entry) => ({ entry, errors: collectEntryErrors(entry) }))
+      .filter((item) => item.errors.length > 0);
+  }, [data.entries]);
 
   const hasInvalidEntries = useMemo(() => {
     for (const entry of data.entries) {
@@ -264,6 +281,27 @@ export default function AbilitiesPage() {
           />
         ) : (
           <div className="panel">Select an ability to edit.</div>
+        )}
+        {invalidEntries.length > 0 && (
+          <section className="panel">
+            <div className="panel-header">
+              <h2>Validation Issues</h2>
+              <div className="muted">Fix these before exporting.</div>
+            </div>
+            <div className="field-list">
+              {invalidEntries.map(({ entry, errors }) => (
+                <div key={entry.id} className="list-field">
+                  <div className="list-field-row">
+                    <strong>{entry.id}</strong>
+                    <button className="ghost" onClick={() => setActiveId(entry.id)}>
+                      Go to entry
+                    </button>
+                  </div>
+                  <div className="muted">{errors.join(" • ")}</div>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
       </section>
       <section className="export-bar">

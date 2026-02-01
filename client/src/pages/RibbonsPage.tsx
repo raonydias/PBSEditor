@@ -50,10 +50,10 @@ export default function RibbonsPage() {
 
   const validateEntryId = (entry: PBSEntry, nextIdRaw: string) => {
     const nextId = nextIdRaw.trim().toUpperCase();
-    if (!nextId) return "Ribbon ID cannot be empty.";
-    if (!/^[A-Z]+$/.test(nextId)) return "Ribbon ID must be A-Z only.";
+    if (!nextId) return "ID is required.";
+    if (!/^[A-Z0-9]+$/.test(nextId)) return "ID must use A-Z or 0-9 only.";
     if (data.entries.some((item) => item.id.toLowerCase() === nextId.toLowerCase() && item.id !== entry.id)) {
-      return `Ribbon ${nextId} already exists.`;
+      return "ID must be unique.";
     }
     return null;
   };
@@ -82,14 +82,16 @@ export default function RibbonsPage() {
     const name = getField("Name").trim();
     if (!name) errors.Name = "Name is required.";
 
-    const description = getField("Descriptions").trim();
-    if (!description) errors.Descriptions = "Descriptions is required.";
+    const description = getField("Description").trim();
+    if (!description) errors.Description = "Description is required.";
 
     const iconPosition = getField("IconPosition").trim();
     if (!iconPosition) {
       errors.IconPosition = "IconPosition is required.";
-    } else if (!/^-?\d+$/.test(iconPosition)) {
+    } else if (!/^\d+$/.test(iconPosition)) {
       errors.IconPosition = "IconPosition must be an integer.";
+    } else if (Number(iconPosition) < 0) {
+      errors.IconPosition = "IconPosition must be 0 or greater.";
     }
 
     return errors;
@@ -99,6 +101,23 @@ export default function RibbonsPage() {
     if (!activeEntry) return {};
     return validateEntryFields(activeEntry);
   }, [activeEntry]);
+
+  const collectEntryErrors = (entry: PBSEntry) => {
+    const errors: string[] = [];
+    const idErrorMessage = validateEntryId(entry, entry.id);
+    if (idErrorMessage) errors.push(`ID: ${idErrorMessage}`);
+    const fieldErrorMap = validateEntryFields(entry);
+    for (const [key, message] of Object.entries(fieldErrorMap)) {
+      errors.push(`${key}: ${message}`);
+    }
+    return errors;
+  };
+
+  const invalidEntries = useMemo(() => {
+    return data.entries
+      .map((entry) => ({ entry, errors: collectEntryErrors(entry) }))
+      .filter((item) => item.errors.length > 0);
+  }, [data.entries]);
 
   const hasInvalidEntries = useMemo(() => {
     for (const entry of data.entries) {
@@ -212,7 +231,7 @@ export default function RibbonsPage() {
     fields: [
       { key: "Name", value: toTitleCase(id) },
       { key: "IconPosition", value: "0" },
-      { key: "Descriptions", value: "???" },
+      { key: "Description", value: "???" },
       { key: "Flags", value: "" },
     ],
   });
@@ -272,6 +291,27 @@ export default function RibbonsPage() {
           />
         ) : (
           <div className="panel">Select a ribbon to edit.</div>
+        )}
+        {invalidEntries.length > 0 && (
+          <section className="panel">
+            <div className="panel-header">
+              <h2>Validation Issues</h2>
+              <div className="muted">Fix these before exporting.</div>
+            </div>
+            <div className="field-list">
+              {invalidEntries.map(({ entry, errors }) => (
+                <div key={entry.id} className="list-field">
+                  <div className="list-field-row">
+                    <strong>{entry.id}</strong>
+                    <button className="ghost" onClick={() => setActiveId(entry.id)}>
+                      Go to entry
+                    </button>
+                  </div>
+                  <div className="muted">{errors.join(" • ")}</div>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
       </section>
       <section className="export-bar">

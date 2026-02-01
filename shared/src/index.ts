@@ -25,6 +25,10 @@ export type RibbonsFile = {
   entries: PBSEntry[];
 };
 
+export type MovesFile = {
+  entries: PBSEntry[];
+};
+
 export type ProjectStatus = {
   root: string;
   hasPbs: boolean;

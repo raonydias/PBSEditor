@@ -50,10 +50,10 @@ export default function BerryPlantsPage() {
 
   const validateEntryId = (entry: PBSEntry, nextIdRaw: string) => {
     const nextId = nextIdRaw.trim().toUpperCase();
-    if (!nextId) return "Berry Plant ID cannot be empty.";
-    if (!/^[A-Z]+$/.test(nextId)) return "Berry Plant ID must be A-Z only.";
+    if (!nextId) return "ID is required.";
+    if (!/^[A-Z0-9]+$/.test(nextId)) return "ID must use A-Z or 0-9 only.";
     if (data.entries.some((item) => item.id.toLowerCase() === nextId.toLowerCase() && item.id !== entry.id)) {
-      return `Berry Plant ${nextId} already exists.`;
+      return "ID must be unique.";
     }
     return null;
   };
@@ -77,15 +77,19 @@ export default function BerryPlantsPage() {
     const hours = getField("HoursPerStage").trim();
     if (!hours) {
       errors.HoursPerStage = "HoursPerStage is required.";
-    } else if (!/^-?\d+$/.test(hours)) {
+    } else if (!/^\d+$/.test(hours)) {
       errors.HoursPerStage = "HoursPerStage must be an integer.";
+    } else if (Number(hours) < 1) {
+      errors.HoursPerStage = "HoursPerStage must be at least 1.";
     }
 
     const drying = getField("DryingPerHour").trim();
     if (!drying) {
       errors.DryingPerHour = "DryingPerHour is required.";
-    } else if (!/^-?\d+$/.test(drying)) {
+    } else if (!/^\d+$/.test(drying)) {
       errors.DryingPerHour = "DryingPerHour must be an integer.";
+    } else if (Number(drying) < 1) {
+      errors.DryingPerHour = "DryingPerHour must be at least 1.";
     }
 
     const yieldValue = getField("Yield").trim();
@@ -112,6 +116,23 @@ export default function BerryPlantsPage() {
     if (!activeEntry) return {};
     return validateEntryFields(activeEntry);
   }, [activeEntry]);
+
+  const collectEntryErrors = (entry: PBSEntry) => {
+    const errors: string[] = [];
+    const idErrorMessage = validateEntryId(entry, entry.id);
+    if (idErrorMessage) errors.push(`ID: ${idErrorMessage}`);
+    const fieldErrorMap = validateEntryFields(entry);
+    for (const [key, message] of Object.entries(fieldErrorMap)) {
+      errors.push(`${key}: ${message}`);
+    }
+    return errors;
+  };
+
+  const invalidEntries = useMemo(() => {
+    return data.entries
+      .map((entry) => ({ entry, errors: collectEntryErrors(entry) }))
+      .filter((item) => item.errors.length > 0);
+  }, [data.entries]);
 
   const hasInvalidEntries = useMemo(() => {
     for (const entry of data.entries) {
@@ -279,6 +300,27 @@ export default function BerryPlantsPage() {
           />
         ) : (
           <div className="panel">Select a berry plant to edit.</div>
+        )}
+        {invalidEntries.length > 0 && (
+          <section className="panel">
+            <div className="panel-header">
+              <h2>Validation Issues</h2>
+              <div className="muted">Fix these before exporting.</div>
+            </div>
+            <div className="field-list">
+              {invalidEntries.map(({ entry, errors }) => (
+                <div key={entry.id} className="list-field">
+                  <div className="list-field-row">
+                    <strong>{entry.id}</strong>
+                    <button className="ghost" onClick={() => setActiveId(entry.id)}>
+                      Go to entry
+                    </button>
+                  </div>
+                  <div className="muted">{errors.join(" • ")}</div>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
       </section>
       <section className="export-bar">

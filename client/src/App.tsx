@@ -6,6 +6,7 @@ import TypesPage from "./pages/TypesPage";
 import AbilitiesPage from "./pages/AbilitiesPage";
 import BerryPlantsPage from "./pages/BerryPlantsPage";
 import RibbonsPage from "./pages/RibbonsPage";
+import MovesPage from "./pages/MovesPage";
 import PokemonPage from "./pages/PokemonPage";
 
 export default function App() {
@@ -44,6 +45,10 @@ export default function App() {
             Ribbons
             {missing.has("ribbons.txt") && <span className="badge">Missing</span>}
           </NavLink>
+          <NavLink to="/moves" className="nav-link">
+            Moves
+            {missing.has("moves.txt") && <span className="badge">Missing</span>}
+          </NavLink>
           <NavLink to="/pokemon" className="nav-link">
             Pokemon
             {missing.has("pokemon.txt") && <span className="badge">Missing</span>}
@@ -66,6 +71,7 @@ export default function App() {
           <Route path="/abilities" element={<AbilitiesPage />} />
           <Route path="/berry-plants" element={<BerryPlantsPage />} />
           <Route path="/ribbons" element={<RibbonsPage />} />
+          <Route path="/moves" element={<MovesPage />} />
           <Route path="/pokemon" element={<PokemonPage />} />
         </Routes>
       </main>
