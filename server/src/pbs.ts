@@ -250,3 +250,63 @@ export function exportTrainerTypesFile(data: TrainerTypesFile): string {
 
   return lines.join("\n").trimEnd() + "\n";
 }
+
+export function exportPokemonFile(data: PokemonFile): string {
+  const sorted = [...data.entries].sort((a, b) => a.order - b.order);
+  const lines: string[] = [];
+  const order = [
+    "Name",
+    "FormName",
+    "Types",
+    "BaseStats",
+    "GenderRatio",
+    "GrowthRate",
+    "BaseExp",
+    "EVs",
+    "CatchRate",
+    "Happiness",
+    "Abilities",
+    "HiddenAbilities",
+    "Moves",
+    "TutorMoves",
+    "EggMoves",
+    "EggGroups",
+    "HatchSteps",
+    "Incense",
+    "Offspring",
+    "Height",
+    "Weight",
+    "Color",
+    "Shape",
+    "Habitat",
+    "Category",
+    "Pokedex",
+    "Generation",
+    "Flags",
+    "WildItemCommon",
+    "WildItemUncommon",
+    "WildItemRare",
+    "Evolutions",
+  ];
+
+  for (const entry of sorted) {
+    lines.push(`[${entry.id}]`);
+    const fieldMap = new Map(entry.fields.map((field) => [field.key, field.value]));
+    const seen = new Set<string>();
+    for (const key of order) {
+      const value = fieldMap.get(key);
+      if (value === undefined) continue;
+      seen.add(key);
+      if (value.trim() === "") continue;
+      lines.push(`${key} = ${value}`);
+    }
+    for (const field of entry.fields) {
+      if (seen.has(field.key)) continue;
+      if (field.value.trim() === "") continue;
+      lines.push(`${field.key} = ${field.value}`);
+    }
+    lines.push("#-------------------------------");
+  }
+
+  return lines.join("\n").trimEnd() + "\n";
+}

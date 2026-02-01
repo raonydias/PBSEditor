@@ -19,6 +19,7 @@ import {
   exportBerryPlantsFile,
   exportItemsFile,
   exportMovesFile,
+  exportPokemonFile,
   exportRibbonsFile,
   exportTrainerTypesFile,
   exportTypesFile,
@@ -65,6 +66,7 @@ const exportableFiles = [
   "moves.txt",
   "items.txt",
   "trainer_types.txt",
+  "pokemon.txt",
 ] as const;
 
 type SupportedFile = (typeof supportedFiles)[number];
@@ -262,7 +264,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
       | RibbonsFile
       | MovesFile
       | ItemsFile
-      | TrainerTypesFile;
+      | TrainerTypesFile
+      | PokemonFile;
     const output =
       file === "abilities.txt"
         ? exportAbilitiesFile(payload as AbilitiesFile)
@@ -274,6 +277,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
         ? exportMovesFile(payload as MovesFile)
         : file === "items.txt"
         ? exportItemsFile(payload as ItemsFile)
+        : file === "pokemon.txt"
+        ? exportPokemonFile(payload as PokemonFile)
         : file === "trainer_types.txt"
         ? exportTrainerTypesFile(payload as TrainerTypesFile)
         : exportTypesFile(payload as TypesFile);

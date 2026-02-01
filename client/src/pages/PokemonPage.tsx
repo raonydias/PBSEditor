@@ -1,7 +1,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AbilitiesFile, ItemsFile, MovesFile, PBSEntry, PokemonFile, TypesFile } from "@pbs/shared";
-import { getAbilities, getItems, getMoves, getPokemon, getTypes } from "../api";
+import { exportPokemon, getAbilities, getItems, getMoves, getPokemon, getTypes } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
 
 const emptyPokemon: PokemonFile = { entries: [] };
@@ -227,6 +227,40 @@ const STAT_DISPLAY = [
 ] as const;
 
 const EV_ORDER = ["HP", "ATTACK", "DEFENSE", "SPEED", "SPECIAL_ATTACK", "SPECIAL_DEFENSE"] as const;
+
+const DISPLAY_FIELD_ORDER = [
+  "Name",
+  "FormName",
+  "Category",
+  "Types",
+  "Abilities",
+  "HiddenAbilities",
+  "GenderRatio",
+  "CatchRate",
+  "EggGroups",
+  "HatchSteps",
+  "Incense",
+  "Offspring",
+  "Height",
+  "Weight",
+  "BaseExp",
+  "GrowthRate",
+  "Habitat",
+  "Shape",
+  "Color",
+  "Happiness",
+  "Generation",
+  "Pokedex",
+  "WildItemCommon",
+  "WildItemUncommon",
+  "WildItemRare",
+  "BaseStats",
+  "Moves",
+  "TutorMoves",
+  "EggMoves",
+  "Evolutions",
+  "Flags",
+] as const;
 
 export default function PokemonPage() {
   const [data, setData] = useState<PokemonFile>(emptyPokemon);
@@ -721,6 +755,21 @@ export default function PokemonPage() {
     dirty.setDirty("pokemon", nextSnap !== snapshot);
   }, [data.entries, snapshot]);
 
+  const handleExport = async () => {
+    setStatus(null);
+    setError(null);
+    try {
+      await exportPokemon(data);
+      const nextSnap = serializeEntries(data.entries);
+      setSnapshot(nextSnap);
+      dirty.setDirty("pokemon", false);
+      setStatus("Exported to PBS_Output/pokemon.txt");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message);
+    }
+  };
+
   const handleAddEntry = () => {
     setStatus(null);
     setError(null);
@@ -960,8 +1009,8 @@ export default function PokemonPage() {
         <div className="export-actions" onMouseEnter={validateAllEntries}>
           {status && <span className="status">{status}</span>}
           {error && <span className="error">{error}</span>}
-          <button className="primary" disabled>
-            Export pokemon.txt (Stage 1 disabled)
+          <button className="primary" onClick={handleExport} disabled={Boolean(idError) || hasInvalidEntries}>
+            Export pokemon.txt
           </button>
           {hasInvalidEntries && <span className="muted">Fix validation issues before export.</span>}
         </div>
@@ -1137,7 +1186,7 @@ function PokemonDetail({
         </div>
       </div>
       <div className="field-list">
-        {entry.fields.map((field, index) => {
+        {getOrderedFields(entry.fields, DISPLAY_FIELD_ORDER).map((field, index) => {
           if (field.key === "Name") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
@@ -2042,6 +2091,24 @@ function splitList(value: string) {
     .split(",")
     .map((part) => part.trim())
     .filter(Boolean);
+}
+
+function getOrderedFields(fields: PBSEntry["fields"], order: readonly string[]) {
+  const fieldMap = new Map(fields.map((field) => [field.key, field]));
+  const ordered: PBSEntry["fields"] = [];
+  const seen = new Set<string>();
+  for (const key of order) {
+    const field = fieldMap.get(key);
+    if (field) {
+      ordered.push(field);
+      seen.add(key);
+    }
+  }
+  for (const field of fields) {
+    if (seen.has(field.key)) continue;
+    ordered.push(field);
+  }
+  return ordered;
 }
 
 function getFieldValue(entry: PBSEntry, key: string) {

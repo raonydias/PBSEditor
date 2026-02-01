@@ -153,6 +153,18 @@ export async function getPokemon(): Promise<PokemonFile> {
   return res.json();
 }
 
+export async function exportPokemon(data: PokemonFile): Promise<void> {
+  const res = await fetch("/api/pbs/pokemon.txt/export", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Export failed: ${body}`);
+  }
+}
+
 export async function getTrainerTypes(): Promise<TrainerTypesFile> {
   const res = await fetch("/api/pbs/trainer_types.txt");
   if (!res.ok) {
