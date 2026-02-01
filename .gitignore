@@ -4,3 +4,5 @@ node_modules
 /server/dist
 .DS_Store
 .env
+PBS/
+PBS_Output/

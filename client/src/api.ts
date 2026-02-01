@@ -1,4 +1,4 @@
-import { AbilitiesFile, BerryPlantsFile, MovesFile, ProjectStatus, RibbonsFile, TypesFile } from "@pbs/shared";
+import { AbilitiesFile, BerryPlantsFile, ItemsFile, MovesFile, ProjectStatus, RibbonsFile, TypesFile } from "@pbs/shared";
 
 export async function getProjectStatus(): Promise<ProjectStatus> {
   const res = await fetch("/api/project/status");
@@ -103,6 +103,27 @@ export async function getMoves(): Promise<MovesFile> {
 
 export async function exportMoves(data: MovesFile): Promise<void> {
   const res = await fetch("/api/pbs/moves.txt/export", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Export failed: ${body}`);
+  }
+}
+
+export async function getItems(): Promise<ItemsFile> {
+  const res = await fetch("/api/pbs/items.txt");
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Failed to load items.txt: ${body}`);
+  }
+  return res.json();
+}
+
+export async function exportItems(data: ItemsFile): Promise<void> {
+  const res = await fetch("/api/pbs/items.txt/export", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),

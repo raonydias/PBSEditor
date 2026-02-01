@@ -29,6 +29,10 @@ export type MovesFile = {
   entries: PBSEntry[];
 };
 
+export type ItemsFile = {
+  entries: PBSEntry[];
+};
+
 export type ProjectStatus = {
   root: string;
   hasPbs: boolean;

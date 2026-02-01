@@ -1,4 +1,4 @@
-import { AbilitiesFile, BerryPlantsFile, MovesFile, PBSEntry, RibbonsFile, TypesFile } from "@pbs/shared";
+import { AbilitiesFile, BerryPlantsFile, ItemsFile, MovesFile, PBSEntry, RibbonsFile, TypesFile } from "@pbs/shared";
 
 type ParsedSection = {
   id: string;
@@ -75,6 +75,16 @@ export function parseRibbonsFile(text: string): RibbonsFile {
 }
 
 export function parseMovesFile(text: string): MovesFile {
+  const sections = parseIniLike(text);
+  const entries: PBSEntry[] = sections.map((section, index) => ({
+    id: section.id,
+    fields: section.fields,
+    order: index,
+  }));
+  return { entries };
+}
+
+export function parseItemsFile(text: string): ItemsFile {
   const sections = parseIniLike(text);
   const entries: PBSEntry[] = sections.map((section, index) => ({
     id: section.id,
@@ -172,6 +182,22 @@ export function exportMovesFile(data: MovesFile): string {
     }
     if (!sawTarget) {
       lines.push("Target=None");
+    }
+    lines.push("#-------------------------------");
+  }
+
+  return lines.join("\n").trimEnd() + "\n";
+}
+
+export function exportItemsFile(data: ItemsFile): string {
+  const sorted = [...data.entries].sort((a, b) => a.order - b.order);
+  const lines: string[] = [];
+
+  for (const entry of sorted) {
+    lines.push(`[${entry.id}]`);
+    for (const field of entry.fields) {
+      if (field.value.trim() === "") continue;
+      lines.push(`${field.key}=${field.value}`);
     }
     lines.push("#-------------------------------");
   }

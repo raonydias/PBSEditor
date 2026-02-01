@@ -2,15 +2,17 @@ import express from "express";
 import { z } from "zod";
 import { promises as fs, accessSync } from "fs";
 import path from "path";
-import { AbilitiesFile, ApiError, BerryPlantsFile, MovesFile, ProjectStatus, RibbonsFile, TypesFile } from "@pbs/shared";
+import { AbilitiesFile, ApiError, BerryPlantsFile, ItemsFile, MovesFile, ProjectStatus, RibbonsFile, TypesFile } from "@pbs/shared";
 import {
   exportAbilitiesFile,
   exportBerryPlantsFile,
+  exportItemsFile,
   exportMovesFile,
   exportRibbonsFile,
   exportTypesFile,
   parseAbilitiesFile,
   parseBerryPlantsFile,
+  parseItemsFile,
   parseMovesFile,
   parseRibbonsFile,
   parseTypesFile,
@@ -21,9 +23,9 @@ app.use(express.json({ limit: "2mb" }));
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 5174;
 
-const supportedFiles = ["types.txt", "abilities.txt", "berry_plants.txt", "ribbons.txt", "moves.txt", "pokemon.txt"] as const;
-const readableFiles = ["types.txt", "abilities.txt", "berry_plants.txt", "ribbons.txt", "moves.txt"] as const;
-const exportableFiles = ["types.txt", "abilities.txt", "berry_plants.txt", "ribbons.txt", "moves.txt"] as const;
+const supportedFiles = ["types.txt", "abilities.txt", "berry_plants.txt", "ribbons.txt", "moves.txt", "items.txt", "pokemon.txt"] as const;
+const readableFiles = ["types.txt", "abilities.txt", "berry_plants.txt", "ribbons.txt", "moves.txt", "items.txt"] as const;
+const exportableFiles = ["types.txt", "abilities.txt", "berry_plants.txt", "ribbons.txt", "moves.txt", "items.txt"] as const;
 
 type SupportedFile = (typeof supportedFiles)[number];
 
@@ -134,6 +136,11 @@ app.get("/api/pbs/:file", async (req, res) => {
       res.json(parsed);
       return;
     }
+    if (file === "items.txt") {
+      const parsed = parseItemsFile(raw);
+      res.json(parsed);
+      return;
+    }
     res.status(500).json(errorBody("Parser not implemented.", file));
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
@@ -173,7 +180,7 @@ app.post("/api/pbs/:file/export", async (req, res) => {
 
   try {
     await ensurePbsOutput();
-    const payload = parseResult.data as TypesFile | AbilitiesFile | BerryPlantsFile | RibbonsFile | MovesFile;
+    const payload = parseResult.data as TypesFile | AbilitiesFile | BerryPlantsFile | RibbonsFile | MovesFile | ItemsFile;
     const output =
       file === "abilities.txt"
         ? exportAbilitiesFile(payload as AbilitiesFile)
@@ -183,6 +190,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
         ? exportRibbonsFile(payload as RibbonsFile)
         : file === "moves.txt"
         ? exportMovesFile(payload as MovesFile)
+        : file === "items.txt"
+        ? exportItemsFile(payload as ItemsFile)
         : exportTypesFile(payload as TypesFile);
     const outputPath = path.join(pbsOutputDir(), file);
     await fs.writeFile(outputPath, output, "utf-8");

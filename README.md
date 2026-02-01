@@ -50,6 +50,7 @@ The server will still read from `./PBS/` and export to `./PBS_Output/` relative 
 - `/berry-plants` editor (list + edit + export) for `PBS/berry_plants.txt`.
 - `/ribbons` editor (list + edit + export) for `PBS/ribbons.txt`.
 - `/moves` editor (list + edit + export) for `PBS/moves.txt`.
+- `/items` editor (list + edit + export) for `PBS/items.txt`.
 - `/pokemon` skeleton showing Type1/Type2 dropdowns sourced from `types.txt`.
 
 ## Export Safety
@@ -61,7 +62,6 @@ The server will still read from `./PBS/` and export to `./PBS_Output/` relative 
 ## Roadmap
 
 Next PBS files to support:
-- `items.txt`
 - `pokemon.txt` full editor
 - `trainers.txt`
 

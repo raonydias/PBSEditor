@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BerryPlantsFile, PBSEntry } from "@pbs/shared";
 import { exportBerryPlants, getBerryPlants } from "../api";
+import { serializeEntries, useDirty } from "../dirty";
 
 const emptyFile: BerryPlantsFile = { entries: [] };
 
@@ -11,14 +12,34 @@ export default function BerryPlantsPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [idError, setIdError] = useState<string | null>(null);
+  const dirty = useDirty();
+  const [snapshot, setSnapshot] = useState<string | null>(null);
+
+  const ensureBerryPlantDefaults = (entry: PBSEntry) => {
+    const defaults = buildDefaultBerryPlantEntry(entry.id, entry.order);
+    const existing = new Map(entry.fields.map((field) => [field.key, field.value]));
+    const defaultKeys = new Set(defaults.fields.map((field) => field.key));
+    const merged = defaults.fields.map((field) => ({
+      key: field.key,
+      value: existing.get(field.key) ?? field.value,
+    }));
+    for (const field of entry.fields) {
+      if (!defaultKeys.has(field.key)) merged.push(field);
+    }
+    return { ...entry, fields: merged };
+  };
 
   useEffect(() => {
     let isMounted = true;
     getBerryPlants()
       .then((result) => {
         if (!isMounted) return;
-        setData(result);
-        setActiveId(result.entries[0]?.id ?? null);
+        const normalized = { entries: result.entries.map(ensureBerryPlantDefaults) };
+        setData(normalized);
+        setActiveId(normalized.entries[0]?.id ?? null);
+        const snap = serializeEntries(normalized.entries);
+        setSnapshot(snap);
+        dirty.setDirty("berry_plants", false);
       })
       .catch((err: Error) => {
         if (!isMounted) return;
@@ -31,6 +52,10 @@ export default function BerryPlantsPage() {
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    dirty.setCurrentKey("berry_plants");
   }, []);
 
   const activeEntry = useMemo(() => {
@@ -143,11 +168,20 @@ export default function BerryPlantsPage() {
     return false;
   }, [data.entries]);
 
+  useEffect(() => {
+    if (!snapshot) return;
+    const nextSnap = serializeEntries(data.entries);
+    dirty.setDirty("berry_plants", nextSnap !== snapshot);
+  }, [data.entries, snapshot]);
+
   const handleExport = async () => {
     setStatus(null);
     setError(null);
     try {
       await exportBerryPlants(data);
+      const nextSnap = serializeEntries(data.entries);
+      setSnapshot(nextSnap);
+      dirty.setDirty("berry_plants", false);
       setStatus("Exported to PBS_Output/berry_plants.txt");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { MovesFile, PBSEntry, TypesFile } from "@pbs/shared";
 import { exportMoves, getMoves, getTypes } from "../api";
+import { serializeEntries, useDirty } from "../dirty";
 
 const emptyFile: MovesFile = { entries: [] };
 const emptyTypes: TypesFile = { entries: [] };
@@ -52,10 +53,26 @@ export default function MovesPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [idError, setIdError] = useState<string | null>(null);
+  const dirty = useDirty();
+  const [snapshot, setSnapshot] = useState<string | null>(null);
 
   const toTitleCase = (value: string) => {
     const lower = value.toLowerCase();
     return lower ? lower[0].toUpperCase() + lower.slice(1) : "";
+  };
+
+  const ensureMoveDefaults = (entry: PBSEntry) => {
+    const defaults = buildDefaultMoveEntry(entry.id, entry.order);
+    const existing = new Map(entry.fields.map((field) => [field.key, field.value]));
+    const defaultKeys = new Set(defaults.fields.map((field) => field.key));
+    const merged = defaults.fields.map((field) => ({
+      key: field.key,
+      value: existing.get(field.key) ?? field.value,
+    }));
+    for (const field of entry.fields) {
+      if (!defaultKeys.has(field.key)) merged.push(field);
+    }
+    return { ...entry, fields: merged };
   };
 
   useEffect(() => {
@@ -63,9 +80,13 @@ export default function MovesPage() {
     Promise.all([getMoves(), getTypes()])
       .then(([movesResult, typesResult]) => {
         if (!isMounted) return;
-        setData(movesResult);
+        const normalized = { entries: movesResult.entries.map(ensureMoveDefaults) };
+        setData(normalized);
         setTypes(typesResult);
-        setActiveId(movesResult.entries[0]?.id ?? null);
+        setActiveId(normalized.entries[0]?.id ?? null);
+        const snap = serializeEntries(normalized.entries);
+        setSnapshot(snap);
+        dirty.setDirty("moves", false);
       })
       .catch((err: Error) => {
         if (!isMounted) return;
@@ -78,6 +99,10 @@ export default function MovesPage() {
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    dirty.setCurrentKey("moves");
   }, []);
 
   const activeEntry = useMemo(() => {
@@ -252,11 +277,20 @@ export default function MovesPage() {
     return false;
   }, [data.entries, typeOptions]);
 
+  useEffect(() => {
+    if (!snapshot) return;
+    const nextSnap = serializeEntries(data.entries);
+    dirty.setDirty("moves", nextSnap !== snapshot);
+  }, [data.entries, snapshot]);
+
   const handleExport = async () => {
     setStatus(null);
     setError(null);
     try {
       await exportMoves(data);
+      const nextSnap = serializeEntries(data.entries);
+      setSnapshot(nextSnap);
+      dirty.setDirty("moves", false);
       setStatus("Exported to PBS_Output/moves.txt");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

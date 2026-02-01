@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { PBSEntry, RibbonsFile } from "@pbs/shared";
 import { exportRibbons, getRibbons } from "../api";
+import { serializeEntries, useDirty } from "../dirty";
 
 const emptyFile: RibbonsFile = { entries: [] };
 
@@ -11,14 +12,34 @@ export default function RibbonsPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [idError, setIdError] = useState<string | null>(null);
+  const dirty = useDirty();
+  const [snapshot, setSnapshot] = useState<string | null>(null);
+
+  const ensureRibbonDefaults = (entry: PBSEntry) => {
+    const defaults = buildDefaultRibbonEntry(entry.id, entry.order);
+    const existing = new Map(entry.fields.map((field) => [field.key, field.value]));
+    const defaultKeys = new Set(defaults.fields.map((field) => field.key));
+    const merged = defaults.fields.map((field) => ({
+      key: field.key,
+      value: existing.get(field.key) ?? field.value,
+    }));
+    for (const field of entry.fields) {
+      if (!defaultKeys.has(field.key)) merged.push(field);
+    }
+    return { ...entry, fields: merged };
+  };
 
   useEffect(() => {
     let isMounted = true;
     getRibbons()
       .then((result) => {
         if (!isMounted) return;
-        setData(result);
-        setActiveId(result.entries[0]?.id ?? null);
+        const normalized = { entries: result.entries.map(ensureRibbonDefaults) };
+        setData(normalized);
+        setActiveId(normalized.entries[0]?.id ?? null);
+        const snap = serializeEntries(normalized.entries);
+        setSnapshot(snap);
+        dirty.setDirty("ribbons", false);
       })
       .catch((err: Error) => {
         if (!isMounted) return;
@@ -31,6 +52,10 @@ export default function RibbonsPage() {
     return () => {
       isMounted = false;
     };
+  }, []);
+
+  useEffect(() => {
+    dirty.setCurrentKey("ribbons");
   }, []);
 
   const activeEntry = useMemo(() => {
@@ -128,11 +153,20 @@ export default function RibbonsPage() {
     return false;
   }, [data.entries]);
 
+  useEffect(() => {
+    if (!snapshot) return;
+    const nextSnap = serializeEntries(data.entries);
+    dirty.setDirty("ribbons", nextSnap !== snapshot);
+  }, [data.entries, snapshot]);
+
   const handleExport = async () => {
     setStatus(null);
     setError(null);
     try {
       await exportRibbons(data);
+      const nextSnap = serializeEntries(data.entries);
+      setSnapshot(nextSnap);
+      dirty.setDirty("ribbons", false);
       setStatus("Exported to PBS_Output/ribbons.txt");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

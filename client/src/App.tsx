@@ -1,23 +1,37 @@
-import { NavLink, Route, Routes } from "react-router-dom";
+import { NavLink, Outlet, useBlocker } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { ProjectStatus } from "@pbs/shared";
 import { getProjectStatus } from "./api";
-import TypesPage from "./pages/TypesPage";
-import AbilitiesPage from "./pages/AbilitiesPage";
-import BerryPlantsPage from "./pages/BerryPlantsPage";
-import RibbonsPage from "./pages/RibbonsPage";
-import MovesPage from "./pages/MovesPage";
-import PokemonPage from "./pages/PokemonPage";
+import { useDirty } from "./dirty";
 
 export default function App() {
+  const dirty = useDirty();
   const [status, setStatus] = useState<ProjectStatus | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [showPrompt, setShowPrompt] = useState(false);
+  const blocker = useBlocker(dirty.anyDirty);
 
   useEffect(() => {
     getProjectStatus()
       .then(setStatus)
       .catch((err: Error) => setStatusError(err.message));
   }, []);
+
+  useEffect(() => {
+    if (blocker.state === "blocked") {
+      setShowPrompt(true);
+    }
+  }, [blocker.state]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!dirty.anyDirty) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [dirty.anyDirty]);
 
   const missing = new Set(status?.missingFiles ?? []);
 
@@ -49,6 +63,10 @@ export default function App() {
             Moves
             {missing.has("moves.txt") && <span className="badge">Missing</span>}
           </NavLink>
+          <NavLink to="/items" className="nav-link">
+            Items
+            {missing.has("items.txt") && <span className="badge">Missing</span>}
+          </NavLink>
           <NavLink to="/pokemon" className="nav-link">
             Pokemon
             {missing.has("pokemon.txt") && <span className="badge">Missing</span>}
@@ -65,16 +83,37 @@ export default function App() {
         </div>
       </aside>
       <main className="main">
-        <Routes>
-          <Route path="/" element={<TypesPage />} />
-          <Route path="/types" element={<TypesPage />} />
-          <Route path="/abilities" element={<AbilitiesPage />} />
-          <Route path="/berry-plants" element={<BerryPlantsPage />} />
-          <Route path="/ribbons" element={<RibbonsPage />} />
-          <Route path="/moves" element={<MovesPage />} />
-          <Route path="/pokemon" element={<PokemonPage />} />
-        </Routes>
+        <Outlet />
       </main>
+      {showPrompt && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h2>Unsaved Changes</h2>
+            <p>You have unexported changes in the current editor. Leave anyway?</p>
+            <div className="button-row">
+              <button
+                className="ghost"
+                onClick={() => {
+                  blocker.reset?.();
+                  setShowPrompt(false);
+                }}
+              >
+                Stay
+              </button>
+              <button
+                className="danger"
+                onClick={() => {
+                  if (dirty.currentKey) dirty.setDirty(dirty.currentKey, false);
+                  blocker.proceed?.();
+                  setShowPrompt(false);
+                }}
+              >
+                Leave
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
