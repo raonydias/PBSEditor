@@ -82,6 +82,141 @@ const FLAG_OPTIONS = [
   "InheritFormWithEverStone",
 ] as const;
 
+const EVOLUTION_METHOD_OPTIONS = [
+  "Level",
+  "LevelMale",
+  "LevelFemale",
+  "LevelDay",
+  "LevelNight",
+  "LevelMorning",
+  "LevelAfternoon",
+  "LevelEvening",
+  "LevelNoWeather",
+  "LevelSun",
+  "LevelRain",
+  "LevelSnow",
+  "LevelSandstorm",
+  "LevelCycling",
+  "LevelSurfing",
+  "LevelDiving",
+  "LevelDarkness",
+  "LevelDarkInParty",
+  "AttackGreater",
+  "AtkDefEqual",
+  "DefenseGreater",
+  "Silcoon",
+  "Cascoon",
+  "Ninjask",
+  "Shedinja",
+  "Beauty",
+  "Location",
+  "Region",
+  "BattleDealCriticalHit",
+  "Event",
+  "EventAfterDamageTaken",
+  "HappinessMove",
+  "HasMove",
+  "HappinessMoveType",
+  "HasMoveType",
+  "HappinessHoldItem",
+  "HoldItem",
+  "HoldItemMale",
+  "HoldItemFemale",
+  "DayHoldItem",
+  "NightHoldItem",
+  "HoldItemHappiness",
+  "Item",
+  "ItemMale",
+  "ItemFemale",
+  "ItemDay",
+  "ItemNight",
+  "ItemHappiness",
+  "TradeItem",
+  "HasInParty",
+  "TradeSpecies",
+  "LocationFlag",
+  "Happiness",
+  "HappinessMale",
+  "HappinessFemale",
+  "HappinessDay",
+  "HappinessNight",
+  "MaxHappiness",
+  "Trade",
+  "TradeMale",
+  "TradeFemale",
+  "TradeDay",
+  "TradeNight",
+  "None",
+] as const;
+
+const EVOLUTION_PARAM_INTEGER = new Set([
+  "Level",
+  "LevelMale",
+  "LevelFemale",
+  "LevelDay",
+  "LevelNight",
+  "LevelMorning",
+  "LevelAfternoon",
+  "LevelEvening",
+  "LevelNoWeather",
+  "LevelSun",
+  "LevelRain",
+  "LevelSnow",
+  "LevelSandstorm",
+  "LevelCycling",
+  "LevelSurfing",
+  "LevelDiving",
+  "LevelDarkness",
+  "LevelDarkInParty",
+  "AttackGreater",
+  "AtkDefEqual",
+  "DefenseGreater",
+  "Silcoon",
+  "Cascoon",
+  "Ninjask",
+  "Beauty",
+  "Location",
+  "Region",
+  "BattleDealCriticalHit",
+  "Event",
+  "EventAfterDamageTaken",
+]);
+
+const EVOLUTION_PARAM_MOVE = new Set(["HappinessMove", "HasMove"]);
+const EVOLUTION_PARAM_TYPE = new Set(["HappinessMoveType", "HasMoveType"]);
+const EVOLUTION_PARAM_ITEM = new Set([
+  "HappinessHoldItem",
+  "HoldItem",
+  "HoldItemMale",
+  "HoldItemFemale",
+  "DayHoldItem",
+  "NightHoldItem",
+  "HoldItemHappiness",
+  "Item",
+  "ItemMale",
+  "ItemFemale",
+  "ItemDay",
+  "ItemNight",
+  "ItemHappiness",
+  "TradeItem",
+]);
+const EVOLUTION_PARAM_POKEMON = new Set(["HasInParty", "TradeSpecies"]);
+const EVOLUTION_PARAM_STRING = new Set(["LocationFlag"]);
+const EVOLUTION_PARAM_NONE = new Set([
+  "Happiness",
+  "HappinessMale",
+  "HappinessFemale",
+  "HappinessDay",
+  "HappinessNight",
+  "MaxHappiness",
+  "Trade",
+  "TradeMale",
+  "TradeFemale",
+  "TradeDay",
+  "TradeNight",
+  "None",
+]);
+
 const STAT_DISPLAY = [
   { key: "HP", label: "HP", fileIndex: 0 },
   { key: "ATTACK", label: "Attack", fileIndex: 1 },
@@ -334,6 +469,86 @@ export default function PokemonPage() {
     const eggMoves = splitList(getField("EggMoves"));
     if (eggMoves.some((value) => !moveOptions.includes(value))) {
       errors.EggMoves = "EggMoves must use valid Move IDs.";
+    }
+
+    const evolutionsRaw = getField("Evolutions").trim();
+    const evolutionEntries = parseEvolutionEntries(evolutionsRaw);
+    for (const evo of evolutionEntries) {
+      if (!evo.pokemon && !evo.method && !evo.parameter) continue;
+      if (!evo.pokemon) {
+        errors.Evolutions = "Evolution entries need a Pokemon ID.";
+        break;
+      }
+      if (!pokemonOptions.includes(evo.pokemon)) {
+        errors.Evolutions = "Evolution entries must use valid Pokemon IDs.";
+        break;
+      }
+      if (!evo.method) {
+        errors.Evolutions = "Evolution entries need a method.";
+        break;
+      }
+      const method = evo.method;
+      const paramKind = resolveEvolutionParamKind(method);
+      if (paramKind === "integer") {
+        if (!evo.parameter) {
+          errors.Evolutions = "Evolution entries need a parameter.";
+          break;
+        }
+        if (!/^\d+$/.test(evo.parameter) || Number(evo.parameter) < 1) {
+          errors.Evolutions = "Evolution parameters must be integers of at least 1.";
+          break;
+        }
+      } else if (paramKind === "move") {
+        if (!evo.parameter) {
+          errors.Evolutions = "Evolution entries need a Move ID.";
+          break;
+        }
+        if (!moveOptions.includes(evo.parameter)) {
+          errors.Evolutions = "Evolution entries must use valid Move IDs.";
+          break;
+        }
+      } else if (paramKind === "type") {
+        if (!evo.parameter) {
+          errors.Evolutions = "Evolution entries need a Type ID.";
+          break;
+        }
+        if (!typeOptions.includes(evo.parameter)) {
+          errors.Evolutions = "Evolution entries must use valid Type IDs.";
+          break;
+        }
+      } else if (paramKind === "item") {
+        if (!evo.parameter) {
+          errors.Evolutions = "Evolution entries need an Item ID.";
+          break;
+        }
+        if (!itemOptions.includes(evo.parameter)) {
+          errors.Evolutions = "Evolution entries must use valid Item IDs.";
+          break;
+        }
+      } else if (paramKind === "pokemon") {
+        if (!evo.parameter) {
+          errors.Evolutions = "Evolution entries need a Pokemon ID.";
+          break;
+        }
+        if (!pokemonOptions.includes(evo.parameter)) {
+          errors.Evolutions = "Evolution entries must use valid Pokemon IDs.";
+          break;
+        }
+      } else if (paramKind === "none") {
+        if (evo.parameter) {
+          errors.Evolutions = "Evolution entries for this method must not have a parameter.";
+          break;
+        }
+      } else {
+        if (!evo.parameter) {
+          errors.Evolutions = "Evolution entries need a parameter.";
+          break;
+        }
+        if (/\s/.test(evo.parameter)) {
+          errors.Evolutions = "Evolution parameters must not contain spaces.";
+          break;
+        }
+      }
     }
 
     const evsRaw = getField("EVs").trim();
@@ -642,6 +857,7 @@ export default function PokemonPage() {
       { key: "WildItemCommon", value: "" },
       { key: "WildItemUncommon", value: "" },
       { key: "WildItemRare", value: "" },
+      { key: "Evolutions", value: "" },
     ],
   });
 
@@ -869,6 +1085,20 @@ function PokemonDetail({
     } else {
       setFieldValue("Abilities", first);
     }
+  };
+
+  const updateEvolutions = (
+    entries: { pokemon: string; method: string; parameter: string }[],
+    index: number,
+    next: Partial<{ pokemon: string; method: string; parameter: string }>
+  ) => {
+    const nextEntries = entries.map((entry, idx) => (idx === index ? { ...entry, ...next } : entry));
+    const updated = nextEntries[index];
+    const paramKind = resolveEvolutionParamKind(updated.method);
+    if (paramKind === "none") {
+      updated.parameter = "";
+    }
+    setFieldValue("Evolutions", buildEvolutionString(nextEntries));
   };
 
   return (
@@ -1181,6 +1411,128 @@ function PokemonDetail({
             );
           }
 
+          if (field.key === "Evolutions") {
+            const evolutions = ensureEvolutionEntries(parseEvolutionEntries(field.value));
+            return (
+              <div key={`${field.key}-${index}`} className="list-field">
+                <div className="list-field-header">
+                  <div className="list-field-label">Evolutions</div>
+                </div>
+                <div className="moves-grid">
+                  {evolutions.map((evo, evoIndex) => {
+                    const paramKind = resolveEvolutionParamKind(evo.method);
+                    return (
+                      <div key={`evo-${evoIndex}`} className="moves-row">
+                        <input
+                          className="input"
+                          list="pokemon-options"
+                          value={evo.pokemon}
+                          placeholder="Pokemon ID"
+                          onChange={(event) =>
+                            updateEvolutions(evolutions, evoIndex, { pokemon: event.target.value })
+                          }
+                        />
+                        <input
+                          className="input"
+                          list="evolution-method-options"
+                          value={evo.method}
+                          placeholder="Method"
+                          onChange={(event) =>
+                            updateEvolutions(evolutions, evoIndex, { method: event.target.value })
+                          }
+                        />
+                        {paramKind === "integer" && (
+                          <input
+                            className="input"
+                            value={evo.parameter}
+                            placeholder="Parameter"
+                            onChange={(event) =>
+                              updateEvolutions(evolutions, evoIndex, { parameter: event.target.value })
+                            }
+                          />
+                        )}
+                        {paramKind === "move" && (
+                          <input
+                            className="input"
+                            list="move-options"
+                            value={evo.parameter}
+                            placeholder="Move ID"
+                            onChange={(event) =>
+                              updateEvolutions(evolutions, evoIndex, { parameter: event.target.value })
+                            }
+                          />
+                        )}
+                        {paramKind === "type" && (
+                          <input
+                            className="input"
+                            list="type-options"
+                            value={evo.parameter}
+                            placeholder="Type ID"
+                            onChange={(event) =>
+                              updateEvolutions(evolutions, evoIndex, { parameter: event.target.value })
+                            }
+                          />
+                        )}
+                        {paramKind === "item" && (
+                          <input
+                            className="input"
+                            list="item-options"
+                            value={evo.parameter}
+                            placeholder="Item ID"
+                            onChange={(event) =>
+                              updateEvolutions(evolutions, evoIndex, { parameter: event.target.value })
+                            }
+                          />
+                        )}
+                        {paramKind === "pokemon" && (
+                          <input
+                            className="input"
+                            list="pokemon-options"
+                            value={evo.parameter}
+                            placeholder="Pokemon ID"
+                            onChange={(event) =>
+                              updateEvolutions(evolutions, evoIndex, { parameter: event.target.value })
+                            }
+                          />
+                        )}
+                        {paramKind === "none" && (
+                          <input
+                            className="input"
+                            value={evo.parameter}
+                            placeholder="(none)"
+                            onChange={(event) =>
+                              updateEvolutions(evolutions, evoIndex, { parameter: event.target.value })
+                            }
+                          />
+                        )}
+                        {paramKind === "string" && (
+                          <input
+                            className="input"
+                            value={evo.parameter}
+                            placeholder="Parameter"
+                            onChange={(event) =>
+                              updateEvolutions(evolutions, evoIndex, { parameter: event.target.value })
+                            }
+                          />
+                        )}
+                        <button
+                          className="ghost"
+                          onClick={() => {
+                            const nextList = evolutions.filter((_, idx) => idx !== evoIndex);
+                            setFieldValue("Evolutions", buildEvolutionString(nextList));
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+                {fieldErrors.Evolutions && <span className="field-error">{fieldErrors.Evolutions}</span>}
+              </div>
+            );
+          }
+
           if (field.key === "HiddenAbilities") {
             return (
               <SelectListField
@@ -1207,6 +1559,8 @@ function PokemonDetail({
                 onChange={(nextValue) => updateField(index, field.key, nextValue)}
                 error={fieldErrors[field.key]}
                 inputMode="datalist"
+                datalistId="move-options"
+                renderDatalist={false}
               />
             );
           }
@@ -1221,6 +1575,8 @@ function PokemonDetail({
                 onChange={(nextValue) => updateField(index, field.key, nextValue)}
                 error={fieldErrors[field.key]}
                 inputMode="datalist"
+                datalistId="move-options"
+                renderDatalist={false}
               />
             );
           }
@@ -1431,6 +1787,21 @@ function PokemonDetail({
         })}
         <datalist id="ability-options">
           {abilityOptions.map((option) => (
+            <option key={option} value={option} />
+          ))}
+        </datalist>
+        <datalist id="pokemon-options">
+          {pokemonOptions.map((option) => (
+            <option key={option} value={option} />
+          ))}
+        </datalist>
+        <datalist id="type-options">
+          {typeOptions.map((option) => (
+            <option key={option} value={option} />
+          ))}
+        </datalist>
+        <datalist id="evolution-method-options">
+          {EVOLUTION_METHOD_OPTIONS.map((option) => (
             <option key={option} value={option} />
           ))}
         </datalist>
@@ -1759,4 +2130,47 @@ function buildMovesString(pairs: { level: string; move: string }[]) {
     tokens.push(pair.level, pair.move);
   }
   return tokens.join(",");
+}
+
+function parseEvolutionEntries(value: string) {
+  if (!value.trim()) return [];
+  const parts = value.split(",").map((part) => part.trim());
+  const entries: { pokemon: string; method: string; parameter: string }[] = [];
+  for (let index = 0; index < parts.length; index += 3) {
+    entries.push({
+      pokemon: parts[index] ?? "",
+      method: parts[index + 1] ?? "",
+      parameter: parts[index + 2] ?? "",
+    });
+  }
+  return entries;
+}
+
+function ensureEvolutionEntries(entries: { pokemon: string; method: string; parameter: string }[]) {
+  if (entries.length === 0) return [{ pokemon: "", method: "", parameter: "" }];
+  const last = entries[entries.length - 1];
+  if (last.pokemon || last.method || last.parameter) return [...entries, { pokemon: "", method: "", parameter: "" }];
+  return entries;
+}
+
+function buildEvolutionString(entries: { pokemon: string; method: string; parameter: string }[]) {
+  const tokens: string[] = [];
+  for (const entry of entries) {
+    if (!entry.pokemon && !entry.method && !entry.parameter) continue;
+    tokens.push(entry.pokemon, entry.method, entry.parameter);
+  }
+  return tokens.join(",");
+}
+
+function resolveEvolutionParamKind(methodRaw: string) {
+  const method = methodRaw.trim();
+  if (!method) return "string";
+  if (EVOLUTION_PARAM_NONE.has(method)) return "none";
+  if (EVOLUTION_PARAM_INTEGER.has(method)) return "integer";
+  if (EVOLUTION_PARAM_MOVE.has(method)) return "move";
+  if (EVOLUTION_PARAM_TYPE.has(method)) return "type";
+  if (EVOLUTION_PARAM_ITEM.has(method)) return "item";
+  if (EVOLUTION_PARAM_POKEMON.has(method)) return "pokemon";
+  if (EVOLUTION_PARAM_STRING.has(method)) return "string";
+  return "string";
 }
