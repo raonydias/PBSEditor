@@ -1,4 +1,13 @@
-import { AbilitiesFile, BerryPlantsFile, ItemsFile, MovesFile, PBSEntry, RibbonsFile, TypesFile } from "@pbs/shared";
+import {
+  AbilitiesFile,
+  BerryPlantsFile,
+  ItemsFile,
+  MovesFile,
+  PBSEntry,
+  RibbonsFile,
+  TrainerTypesFile,
+  TypesFile,
+} from "@pbs/shared";
 
 type ParsedSection = {
   id: string;
@@ -94,6 +103,16 @@ export function parseItemsFile(text: string): ItemsFile {
   return { entries };
 }
 
+export function parseTrainerTypesFile(text: string): TrainerTypesFile {
+  const sections = parseIniLike(text);
+  const entries: PBSEntry[] = sections.map((section, index) => ({
+    id: section.id,
+    fields: section.fields,
+    order: index,
+  }));
+  return { entries };
+}
+
 export function exportTypesFile(data: TypesFile): string {
   const sorted = [...data.entries].sort((a, b) => a.order - b.order);
   const lines: string[] = [];
@@ -102,7 +121,7 @@ export function exportTypesFile(data: TypesFile): string {
     lines.push(`[${entry.id}]`);
     for (const field of entry.fields) {
       if (field.value.trim() === "") continue;
-      lines.push(`${field.key}=${field.value}`);
+      lines.push(`${field.key} = ${field.value}`);
     }
     lines.push("#-------------------------------");
   }
@@ -118,7 +137,7 @@ export function exportAbilitiesFile(data: AbilitiesFile): string {
     lines.push(`[${entry.id}]`);
     for (const field of entry.fields) {
       if (field.value.trim() === "") continue;
-      lines.push(`${field.key}=${field.value}`);
+      lines.push(`${field.key} = ${field.value}`);
     }
     lines.push("#-------------------------------");
   }
@@ -134,7 +153,7 @@ export function exportBerryPlantsFile(data: BerryPlantsFile): string {
     lines.push(`[${entry.id}]`);
     for (const field of entry.fields) {
       if (field.value.trim() === "") continue;
-      lines.push(`${field.key}=${field.value}`);
+      lines.push(`${field.key} = ${field.value}`);
     }
     lines.push("#-------------------------------");
   }
@@ -150,7 +169,7 @@ export function exportRibbonsFile(data: RibbonsFile): string {
     lines.push(`[${entry.id}]`);
     for (const field of entry.fields) {
       if (field.value.trim() === "") continue;
-      lines.push(`${field.key}=${field.value}`);
+      lines.push(`${field.key} = ${field.value}`);
     }
     lines.push("#-------------------------------");
   }
@@ -172,16 +191,16 @@ export function exportMovesFile(data: MovesFile): string {
       if (field.key === "Target") {
         sawTarget = true;
         if (trimmed === "") {
-          lines.push("Target=None");
+          lines.push("Target = None");
           continue;
         }
       }
       if (trimmed === "") continue;
       if (isStatus && field.key === "Power") continue;
-      lines.push(`${field.key}=${field.value}`);
+      lines.push(`${field.key} = ${field.value}`);
     }
     if (!sawTarget) {
-      lines.push("Target=None");
+      lines.push("Target = None");
     }
     lines.push("#-------------------------------");
   }
@@ -197,7 +216,23 @@ export function exportItemsFile(data: ItemsFile): string {
     lines.push(`[${entry.id}]`);
     for (const field of entry.fields) {
       if (field.value.trim() === "") continue;
-      lines.push(`${field.key}=${field.value}`);
+      lines.push(`${field.key} = ${field.value}`);
+    }
+    lines.push("#-------------------------------");
+  }
+
+  return lines.join("\n").trimEnd() + "\n";
+}
+
+export function exportTrainerTypesFile(data: TrainerTypesFile): string {
+  const sorted = [...data.entries].sort((a, b) => a.order - b.order);
+  const lines: string[] = [];
+
+  for (const entry of sorted) {
+    lines.push(`[${entry.id}]`);
+    for (const field of entry.fields) {
+      if (field.value.trim() === "") continue;
+      lines.push(`${field.key} = ${field.value}`);
     }
     lines.push("#-------------------------------");
   }

@@ -150,7 +150,7 @@ export default function ItemsPage() {
   const validateEntryId = (entry: PBSEntry, nextIdRaw: string) => {
     const nextId = nextIdRaw.trim().toUpperCase();
     if (!nextId) return "ID is required.";
-    if (!/^[A-Z0-9]+$/.test(nextId)) return "ID must use A-Z or 0-9 only.";
+    if (!/^[A-Z0-9_]+$/.test(nextId)) return "ID must use A-Z, 0-9, or _ only.";
     if (data.entries.some((item) => item.id.toLowerCase() === nextId.toLowerCase() && item.id !== entry.id)) {
       return "ID must be unique.";
     }
@@ -268,8 +268,8 @@ export default function ItemsPage() {
         errors.Move = "Move is required.";
       } else if (/\s/.test(move)) {
         errors.Move = "Move must not contain spaces.";
-      } else if (!/^[A-Z0-9]+$/.test(move)) {
-        errors.Move = "Move must use A-Z or 0-9 only.";
+      } else if (!/^[A-Z0-9_]+$/.test(move)) {
+        errors.Move = "Move must use A-Z, 0-9, or _ only.";
       } else if (moveOptions.length && !moveOptions.includes(move)) {
         errors.Move = "Move must be a valid Move ID.";
       }
@@ -992,6 +992,7 @@ function SingleSelectField({ label, value, options, onChange, error }: SingleSel
 
 function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEditorProps) {
   const items = splitList(value);
+  const [draft, setDraft] = useState("");
 
   const handleSelectChange = (index: number, next: string) => {
     const normalized = normalizeOption(next, options);
@@ -1005,6 +1006,13 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
     }
     const deduped = nextItems.filter((item, idx) => nextItems.indexOf(item) === idx);
     onChange(deduped.join(","));
+  };
+
+  const commitDraft = () => {
+    const next = draft.trim();
+    if (!next) return;
+    handleSelectChange(items.length, next);
+    setDraft("");
   };
 
   return (
@@ -1033,9 +1041,16 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
           <input
             className="input"
             list={`${label}-options`}
-            value=""
+            value={draft}
             placeholder={`Add ${label}...`}
-            onChange={(event) => handleSelectChange(items.length, event.target.value)}
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={commitDraft}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                commitDraft();
+              }
+            }}
           />
           <datalist id={`${label}-options`}>
             {options

@@ -2,19 +2,31 @@ import express from "express";
 import { z } from "zod";
 import { promises as fs, accessSync } from "fs";
 import path from "path";
-import { AbilitiesFile, ApiError, BerryPlantsFile, ItemsFile, MovesFile, ProjectStatus, RibbonsFile, TypesFile } from "@pbs/shared";
+import {
+  AbilitiesFile,
+  ApiError,
+  BerryPlantsFile,
+  ItemsFile,
+  MovesFile,
+  ProjectStatus,
+  RibbonsFile,
+  TrainerTypesFile,
+  TypesFile,
+} from "@pbs/shared";
 import {
   exportAbilitiesFile,
   exportBerryPlantsFile,
   exportItemsFile,
   exportMovesFile,
   exportRibbonsFile,
+  exportTrainerTypesFile,
   exportTypesFile,
   parseAbilitiesFile,
   parseBerryPlantsFile,
   parseItemsFile,
   parseMovesFile,
   parseRibbonsFile,
+  parseTrainerTypesFile,
   parseTypesFile,
 } from "./pbs.js";
 
@@ -23,9 +35,34 @@ app.use(express.json({ limit: "2mb" }));
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 5174;
 
-const supportedFiles = ["types.txt", "abilities.txt", "berry_plants.txt", "ribbons.txt", "moves.txt", "items.txt", "pokemon.txt"] as const;
-const readableFiles = ["types.txt", "abilities.txt", "berry_plants.txt", "ribbons.txt", "moves.txt", "items.txt"] as const;
-const exportableFiles = ["types.txt", "abilities.txt", "berry_plants.txt", "ribbons.txt", "moves.txt", "items.txt"] as const;
+const supportedFiles = [
+  "types.txt",
+  "abilities.txt",
+  "berry_plants.txt",
+  "ribbons.txt",
+  "moves.txt",
+  "items.txt",
+  "trainer_types.txt",
+  "pokemon.txt",
+] as const;
+const readableFiles = [
+  "types.txt",
+  "abilities.txt",
+  "berry_plants.txt",
+  "ribbons.txt",
+  "moves.txt",
+  "items.txt",
+  "trainer_types.txt",
+] as const;
+const exportableFiles = [
+  "types.txt",
+  "abilities.txt",
+  "berry_plants.txt",
+  "ribbons.txt",
+  "moves.txt",
+  "items.txt",
+  "trainer_types.txt",
+] as const;
 
 type SupportedFile = (typeof supportedFiles)[number];
 
@@ -52,6 +89,10 @@ function pbsDir(): string {
 
 function pbsOutputDir(): string {
   return path.join(projectRoot(), "PBS_Output");
+}
+
+function audioBgmDir(): string {
+  return path.join(projectRoot(), "Audio", "BGM");
 }
 
 async function ensurePbsOutput(): Promise<void> {
@@ -141,10 +182,36 @@ app.get("/api/pbs/:file", async (req, res) => {
       res.json(parsed);
       return;
     }
+    if (file === "trainer_types.txt") {
+      const parsed = parseTrainerTypesFile(raw);
+      res.json(parsed);
+      return;
+    }
     res.status(500).json(errorBody("Parser not implemented.", file));
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     res.status(500).json(errorBody("Failed to read PBS file.", detail));
+  }
+});
+
+app.get("/api/assets/bgm", async (_req, res) => {
+  const bgmPath = audioBgmDir();
+  if (!(await fileExists(bgmPath))) {
+    res.status(404).json(errorBody("BGM folder not found.", bgmPath));
+    return;
+  }
+  try {
+    const entries = await fs.readdir(bgmPath, { withFileTypes: true });
+    const supported = new Set([".wav", ".ogg", ".mp3", ".wma", ".mid"]);
+    const files = entries
+      .filter((entry) => entry.isFile())
+      .map((entry) => entry.name)
+      .filter((name) => supported.has(path.extname(name).toLowerCase()))
+      .sort((a, b) => a.localeCompare(b));
+    res.json({ files });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    res.status(500).json(errorBody("Failed to read BGM folder.", detail));
   }
 });
 
@@ -180,7 +247,14 @@ app.post("/api/pbs/:file/export", async (req, res) => {
 
   try {
     await ensurePbsOutput();
-    const payload = parseResult.data as TypesFile | AbilitiesFile | BerryPlantsFile | RibbonsFile | MovesFile | ItemsFile;
+    const payload = parseResult.data as
+      | TypesFile
+      | AbilitiesFile
+      | BerryPlantsFile
+      | RibbonsFile
+      | MovesFile
+      | ItemsFile
+      | TrainerTypesFile;
     const output =
       file === "abilities.txt"
         ? exportAbilitiesFile(payload as AbilitiesFile)
@@ -192,6 +266,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
         ? exportMovesFile(payload as MovesFile)
         : file === "items.txt"
         ? exportItemsFile(payload as ItemsFile)
+        : file === "trainer_types.txt"
+        ? exportTrainerTypesFile(payload as TrainerTypesFile)
         : exportTypesFile(payload as TypesFile);
     const outputPath = path.join(pbsOutputDir(), file);
     await fs.writeFile(outputPath, output, "utf-8");

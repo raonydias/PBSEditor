@@ -67,6 +67,10 @@ export default function App() {
             Items
             {missing.has("items.txt") && <span className="badge">Missing</span>}
           </NavLink>
+          <NavLink to="/trainer-types" className="nav-link">
+            Trainer Types
+            {missing.has("trainer_types.txt") && <span className="badge">Missing</span>}
+          </NavLink>
           <NavLink to="/pokemon" className="nav-link">
             Pokemon
             {missing.has("pokemon.txt") && <span className="badge">Missing</span>}

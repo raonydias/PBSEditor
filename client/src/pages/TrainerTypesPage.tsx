@@ -1,68 +1,38 @@
 import { useEffect, useMemo, useState } from "react";
-import { MovesFile, PBSEntry, TypesFile } from "@pbs/shared";
-import { exportMoves, getMoves, getTypes } from "../api";
+import type { Dispatch, SetStateAction } from "react";
+import { PBSEntry, TrainerTypesFile } from "@pbs/shared";
+import { exportTrainerTypes, getBgmFiles, getTrainerTypes } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
 
-const emptyFile: MovesFile = { entries: [] };
-const emptyTypes: TypesFile = { entries: [] };
+const emptyFile: TrainerTypesFile = { entries: [] };
+const emptyBgm: string[] = [];
 
-const CATEGORY_OPTIONS = ["Physical", "Special", "Status"] as const;
-const TARGET_OPTIONS = [
-  "None",
-  "User",
-  "NearAlly",
-  "UserOrNearAlly",
-  "AllAllies",
-  "UserAndAllies",
-  "NearFoe",
-  "RandomNearFoe",
-  "AllNearFoes",
-  "Foe",
-  "AllFoes",
-  "NearOther",
-  "AllNearOthers",
-  "Other",
-  "AllBattlers",
-  "UserSide",
-  "FoeSide",
-  "BothSides",
-] as const;
+const GENDER_OPTIONS = ["Male", "Female", "Unknown"] as const;
 
-const FLAG_OPTIONS = [
-  "Contact",
-  "CanProtect",
-  "CanMirrorMove",
-  "ThawsUser",
-  "HighCriticalHitRate",
-  "Biting",
-  "Punching",
-  "Sound",
-  "Powder",
-  "Pulse",
-  "Bomb",
-  "Dance",
-  "CannotMetronome",
-  "TramplesMinimize",
-] as const;
-
-export default function MovesPage() {
-  const [data, setData] = useState<MovesFile>(emptyFile);
-  const [types, setTypes] = useState<TypesFile>(emptyTypes);
+export default function TrainerTypesPage() {
+  const [data, setData] = useState<TrainerTypesFile>(emptyFile);
+  const [bgmFiles, setBgmFiles] = useState<string[]>(emptyBgm);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [idError, setIdError] = useState<string | null>(null);
-  const dirty = useDirty();
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [manualSkillLevel, setManualSkillLevel] = useState<Set<string>>(new Set());
+  const dirty = useDirty();
+  const bgmOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return bgmFiles.reduce<{ value: string; label: string }[]>((acc, file) => {
+      const value = file.replace(/\.[^/.]+$/, "");
+      if (seen.has(value)) return acc;
+      seen.add(value);
+      acc.push({ value, label: file });
+      return acc;
+    }, []);
+  }, [bgmFiles]);
 
-  const toTitleCase = (value: string) => {
-    const lower = value.toLowerCase();
-    return lower ? lower[0].toUpperCase() + lower.slice(1) : "";
-  };
-
-  const ensureMoveDefaults = (entry: PBSEntry) => {
-    const defaults = buildDefaultMoveEntry(entry.id, entry.order);
+  const ensureTrainerTypeDefaults = (entry: PBSEntry) => {
+    const defaults = buildDefaultTrainerTypeEntry(entry.id, entry.order);
     const existing = new Map(entry.fields.map((field) => [field.key, field.value]));
     const defaultKeys = new Set(defaults.fields.map((field) => field.key));
     const merged = defaults.fields.map((field) => ({
@@ -77,16 +47,23 @@ export default function MovesPage() {
 
   useEffect(() => {
     let isMounted = true;
-    Promise.all([getMoves(), getTypes()])
-      .then(([movesResult, typesResult]) => {
+    Promise.all([getTrainerTypes(), getBgmFiles()])
+      .then(([trainerResult, bgmResult]) => {
         if (!isMounted) return;
-        const normalized = { entries: movesResult.entries.map(ensureMoveDefaults) };
+        const normalized = { entries: trainerResult.entries.map(ensureTrainerTypeDefaults) };
         setData(normalized);
-        setTypes(typesResult);
+        setBgmFiles(bgmResult);
         setActiveId(normalized.entries[0]?.id ?? null);
         const snap = serializeEntries(normalized.entries);
         setSnapshot(snap);
-        dirty.setDirty("moves", false);
+        dirty.setDirty("trainer_types", false);
+        const manual = new Set<string>();
+        for (const entry of normalized.entries) {
+          const baseMoney = getFieldValue(entry, "BaseMoney");
+          const skillLevel = getFieldValue(entry, "SkillLevel");
+          if (skillLevel && skillLevel !== baseMoney) manual.add(entry.id);
+        }
+        setManualSkillLevel(manual);
       })
       .catch((err: Error) => {
         if (!isMounted) return;
@@ -102,7 +79,7 @@ export default function MovesPage() {
   }, []);
 
   useEffect(() => {
-    dirty.setCurrentKey("moves");
+    dirty.setCurrentKey("trainer_types");
   }, []);
 
   const activeEntry = useMemo(() => {
@@ -112,8 +89,6 @@ export default function MovesPage() {
   useEffect(() => {
     setIdError(null);
   }, [activeId]);
-
-  const typeOptions = useMemo(() => ["NONE", ...types.entries.map((entry) => entry.id)], [types.entries]);
 
   const updateEntry = (updated: PBSEntry) => {
     setData((prev) => ({
@@ -134,6 +109,16 @@ export default function MovesPage() {
 
   const updateEntryId = (entry: PBSEntry, nextIdRaw: string) => {
     const nextId = nextIdRaw.trim().toUpperCase();
+    const updateSet = (set: Set<string>, setter: Dispatch<SetStateAction<Set<string>>>) => {
+      if (!set.has(entry.id)) return;
+      setter((prev) => {
+        const next = new Set(prev);
+        next.delete(entry.id);
+        next.add(nextId);
+        return next;
+      });
+    };
+    updateSet(manualSkillLevel, setManualSkillLevel);
     setData((prev) => ({
       ...prev,
       entries: prev.entries.map((item) => {
@@ -151,85 +136,35 @@ export default function MovesPage() {
 
   const validateEntryFields = (entry: PBSEntry) => {
     const errors: Record<string, string> = {};
-    const getField = (key: string) => entry.fields.find((field) => field.key === key)?.value ?? "";
-
-    const name = getField("Name").trim();
+    const name = getFieldValue(entry, "Name").trim();
     if (!name) errors.Name = "Name is required.";
 
-    const type = getField("Type").trim();
-    if (!type) {
-      errors.Type = "Type is required.";
-    } else if (type !== "NONE" && !typeOptions.includes(type)) {
-      errors.Type = "Type must be a valid Type ID or NONE.";
+    const gender = getFieldValue(entry, "Gender").trim();
+    if (!gender) {
+      errors.Gender = "Gender is required.";
+    } else if (!GENDER_OPTIONS.includes(gender as (typeof GENDER_OPTIONS)[number])) {
+      errors.Gender = "Gender must be Male, Female, or Unknown.";
     }
 
-    const category = getField("Category").trim();
-    if (!category) {
-      errors.Category = "Category is required.";
-    } else if (!CATEGORY_OPTIONS.includes(category as (typeof CATEGORY_OPTIONS)[number])) {
-      errors.Category = "Category must be Physical, Special, or Status.";
+    const baseMoney = getFieldValue(entry, "BaseMoney").trim();
+    if (!baseMoney) {
+      errors.BaseMoney = "BaseMoney is required.";
+    } else if (!/^\d+$/.test(baseMoney)) {
+      errors.BaseMoney = "BaseMoney must be an integer.";
+    } else if (Number(baseMoney) < 1) {
+      errors.BaseMoney = "BaseMoney must be at least 1.";
     }
 
-    const power = getField("Power").trim();
-    if (category !== "Status") {
-      if (!power) {
-        errors.Power = "Power is required.";
-      } else if (!/^\d+$/.test(power)) {
-        errors.Power = "Power must be an integer.";
-      } else if (Number(power) < 0) {
-        errors.Power = "Power must be 0 or greater.";
-      }
-    } else if (power && !/^\d+$/.test(power)) {
-      errors.Power = "Power must be an integer.";
+    const skillLevel = getFieldValue(entry, "SkillLevel").trim();
+    if (!skillLevel) {
+      errors.SkillLevel = "SkillLevel is required.";
+    } else if (!/^\d+$/.test(skillLevel)) {
+      errors.SkillLevel = "SkillLevel must be an integer.";
+    } else if (Number(skillLevel) < 1) {
+      errors.SkillLevel = "SkillLevel must be at least 1.";
     }
 
-    const accuracy = getField("Accuracy").trim();
-    if (!accuracy) {
-      errors.Accuracy = "Accuracy is required.";
-    } else if (!/^\d+$/.test(accuracy)) {
-      errors.Accuracy = "Accuracy must be an integer.";
-    } else if (Number(accuracy) < 0 || Number(accuracy) > 100) {
-      errors.Accuracy = "Accuracy must be between 0 and 100.";
-    }
-
-    const totalPP = getField("TotalPP").trim();
-    if (!totalPP) {
-      errors.TotalPP = "TotalPP is required.";
-    } else if (!/^\d+$/.test(totalPP)) {
-      errors.TotalPP = "TotalPP must be an integer.";
-    } else if (Number(totalPP) < 1) {
-      errors.TotalPP = "TotalPP must be at least 1.";
-    }
-
-    const target = getField("Target").trim();
-    if (target && /\s/.test(target)) {
-      errors.Target = "Target must not contain spaces.";
-    }
-
-    const priority = getField("Priority").trim();
-    if (priority) {
-      if (!/^-?\d+$/.test(priority)) {
-        errors.Priority = "Priority must be an integer.";
-      }
-    }
-
-    const functionCode = getField("FunctionCode").trim();
-    if (!functionCode) {
-      errors.FunctionCode = "FunctionCode is required.";
-    } else if (/\s/.test(functionCode)) {
-      errors.FunctionCode = "FunctionCode must not contain spaces.";
-    }
-
-    const effectChance = getField("EffectChance").trim();
-    if (effectChance) {
-      if (!/^\d+$/.test(effectChance)) {
-        errors.EffectChance = "EffectChance must be an integer.";
-      } else if (Number(effectChance) < 0 || Number(effectChance) > 100) {
-        errors.EffectChance = "EffectChance must be between 0 and 100.";
-      }
-    }
-
-    const flags = getField("Flags").trim();
+    const flags = getFieldValue(entry, "Flags").trim();
     if (flags) {
       const parts = flags.split(",").map((part) => part.trim()).filter(Boolean);
       for (const part of parts) {
@@ -240,8 +175,14 @@ export default function MovesPage() {
       }
     }
 
-    const description = getField("Description").trim();
-    if (!description) errors.Description = "Description is required.";
+    const bgmKeys = ["IntroBGM", "BattleBGM", "VictoryBGM"];
+    for (const key of bgmKeys) {
+      const value = getFieldValue(entry, key).trim();
+      if (!value) continue;
+      if (!bgmOptions.some((option) => option.value === value)) {
+        errors[key] = `${key} must be a valid BGM file.`;
+      }
+    }
 
     return errors;
   };
@@ -249,7 +190,7 @@ export default function MovesPage() {
   const fieldErrors = useMemo(() => {
     if (!activeEntry) return {};
     return validateEntryFields(activeEntry);
-  }, [activeEntry, typeOptions]);
+  }, [activeEntry, bgmOptions]);
 
   const collectEntryErrors = (entry: PBSEntry) => {
     const errors: string[] = [];
@@ -266,7 +207,7 @@ export default function MovesPage() {
     return data.entries
       .map((entry) => ({ entry, errors: collectEntryErrors(entry) }))
       .filter((item) => item.errors.length > 0);
-  }, [data.entries, typeOptions]);
+  }, [data.entries, bgmOptions]);
 
   const hasInvalidEntries = useMemo(() => {
     for (const entry of data.entries) {
@@ -275,23 +216,23 @@ export default function MovesPage() {
       if (idErrorMessage) return true;
     }
     return false;
-  }, [data.entries, typeOptions]);
+  }, [data.entries, bgmOptions]);
 
   useEffect(() => {
     if (!snapshot) return;
     const nextSnap = serializeEntries(data.entries);
-    dirty.setDirty("moves", nextSnap !== snapshot);
+    dirty.setDirty("trainer_types", nextSnap !== snapshot);
   }, [data.entries, snapshot]);
 
   const handleExport = async () => {
     setStatus(null);
     setError(null);
     try {
-      await exportMoves(data);
+      await exportTrainerTypes(data);
       const nextSnap = serializeEntries(data.entries);
       setSnapshot(nextSnap);
-      dirty.setDirty("moves", false);
-      setStatus("Exported to PBS_Output/moves.txt");
+      dirty.setDirty("trainer_types", false);
+      setStatus("Exported to PBS_Output/trainer_types.txt");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
@@ -302,8 +243,8 @@ export default function MovesPage() {
     setStatus(null);
     setError(null);
     setIdError(null);
-    const newId = nextAvailableId("NEWMOVE");
-    const newEntry: PBSEntry = buildDefaultMoveEntry(newId, nextOrder());
+    const newId = nextAvailableId("NEWTRAINERTYPE");
+    const newEntry: PBSEntry = buildDefaultTrainerTypeEntry(newId, nextOrder());
     setData((prev) => ({
       ...prev,
       entries: [...prev.entries, newEntry],
@@ -324,6 +265,9 @@ export default function MovesPage() {
       order: nextOrder(),
       fields: entry.fields.map((field) => ({ ...field })),
     };
+    if (manualSkillLevel.has(entry.id)) {
+      setManualSkillLevel((prev) => new Set(prev).add(newId));
+    }
     setData((prev) => ({
       ...prev,
       entries: [...prev.entries, duplicated],
@@ -338,6 +282,11 @@ export default function MovesPage() {
     setIdError(null);
     const confirmDelete = window.confirm(`Delete ${entry.id}? This cannot be undone.`);
     if (!confirmDelete) return;
+    setManualSkillLevel((prev) => {
+      const next = new Set(prev);
+      next.delete(entry.id);
+      return next;
+    });
     setData((prev) => {
       const nextEntries = prev.entries.filter((item) => item.id !== entry.id);
       const nextActive =
@@ -383,33 +332,34 @@ export default function MovesPage() {
     return result;
   };
 
-  const buildDefaultMoveEntry = (id: string, order: number): PBSEntry => ({
+  const buildDefaultTrainerTypeEntry = (id: string, order: number): PBSEntry => ({
     id,
     order,
     fields: [
       { key: "Name", value: toTitleCase(id) },
-      { key: "Type", value: "NONE" },
-      { key: "Category", value: "Status" },
-      { key: "Power", value: "0" },
-      { key: "Accuracy", value: "100" },
-      { key: "TotalPP", value: "5" },
-      { key: "Target", value: "" },
-      { key: "Priority", value: "0" },
-      { key: "FunctionCode", value: "None" },
+      { key: "Gender", value: "Unknown" },
+      { key: "BaseMoney", value: "30" },
+      { key: "SkillLevel", value: "30" },
       { key: "Flags", value: "" },
-      { key: "EffectChance", value: "" },
-      { key: "Description", value: "???" },
+      { key: "IntroBGM", value: "" },
+      { key: "BattleBGM", value: "" },
+      { key: "VictoryBGM", value: "" },
     ],
   });
 
+  const toTitleCase = (value: string) => {
+    const lower = value.toLowerCase();
+    return lower ? lower[0].toUpperCase() + lower.slice(1) : "";
+  };
+
   if (loading) {
-    return <div className="panel">Loading moves.txt...</div>;
+    return <div className="panel">Loading trainer_types.txt...</div>;
   }
 
   if (error && data.entries.length === 0) {
     return (
       <div className="panel">
-        <h1>Moves Editor</h1>
+        <h1>Trainer Types Editor</h1>
         <p className="error">{error}</p>
       </div>
     );
@@ -419,7 +369,7 @@ export default function MovesPage() {
     <div className="editor-layout">
       <section className="list-panel">
         <div className="panel-header">
-          <h1>Moves Editor</h1>
+          <h1>Trainer Types Editor</h1>
           <button className="ghost" onClick={handleAddEntry}>
             Add New
           </button>
@@ -432,14 +382,14 @@ export default function MovesPage() {
               onClick={() => setActiveId(entry.id)}
             >
               <div className="list-title">{entry.id}</div>
-              <div className="list-sub">{entry.fields.find((f) => f.key === "Name")?.value ?? "(no name)"}</div>
+              <div className="list-sub">{getFieldValue(entry, "Name") || "(no name)"}</div>
             </button>
           ))}
         </div>
       </section>
       <section className="detail-panel">
         {activeEntry ? (
-          <MoveDetail
+          <TrainerTypeDetail
             entry={activeEntry}
             onChange={updateEntry}
             onRename={updateEntryId}
@@ -449,10 +399,12 @@ export default function MovesPage() {
             idError={idError}
             onSetIdError={setIdError}
             fieldErrors={fieldErrors}
-            typeOptions={typeOptions}
+            bgmOptions={bgmOptions}
+            manualSkillLevel={manualSkillLevel}
+            setManualSkillLevel={setManualSkillLevel}
           />
         ) : (
-          <div className="panel">Select a move to edit.</div>
+          <div className="panel">Select a trainer type to edit.</div>
         )}
         {invalidEntries.length > 0 && (
           <section className="panel">
@@ -478,13 +430,14 @@ export default function MovesPage() {
       </section>
       <section className="export-bar">
         <div className="export-warning">
-          Exports never overwrite <strong>PBS/moves.txt</strong>. Output goes to <strong>PBS_Output/moves.txt</strong>.
+          Exports never overwrite <strong>PBS/trainer_types.txt</strong>. Output goes to{" "}
+          <strong>PBS_Output/trainer_types.txt</strong>.
         </div>
         <div className="export-actions">
           {status && <span className="status">{status}</span>}
           {error && <span className="error">{error}</span>}
           <button className="primary" onClick={handleExport} disabled={Boolean(idError) || hasInvalidEntries}>
-            Export moves.txt
+            Export trainer_types.txt
           </button>
         </div>
       </section>
@@ -502,10 +455,12 @@ type DetailProps = {
   idError: string | null;
   onSetIdError: (value: string | null) => void;
   fieldErrors: Record<string, string>;
-  typeOptions: string[];
+  bgmOptions: { value: string; label: string }[];
+  manualSkillLevel: Set<string>;
+  setManualSkillLevel: Dispatch<SetStateAction<Set<string>>>;
 };
 
-function MoveDetail({
+function TrainerTypeDetail({
   entry,
   onChange,
   onRename,
@@ -515,27 +470,38 @@ function MoveDetail({
   idError,
   onSetIdError,
   fieldErrors,
-  typeOptions,
+  bgmOptions,
+  manualSkillLevel,
+  setManualSkillLevel,
 }: DetailProps) {
   const [idDraft, setIdDraft] = useState(entry.id);
-  const [isCustomTarget, setIsCustomTarget] = useState(false);
+  const [baseMoneyDraft, setBaseMoneyDraft] = useState("");
 
   useEffect(() => {
     setIdDraft(entry.id);
   }, [entry.id]);
 
   useEffect(() => {
-    const currentTarget = entry.fields.find((field) => field.key === "Target")?.value ?? "";
-    const isCustom =
-      currentTarget !== "" &&
-      !TARGET_OPTIONS.includes(currentTarget as (typeof TARGET_OPTIONS)[number]);
-    setIsCustomTarget(isCustom);
+    const currentBase = getFieldValue("BaseMoney");
+    setBaseMoneyDraft(currentBase);
   }, [entry.id, entry.fields]);
 
   const updateField = (index: number, key: string, value: string) => {
     const nextFields = entry.fields.map((field, idx) =>
       idx === index ? { key, value } : field
     );
+    onChange({ ...entry, fields: nextFields });
+  };
+
+  const commitBaseMoney = (index: number, nextValue: string) => {
+    const currentSkill = getFieldValue("SkillLevel");
+    const currentBase = getFieldValue("BaseMoney");
+    const shouldSync = !manualSkillLevel.has(entry.id) && currentSkill === currentBase;
+    const nextFields = entry.fields.map((field, idx) => {
+      if (idx === index) return { key: field.key, value: nextValue };
+      if (shouldSync && field.key === "SkillLevel") return { key: field.key, value: nextValue };
+      return field;
+    });
     onChange({ ...entry, fields: nextFields });
   };
 
@@ -552,10 +518,6 @@ function MoveDetail({
     if (index === -1) return;
     updateField(index, key, value);
   };
-
-  const category = getFieldValue("Category");
-  const power = getFieldValue("Power");
-  const showPowerWarning = category === "Status" && power.trim() !== "" && power !== "0";
 
   return (
     <div className="panel">
@@ -575,7 +537,7 @@ function MoveDetail({
       </div>
       <div className="field-list">
         <div className="field-row single">
-          <label className="label">Move ID</label>
+          <label className="label">Trainer Type ID</label>
           <input
             className="input"
             value={idDraft}
@@ -594,16 +556,16 @@ function MoveDetail({
       </div>
       <div className="field-list">
         {entry.fields.map((field, index) => {
-          if (field.key === "Type") {
+          if (field.key === "Gender") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="Type" readOnly />
+                <input className="input" value="Gender" readOnly />
                 <select
                   className="input"
                   value={field.value}
                   onChange={(event) => updateField(index, field.key, event.target.value)}
                 >
-                  {typeOptions.map((option) => (
+                  {GENDER_OPTIONS.map((option) => (
                     <option key={option} value={option}>
                       {option}
                     </option>
@@ -614,63 +576,55 @@ function MoveDetail({
             );
           }
 
-          if (field.key === "Category") {
+          if (field.key === "BaseMoney") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="Category" readOnly />
-                <select
+                <input className="input" value="BaseMoney" readOnly />
+                <input
                   className="input"
-                  value={field.value}
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
-                >
-                  {CATEGORY_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
+                  value={baseMoneyDraft}
+                  onChange={(event) => {
+                    setBaseMoneyDraft(event.target.value);
+                  }}
+                  onBlur={() => {
+                    const nextValue = baseMoneyDraft;
+                    commitBaseMoney(index, nextValue);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      const nextValue = baseMoneyDraft;
+                      commitBaseMoney(index, nextValue);
+                    }
+                  }}
+                />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
             );
           }
 
-          if (field.key === "Target") {
-            const currentTarget = field.value;
-            const selectValue = currentTarget === "" ? "" : isCustomTarget ? "__custom__" : currentTarget;
+          if (field.key === "SkillLevel") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="Target" readOnly />
-                <div className="stack">
-                  <select
-                    className="input"
-                    value={selectValue}
-                    onChange={(event) => {
-                      const next = event.target.value;
-                      if (next === "__custom__") {
-                        setIsCustomTarget(true);
-                      } else {
-                        setIsCustomTarget(false);
-                        updateField(index, field.key, next);
-                      }
-                    }}
-                  >
-                    <option value="">Select target...</option>
-                    {TARGET_OPTIONS.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                    <option value="__custom__">Custom...</option>
-                  </select>
-                  {isCustomTarget && (
-                    <input
-                      className="input"
-                      placeholder="Custom target"
-                      value={currentTarget}
-                      onChange={(event) => updateField(index, field.key, event.target.value)}
-                    />
-                  )}
-                </div>
+                <input className="input" value="SkillLevel" readOnly />
+                <input
+                  className="input"
+                  value={field.value}
+                  onChange={(event) => {
+                    const nextValue = event.target.value;
+                    updateField(index, field.key, nextValue);
+                    const currentBase = getFieldValue("BaseMoney");
+                    if (nextValue.trim() === "" || nextValue === currentBase) {
+                      setManualSkillLevel((prev) => {
+                        const next = new Set(prev);
+                        next.delete(entry.id);
+                        return next;
+                      });
+                    } else {
+                      setManualSkillLevel((prev) => new Set(prev).add(entry.id));
+                    }
+                  }}
+                />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
             );
@@ -678,29 +632,32 @@ function MoveDetail({
 
           if (field.key === "Flags") {
             return (
-              <ListFieldEditor
+              <FreeformListFieldEditor
                 key={`${field.key}-${index}`}
                 label="Flags"
                 value={field.value}
-                options={FLAG_OPTIONS}
                 onChange={(nextValue) => updateField(index, field.key, nextValue)}
                 error={fieldErrors[field.key]}
               />
             );
           }
 
-          if (field.key === "Power") {
+          if (field.key === "IntroBGM" || field.key === "BattleBGM" || field.key === "VictoryBGM") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="Power" readOnly />
-                <input
+                <input className="input" value={field.key} readOnly />
+                <select
                   className="input"
                   value={field.value}
                   onChange={(event) => updateField(index, field.key, event.target.value)}
-                />
-                {showPowerWarning && (
-                  <span className="field-warning">Status moves ignore Power; it will be omitted on export.</span>
-                )}
+                >
+                  <option value="">(none)</option>
+                  {bgmOptions.map((bgm) => (
+                    <option key={bgm.label} value={bgm.value}>
+                      {bgm.label}
+                    </option>
+                  ))}
+                </select>
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
             );
@@ -723,30 +680,28 @@ function MoveDetail({
   );
 }
 
-type ListFieldEditorProps = {
+type FreeformListFieldEditorProps = {
   label: string;
   value: string;
-  options: readonly string[];
   onChange: (nextValue: string) => void;
   error?: string;
 };
 
-function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEditorProps) {
+function FreeformListFieldEditor({ label, value, onChange, error }: FreeformListFieldEditorProps) {
   const items = value
     .split(",")
     .map((part) => part.trim())
     .filter(Boolean);
   const [draft, setDraft] = useState("");
 
-  const handleSelectChange = (index: number, next: string) => {
-    const normalized = normalizeOption(next, options);
+  const handleChange = (index: number, next: string) => {
     const nextItems = [...items];
-    if (normalized === "") {
+    if (!next) {
       nextItems.splice(index, 1);
     } else if (index === items.length) {
-      nextItems.push(normalized);
+      nextItems.push(next);
     } else {
-      nextItems[index] = normalized;
+      nextItems[index] = next;
     }
     const deduped = nextItems.filter((item, idx) => nextItems.indexOf(item) === idx);
     onChange(deduped.join(","));
@@ -755,7 +710,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
   const commitDraft = () => {
     const next = draft.trim();
     if (!next) return;
-    handleSelectChange(items.length, next);
+    handleChange(items.length, next);
     setDraft("");
   };
 
@@ -767,24 +722,19 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
           <div key={`${label}-${index}`} className="list-field-row">
             <input
               className="input"
-              list={`${label}-options`}
               value={item}
-              onChange={(event) => handleSelectChange(index, event.target.value)}
+              onChange={(event) => handleChange(index, event.target.value)}
             />
-            <datalist id={`${label}-options`}>
-              {options.map((option) => (
-                <option key={option} value={option} />
-              ))}
-            </datalist>
-            <button className="ghost" onClick={() => handleSelectChange(index, "")}>Remove</button>
+            <button className="ghost" onClick={() => handleChange(index, "")}>
+              Remove
+            </button>
           </div>
         ))}
         <div className="list-field-row">
           <input
             className="input"
-            list={`${label}-options`}
             value={draft}
-            placeholder="Add flag..."
+            placeholder={`Add ${label}...`}
             onChange={(event) => setDraft(event.target.value)}
             onBlur={commitDraft}
             onKeyDown={(event) => {
@@ -794,13 +744,6 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
               }
             }}
           />
-          <datalist id={`${label}-options`}>
-            {options
-              .filter((option) => !items.includes(option))
-              .map((option) => (
-                <option key={option} value={option} />
-              ))}
-          </datalist>
         </div>
       </div>
       {error && <span className="field-error">{error}</span>}
@@ -808,7 +751,6 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
   );
 }
 
-function normalizeOption(value: string, options: readonly string[]) {
-  const match = options.find((option) => option.toLowerCase() === value.toLowerCase());
-  return match ?? value;
+function getFieldValue(entry: PBSEntry, key: string) {
+  return entry.fields.find((field) => field.key === key)?.value ?? "";
 }

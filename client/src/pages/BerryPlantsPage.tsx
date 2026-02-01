@@ -76,7 +76,7 @@ export default function BerryPlantsPage() {
   const validateEntryId = (entry: PBSEntry, nextIdRaw: string) => {
     const nextId = nextIdRaw.trim().toUpperCase();
     if (!nextId) return "ID is required.";
-    if (!/^[A-Z0-9]+$/.test(nextId)) return "ID must use A-Z or 0-9 only.";
+    if (!/^[A-Z0-9_]+$/.test(nextId)) return "ID must use A-Z, 0-9, or _ only.";
     if (data.entries.some((item) => item.id.toLowerCase() === nextId.toLowerCase() && item.id !== entry.id)) {
       return "ID must be unique.";
     }

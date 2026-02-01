@@ -76,7 +76,7 @@ export default function AbilitiesPage() {
   const validateEntryId = (entry: PBSEntry, nextIdRaw: string) => {
     const nextId = nextIdRaw.trim().toUpperCase();
     if (!nextId) return "ID is required.";
-    if (!/^[A-Z0-9]+$/.test(nextId)) return "ID must use A-Z or 0-9 only.";
+    if (!/^[A-Z0-9_]+$/.test(nextId)) return "ID must use A-Z, 0-9, or _ only.";
     if (data.entries.some((item) => item.id.toLowerCase() === nextId.toLowerCase() && item.id !== entry.id)) {
       return "ID must be unique.";
     }
@@ -109,6 +109,17 @@ export default function AbilitiesPage() {
 
     const description = getField("Description").trim();
     if (!description) errors.Description = "Description is required.";
+
+    const flags = getField("Flags").trim();
+    if (flags) {
+      const parts = flags.split(",").map((part) => part.trim()).filter(Boolean);
+      for (const part of parts) {
+        if (/\s/.test(part)) {
+          errors.Flags = "Flags must not contain spaces.";
+          break;
+        }
+      }
+    }
 
     return errors;
   };
@@ -433,22 +444,107 @@ function AbilityDetail({
         </div>
       </div>
       <div className="field-list">
-        {entry.fields.map((field, index) => (
-          <div key={`${field.key}-${index}`} className="field-row">
+        {entry.fields.map((field, index) => {
+          if (field.key === "Flags") {
+            return (
+              <FreeformListFieldEditor
+                key={`${field.key}-${index}`}
+                label="Flags"
+                value={field.value}
+                onChange={(nextValue) => updateField(index, field.key, nextValue)}
+                error={fieldErrors[field.key]}
+              />
+            );
+          }
+
+          return (
+            <div key={`${field.key}-${index}`} className="field-row">
+              <input
+                className="input"
+                value={field.key}
+                onChange={(event) => updateField(index, event.target.value, field.value)}
+              />
+              <input
+                className="input"
+                value={field.value}
+                onChange={(event) => updateField(index, field.key, event.target.value)}
+              />
+              {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+type FreeformListFieldEditorProps = {
+  label: string;
+  value: string;
+  onChange: (nextValue: string) => void;
+  error?: string;
+};
+
+function FreeformListFieldEditor({ label, value, onChange, error }: FreeformListFieldEditorProps) {
+  const items = value
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const [draft, setDraft] = useState("");
+
+  const handleChange = (index: number, next: string) => {
+    const nextItems = [...items];
+    if (!next) {
+      nextItems.splice(index, 1);
+    } else if (index === items.length) {
+      nextItems.push(next);
+    } else {
+      nextItems[index] = next;
+    }
+    const deduped = nextItems.filter((item, idx) => nextItems.indexOf(item) === idx);
+    onChange(deduped.join(","));
+  };
+
+  const commitDraft = () => {
+    const next = draft.trim();
+    if (!next) return;
+    handleChange(items.length, next);
+    setDraft("");
+  };
+
+  return (
+    <div className="list-field">
+      <div className="list-field-label">{label}</div>
+      <div className="list-field-items">
+        {items.map((item, index) => (
+          <div key={`${label}-${index}`} className="list-field-row">
             <input
               className="input"
-              value={field.key}
-              onChange={(event) => updateField(index, event.target.value, field.value)}
+              value={item}
+              onChange={(event) => handleChange(index, event.target.value)}
             />
-            <input
-              className="input"
-              value={field.value}
-              onChange={(event) => updateField(index, field.key, event.target.value)}
-            />
-            {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
+            <button className="ghost" onClick={() => handleChange(index, "")}>
+              Remove
+            </button>
           </div>
         ))}
+        <div className="list-field-row">
+          <input
+            className="input"
+            value={draft}
+            placeholder={`Add ${label}...`}
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={commitDraft}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                commitDraft();
+              }
+            }}
+          />
+        </div>
       </div>
+      {error && <span className="field-error">{error}</span>}
     </div>
   );
 }

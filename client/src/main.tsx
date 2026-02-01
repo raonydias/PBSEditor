@@ -9,6 +9,7 @@ import BerryPlantsPage from "./pages/BerryPlantsPage";
 import RibbonsPage from "./pages/RibbonsPage";
 import MovesPage from "./pages/MovesPage";
 import ItemsPage from "./pages/ItemsPage";
+import TrainerTypesPage from "./pages/TrainerTypesPage";
 import PokemonPage from "./pages/PokemonPage";
 import "./styles.css";
 
@@ -27,6 +28,7 @@ const router = createBrowserRouter([
       { path: "ribbons", element: <RibbonsPage /> },
       { path: "moves", element: <MovesPage /> },
       { path: "items", element: <ItemsPage /> },
+      { path: "trainer-types", element: <TrainerTypesPage /> },
       { path: "pokemon", element: <PokemonPage /> },
     ],
   },

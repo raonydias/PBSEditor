@@ -1,4 +1,13 @@
-import { AbilitiesFile, BerryPlantsFile, ItemsFile, MovesFile, ProjectStatus, RibbonsFile, TypesFile } from "@pbs/shared";
+import {
+  AbilitiesFile,
+  BerryPlantsFile,
+  ItemsFile,
+  MovesFile,
+  ProjectStatus,
+  RibbonsFile,
+  TrainerTypesFile,
+  TypesFile,
+} from "@pbs/shared";
 
 export async function getProjectStatus(): Promise<ProjectStatus> {
   const res = await fetch("/api/project/status");
@@ -132,4 +141,35 @@ export async function exportItems(data: ItemsFile): Promise<void> {
     const body = await res.text();
     throw new Error(`Export failed: ${body}`);
   }
+}
+
+export async function getTrainerTypes(): Promise<TrainerTypesFile> {
+  const res = await fetch("/api/pbs/trainer_types.txt");
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Failed to load trainer_types.txt: ${body}`);
+  }
+  return res.json();
+}
+
+export async function exportTrainerTypes(data: TrainerTypesFile): Promise<void> {
+  const res = await fetch("/api/pbs/trainer_types.txt/export", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Export failed: ${body}`);
+  }
+}
+
+export async function getBgmFiles(): Promise<string[]> {
+  const res = await fetch("/api/assets/bgm");
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Failed to load BGM files: ${body}`);
+  }
+  const data = (await res.json()) as { files?: string[] };
+  return data.files ?? [];
 }

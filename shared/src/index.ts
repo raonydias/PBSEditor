@@ -33,6 +33,10 @@ export type ItemsFile = {
   entries: PBSEntry[];
 };
 
+export type TrainerTypesFile = {
+  entries: PBSEntry[];
+};
+
 export type ProjectStatus = {
   root: string;
   hasPbs: boolean;
