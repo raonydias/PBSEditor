@@ -1,0 +1,26 @@
+export type KeyValue = {
+  key: string;
+  value: string;
+};
+
+export type PBSEntry = {
+  id: string;
+  fields: KeyValue[];
+  order: number;
+};
+
+export type TypesFile = {
+  entries: PBSEntry[];
+};
+
+export type ProjectStatus = {
+  root: string;
+  hasPbs: boolean;
+  supportedFiles: string[];
+  missingFiles: string[];
+};
+
+export type ApiError = {
+  error: string;
+  detail?: string;
+};
