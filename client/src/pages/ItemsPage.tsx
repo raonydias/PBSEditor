@@ -105,8 +105,9 @@ export default function ItemsPage() {
         if (!isMounted) return;
         const normalized = normalizeItemsMulti(itemsResult);
         setData(normalized);
-        setMoves(movesResult);
-        setSourceFiles(itemsResult.files?.length ? itemsResult.files : ["items.txt"]);
+        setMoves({ entries: movesResult.entries });
+        const files = itemsResult.files?.length ? itemsResult.files : ["items.txt"];
+        setSourceFiles(files);
         setActiveId(normalized.entries[0]?.id ?? null);
         const snap = serializeEntries(normalized.entries);
         setSnapshot(snap);
@@ -130,7 +131,7 @@ export default function ItemsPage() {
         setManualSellPrice(sellPriceManual);
         setManualConsumable(consumableManual);
         setManualShowQuantity(showQuantityManual);
-        setActiveSource("ALL");
+        setActiveSource(files.length === 1 ? files[0] : "ALL");
       })
       .catch((err: Error) => {
         if (!isMounted) return;

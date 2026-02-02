@@ -55,11 +55,12 @@ export default function TypesPage() {
         const normalized = normalizeTypesMulti(result);
         setData(normalized);
         setActiveId(normalized.entries[0]?.id ?? null);
-        setSourceFiles(result.files?.length ? result.files : ["types.txt"]);
+        const files = result.files?.length ? result.files : ["types.txt"];
+        setSourceFiles(files);
         const snap = serializeEntries(normalized.entries);
         setSnapshot(snap);
         dirty.setDirty("types", false);
-        setActiveSource("ALL");
+        setActiveSource(files.length === 1 ? files[0] : "ALL");
       })
       .catch((err: Error) => {
         if (!isMounted) return;

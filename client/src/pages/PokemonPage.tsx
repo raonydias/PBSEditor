@@ -303,7 +303,7 @@ export default function PokemonPage() {
         setData(normalized);
         setTypes({ entries: typesResult.entries });
         setAbilities({ entries: abilitiesResult.entries });
-        setMoves(movesResult);
+        setMoves({ entries: movesResult.entries });
         setItems({ entries: (itemsResult as ItemsMultiFile).entries });
         setActiveId(normalized.entries[0]?.id ?? null);
         const snap = serializeEntries(normalized.entries);

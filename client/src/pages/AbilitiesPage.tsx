@@ -53,12 +53,13 @@ export default function AbilitiesPage() {
         if (!isMounted) return;
         const normalized = normalizeAbilitiesMulti(result);
         setData(normalized);
-        setSourceFiles(result.files?.length ? result.files : ["abilities.txt"]);
+        const files = result.files?.length ? result.files : ["abilities.txt"];
+        setSourceFiles(files);
         setActiveId(normalized.entries[0]?.id ?? null);
         const snap = serializeEntries(normalized.entries);
         setSnapshot(snap);
         dirty.setDirty("abilities", false);
-        setActiveSource("ALL");
+        setActiveSource(files.length === 1 ? files[0] : "ALL");
       })
       .catch((err: Error) => {
         if (!isMounted) return;

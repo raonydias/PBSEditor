@@ -37,12 +37,26 @@ export type BerryPlantsFile = {
   entries: PBSEntry[];
 };
 
+export type BerryPlantsMultiFile = {
+  entries: PBSEntry[];
+  files: string[];
+};
 export type RibbonsFile = {
   entries: PBSEntry[];
 };
 
+export type RibbonsMultiFile = {
+  entries: PBSEntry[];
+  files: string[];
+};
+
 export type MovesFile = {
   entries: PBSEntry[];
+};
+
+export type MovesMultiFile = {
+  entries: PBSEntry[];
+  files: string[];
 };
 
 export type ItemsFile = {
@@ -86,10 +100,16 @@ export type EncounterEntry = {
   name: string;
   encounterTypes: EncounterType[];
   order: number;
+  sourceFile?: string;
 };
 
 export type EncountersFile = {
   entries: EncounterEntry[];
+};
+
+export type EncountersMultiFile = {
+  entries: EncounterEntry[];
+  files: string[];
 };
 
 export type TrainerPokemon = {
@@ -120,10 +140,16 @@ export type TrainerEntry = {
   loseText: string;
   pokemon: TrainerPokemon[];
   order: number;
+  sourceFile?: string;
 };
 
 export type TrainersFile = {
   entries: TrainerEntry[];
+};
+
+export type TrainersMultiFile = {
+  entries: TrainerEntry[];
+  files: string[];
 };
 
 export type ProjectStatus = {

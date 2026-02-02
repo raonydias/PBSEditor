@@ -1,11 +1,22 @@
 
 import { useEffect, useMemo, useState } from "react";
-import type { TrainerEntry, TrainerPokemon, TrainersFile, PokemonFile, MovesFile, ItemsFile, ItemsMultiFile, AbilitiesFile } from "@pbs/shared";
+import type {
+  TrainerEntry,
+  TrainerPokemon,
+  TrainersFile,
+  TrainersMultiFile,
+  PokemonFile,
+  MovesFile,
+  ItemsFile,
+  ItemsMultiFile,
+  AbilitiesFile,
+} from "@pbs/shared";
 import { exportTrainers, getAbilities, getItems, getMoves, getPokemon, getTrainers } from "../api";
 import { useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
 
 const emptyFile: TrainersFile = { entries: [] };
+const emptyFiles: string[] = ["trainers.txt"];
 const emptyPokemonFile: PokemonFile = { entries: [] };
 const emptyMoves: MovesFile = { entries: [] };
 const emptyItems: ItemsFile = { entries: [] };
@@ -48,6 +59,15 @@ type EntryIssues = {
   warnings: string[];
 };
 
+function normalizeTrainersMulti(payload: TrainersMultiFile): TrainersFile {
+  const files = payload.files?.length ? payload.files : ["trainers.txt"];
+  const normalized = payload.entries.map((entry) => {
+    const source = entry.sourceFile ?? files[0] ?? "trainers.txt";
+    return ensureTrainerDefaults({ ...entry, sourceFile: source });
+  });
+  return { entries: normalized };
+}
+
 export default function TrainersPage() {
   const [data, setData] = useState<TrainersFile>(emptyFile);
   const [pokemon, setPokemon] = useState<PokemonFile>(emptyPokemonFile);
@@ -55,6 +75,8 @@ export default function TrainersPage() {
   const [items, setItems] = useState<ItemsFile>(emptyItems);
   const [abilities, setAbilities] = useState<AbilitiesFile>(emptyAbilities);
   const [activeKey, setActiveKey] = useState<string | null>(null);
+  const [sourceFiles, setSourceFiles] = useState<string[]>(emptyFiles);
+  const [activeSource, setActiveSource] = useState<string>("ALL");
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +84,8 @@ export default function TrainersPage() {
   const [filter, setFilter] = useState("");
   const [snapshot, setSnapshot] = useState<string | null>(null);
   const [showMoveModal, setShowMoveModal] = useState(false);
+  const [showAddSourceModal, setShowAddSourceModal] = useState(false);
+  const [addSourceDraft, setAddSourceDraft] = useState<string>("trainers.txt");
   const dirty = useDirty();
 
   useEffect(() => {
@@ -69,15 +93,18 @@ export default function TrainersPage() {
     Promise.all([getTrainers(), getPokemon(), getMoves(), getItems(), getAbilities()])
       .then(([trainerResult, pokemonResult, movesResult, itemsResult, abilitiesResult]) => {
         if (!isMounted) return;
-        const normalized = { entries: trainerResult.entries.map(ensureTrainerDefaults) };
+        const normalized = normalizeTrainersMulti(trainerResult);
         setData(normalized);
         setPokemon(pokemonResult);
-        setMoves(movesResult);
+        setMoves({ entries: movesResult.entries });
         setItems({ entries: (itemsResult as ItemsMultiFile).entries });
         setAbilities({ entries: abilitiesResult.entries });
         setActiveKey(normalized.entries[0] ? entryKey(normalized.entries[0]) : null);
         setSnapshot(serializeTrainers(normalized.entries));
+        const files = trainerResult.files?.length ? trainerResult.files : ["trainers.txt"];
+        setSourceFiles(files);
         dirty.setDirty("trainers", false);
+        setActiveSource(files.length === 1 ? files[0] : "ALL");
       })
       .catch((err: Error) => {
         if (!isMounted) return;
@@ -102,13 +129,23 @@ export default function TrainersPage() {
 
   const filteredEntries = useMemo(() => {
     const needle = filter.trim().toLowerCase();
-    if (!needle) return data.entries;
-    return data.entries.filter(
+    const sourceFiltered =
+      activeSource === "ALL"
+        ? data.entries
+        : data.entries.filter((entry) => (entry.sourceFile ?? "trainers.txt") === activeSource);
+    if (!needle) return sourceFiltered;
+    return sourceFiltered.filter(
       (entry) =>
         entry.id.toLowerCase().includes(needle) ||
         entry.name.toLowerCase().includes(needle)
     );
-  }, [data.entries, filter]);
+  }, [data.entries, filter, activeSource]);
+
+  useEffect(() => {
+    if (!activeKey) return;
+    if (filteredEntries.some((entry) => entryKey(entry) === activeKey)) return;
+    setActiveKey(filteredEntries[0] ? entryKey(filteredEntries[0]) : null);
+  }, [filteredEntries, activeKey]);
 
   useEffect(() => {
     setIdError(null);
@@ -242,7 +279,9 @@ export default function TrainersPage() {
   const warningEntries = validation.filter((entry) => entry.warnings.length > 0);
   const hasInvalidEntries = invalidEntries.length > 0;
 
-  const handleAddEntry = () => {
+  const handleAddEntry = (targetFile?: string) => {
+    const availableFiles = sourceFiles.length ? sourceFiles : ["trainers.txt"];
+    const resolvedTarget = targetFile ?? (activeSource === "ALL" ? availableFiles[0] : activeSource);
     const nextId = nextAvailableId("NEWTRAINER", data.entries);
     const entry: TrainerEntry = {
       id: nextId,
@@ -252,7 +291,8 @@ export default function TrainersPage() {
       items: [],
       loseText: "...",
       pokemon: [],
-      order: nextOrder(data.entries),
+      order: nextOrderForSource(data.entries, resolvedTarget),
+      sourceFile: resolvedTarget,
     };
     setData((prev) => ({ entries: [...prev.entries, entry] }));
     setActiveKey(entryKey(entry));
@@ -264,7 +304,8 @@ export default function TrainersPage() {
     const duplicated: TrainerEntry = {
       ...entry,
       version: nextVersion,
-      order: nextOrder(data.entries),
+      order: nextOrderForSource(data.entries, entry.sourceFile ?? "trainers.txt"),
+      sourceFile: entry.sourceFile,
       items: [...entry.items],
       pokemon: entry.pokemon.map((mon) => ({ ...mon, moves: [...mon.moves], ivs: [...mon.ivs], evs: [...mon.evs] })),
     };
@@ -297,7 +338,7 @@ export default function TrainersPage() {
     setError(null);
     try {
       await exportTrainers(data);
-      setStatus("Exported trainers.txt.");
+      setStatus("Exported trainer files to PBS_Output/");
       setSnapshot(serializeTrainers(data.entries));
       dirty.setDirty("trainers", false);
     } catch (err) {
@@ -326,9 +367,34 @@ export default function TrainersPage() {
       <section className="list-panel">
         <div className="panel-header">
           <h1>Trainers</h1>
-          <button className="ghost" onClick={handleAddEntry}>
+          <button
+            className="ghost"
+            onClick={() => {
+              const availableFiles = sourceFiles.length ? sourceFiles : ["trainers.txt"];
+              if (activeSource === "ALL" && availableFiles.length > 1) {
+                setAddSourceDraft(availableFiles[0]);
+                setShowAddSourceModal(true);
+                return;
+              }
+              handleAddEntry();
+            }}
+          >
             Add New
           </button>
+        </div>
+        <div className="list-filter">
+          <select
+            className="input"
+            value={activeSource}
+            onChange={(event) => setActiveSource(event.target.value)}
+          >
+            <option value="ALL">All files</option>
+            {sourceFiles.map((file) => (
+              <option key={file} value={file}>
+                {file}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="list-filter">
           <input
@@ -348,7 +414,10 @@ export default function TrainersPage() {
               <div className="list-title">
                 {entry.version > 0 ? `${entry.id},${entry.name},${entry.version}` : `${entry.id},${entry.name}`}
               </div>
-              <div className="list-sub">{entry.loseText || "(no lose text)"}</div>
+              <div className="list-sub">
+                {entry.loseText || "(no lose text)"}{" "}
+                {activeSource === "ALL" && entry.sourceFile ? `• ${entry.sourceFile}` : ""}
+              </div>
             </button>
           ))}
         </div>
@@ -363,6 +432,7 @@ export default function TrainersPage() {
             onDuplicate={handleDuplicateEntry}
             onDelete={handleDeleteEntry}
             onMoveEntry={() => setShowMoveModal(true)}
+            canMoveEntry={activeSource !== "ALL"}
             idError={idError}
             onSetIdError={setIdError}
             pokemonOptions={pokemonOptions}
@@ -378,14 +448,63 @@ export default function TrainersPage() {
         {activeEntry && (
           <MoveEntryModal
             open={showMoveModal}
-            total={data.entries.length}
+            total={
+              activeEntry
+                ? data.entries.filter(
+                    (entry) => (entry.sourceFile ?? "trainers.txt") === (activeEntry.sourceFile ?? "trainers.txt")
+                  ).length
+                : data.entries.length
+            }
             title={`${activeEntry.id},${activeEntry.name}${activeEntry.version ? `,${activeEntry.version}` : ""}`}
             onClose={() => setShowMoveModal(false)}
             onMove={(targetIndex) => {
-              const nextEntries = moveTrainerGroup(data.entries, activeEntry, targetIndex);
+              const nextEntries = moveTrainerGroupWithinSource(
+                data.entries,
+                activeEntry,
+                activeEntry.sourceFile ?? "trainers.txt",
+                targetIndex
+              );
               setData({ entries: nextEntries });
             }}
           />
+        )}
+        {showAddSourceModal && (
+          <div className="modal-backdrop">
+            <div className="modal">
+              <h2>Add Trainer</h2>
+              <p>Select which file this entry should be added to.</p>
+              <div className="field-list">
+                <div className="field-row single">
+                  <label className="label">Target file</label>
+                  <select
+                    className="input"
+                    value={addSourceDraft}
+                    onChange={(event) => setAddSourceDraft(event.target.value)}
+                  >
+                    {sourceFiles.map((file) => (
+                      <option key={file} value={file}>
+                        {file}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="button-row">
+                <button className="ghost" onClick={() => setShowAddSourceModal(false)}>
+                  Cancel
+                </button>
+                <button
+                  className="primary"
+                  onClick={() => {
+                    handleAddEntry(addSourceDraft || "trainers.txt");
+                    setShowAddSourceModal(false);
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
         )}
         {invalidEntries.length > 0 && (
           <section className="panel">
@@ -432,8 +551,7 @@ export default function TrainersPage() {
       </section>
       <section className="export-bar">
         <div className="export-warning">
-          Exports never overwrite <strong>PBS/trainers.txt</strong>. Output goes to{" "}
-          <strong>PBS_Output/trainers.txt</strong>.
+          Exports never overwrite <strong>PBS/trainers*.txt</strong>. Output goes to <strong>PBS_Output/</strong>.
         </div>
         <div className="export-actions">
           {status && <span className="status">{status}</span>}
@@ -454,6 +572,7 @@ type DetailProps = {
   onDuplicate: (entry: TrainerEntry) => void;
   onDelete: (entry: TrainerEntry) => void;
   onMoveEntry: () => void;
+  canMoveEntry: boolean;
   idError: string | null;
   onSetIdError: (value: string | null) => void;
   pokemonOptions: string[];
@@ -472,6 +591,7 @@ function TrainerDetail({
   onDuplicate,
   onDelete,
   onMoveEntry,
+  canMoveEntry,
   idError,
   onSetIdError,
   pokemonOptions,
@@ -535,7 +655,12 @@ function TrainerDetail({
       <div className="panel-header">
         <h2>{entry.version > 0 ? `${entry.id},${entry.name},${entry.version}` : `${entry.id},${entry.name}`}</h2>
         <div className="button-row">
-          <button className="ghost" onClick={onMoveEntry}>
+          <button
+            className={`ghost${canMoveEntry ? "" : " disabled"}`}
+            onClick={onMoveEntry}
+            disabled={!canMoveEntry}
+            title={!canMoveEntry ? "Can't move while viewing all files." : ""}
+          >
             Move Entry
           </button>
           <button className="ghost" onClick={() => onDuplicate(entry)}>
@@ -945,6 +1070,7 @@ function ensureTrainerDefaults(entry: TrainerEntry): TrainerEntry {
   return {
     ...entry,
     name: entry.name ?? "",
+    sourceFile: entry.sourceFile ?? "trainers.txt",
     flags: entry.flags ?? [],
     items: entry.items ?? [],
     loseText: entry.loseText ?? "...",
@@ -1010,20 +1136,37 @@ function trainerGroupKey(entry: TrainerEntry) {
   return `${entry.id}::${entry.name}`;
 }
 
-function moveTrainerGroup(entries: TrainerEntry[], active: TrainerEntry, targetIndex: number) {
+function moveTrainerGroupWithinSource(
+  entries: TrainerEntry[],
+  active: TrainerEntry,
+  sourceFile: string,
+  targetIndex: number
+) {
   const groupId = trainerGroupKey(active);
-  const remaining = entries.filter((entry) => trainerGroupKey(entry) !== groupId);
-  const group = entries.filter((entry) => trainerGroupKey(entry) === groupId);
-  const beforeCount = entries
-    .slice(0, Math.max(0, Math.min(entries.length, targetIndex)))
+  const scoped = entries.filter((entry) => (entry.sourceFile ?? "trainers.txt") === sourceFile);
+  const remaining = scoped.filter((entry) => trainerGroupKey(entry) !== groupId);
+  const group = scoped.filter((entry) => trainerGroupKey(entry) === groupId);
+  const beforeCount = scoped
+    .slice(0, Math.max(0, Math.min(scoped.length, targetIndex)))
     .filter((entry) => trainerGroupKey(entry) !== groupId).length;
   const insertIndex = Math.max(0, Math.min(remaining.length, beforeCount));
-  const next = [...remaining.slice(0, insertIndex), ...group, ...remaining.slice(insertIndex)];
-  return next.map((entry, index) => ({ ...entry, order: index }));
+  const reordered = [...remaining.slice(0, insertIndex), ...group, ...remaining.slice(insertIndex)].map(
+    (entry, index) => ({ ...entry, order: index })
+  );
+  let nextIndex = 0;
+  return entries.map((entry) => {
+    if ((entry.sourceFile ?? "trainers.txt") !== sourceFile) return entry;
+    const nextEntry = reordered[nextIndex];
+    nextIndex += 1;
+    return nextEntry ?? entry;
+  });
 }
 
-function nextOrder(entries: TrainerEntry[]) {
-  return Math.max(0, ...entries.map((entry) => entry.order + 1));
+function nextOrderForSource(entries: TrainerEntry[], sourceFile: string) {
+  const orders = entries
+    .filter((entry) => (entry.sourceFile ?? "trainers.txt") === sourceFile)
+    .map((entry) => entry.order + 1);
+  return Math.max(0, ...orders);
 }
 
 function nextAvailableId(base: string, entries: TrainerEntry[]) {
@@ -1050,6 +1193,7 @@ function serializeTrainers(entries: TrainerEntry[]) {
       items: entry.items,
       loseText: entry.loseText,
       order: entry.order,
+      sourceFile: entry.sourceFile ?? "trainers.txt",
       pokemon: entry.pokemon.map((mon) => ({
         ...mon,
         moves: [...mon.moves],

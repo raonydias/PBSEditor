@@ -6,15 +6,20 @@ import {
   AbilitiesFile,
   AbilitiesMultiFile,
   ApiError,
+  BerryPlantsMultiFile,
   BerryPlantsFile,
+  EncountersMultiFile,
   EncountersFile,
   ItemsFile,
   ItemsMultiFile,
+  MovesMultiFile,
   MovesFile,
   PokemonFile,
   PokemonFormsFile,
+  RibbonsMultiFile,
   ProjectStatus,
   RibbonsFile,
+  TrainersMultiFile,
   TrainersFile,
   TrainerTypesFile,
   TrainerTypesMultiFile,
@@ -196,6 +201,51 @@ app.get("/api/project/status", async (_req, res) => {
   const missingFiles: string[] = [];
   if (hasPbs) {
     for (const file of supportedFiles) {
+      if (file === "items.txt") {
+        const files = await listPbsFiles("items");
+        if (files.length === 0) missingFiles.push(file);
+        continue;
+      }
+      if (file === "types.txt") {
+        const files = await listPbsFiles("types");
+        if (files.length === 0) missingFiles.push(file);
+        continue;
+      }
+      if (file === "abilities.txt") {
+        const files = await listPbsFiles("abilities");
+        if (files.length === 0) missingFiles.push(file);
+        continue;
+      }
+      if (file === "moves.txt") {
+        const files = await listPbsFiles("moves");
+        if (files.length === 0) missingFiles.push(file);
+        continue;
+      }
+      if (file === "ribbons.txt") {
+        const files = await listPbsFiles("ribbons");
+        if (files.length === 0) missingFiles.push(file);
+        continue;
+      }
+      if (file === "berry_plants.txt") {
+        const files = await listPbsFiles("berry_plants");
+        if (files.length === 0) missingFiles.push(file);
+        continue;
+      }
+      if (file === "trainer_types.txt") {
+        const files = await listPbsFiles("trainer_types");
+        if (files.length === 0) missingFiles.push(file);
+        continue;
+      }
+      if (file === "encounters.txt") {
+        const files = await listPbsFiles("encounters");
+        if (files.length === 0) missingFiles.push(file);
+        continue;
+      }
+      if (file === "trainers.txt") {
+        const files = await listPbsFiles("trainers");
+        if (files.length === 0) missingFiles.push(file);
+        continue;
+      }
       const filePath = path.join(pbsPath, file);
       if (!(await fileExists(filePath))) missingFiles.push(file);
     }
@@ -227,9 +277,21 @@ app.get("/api/pbs/:file", async (req, res) => {
       res.status(404).json(errorBody("PBS file not found.", pbsPath));
       return;
     }
+  } else if (file === "moves.txt") {
+    const moveFiles = await listPbsFiles("moves");
+    if (moveFiles.length === 0) {
+      res.status(404).json(errorBody("PBS file not found.", pbsPath));
+      return;
+    }
   } else if (file === "abilities.txt") {
     const abilityFiles = await listPbsFiles("abilities");
     if (abilityFiles.length === 0) {
+      res.status(404).json(errorBody("PBS file not found.", pbsPath));
+      return;
+    }
+  } else if (file === "ribbons.txt") {
+    const ribbonFiles = await listPbsFiles("ribbons");
+    if (ribbonFiles.length === 0) {
       res.status(404).json(errorBody("PBS file not found.", pbsPath));
       return;
     }
@@ -242,6 +304,24 @@ app.get("/api/pbs/:file", async (req, res) => {
   } else if (file === "types.txt") {
     const typeFiles = await listPbsFiles("types");
     if (typeFiles.length === 0) {
+      res.status(404).json(errorBody("PBS file not found.", pbsPath));
+      return;
+    }
+  } else if (file === "berry_plants.txt") {
+    const berryFiles = await listPbsFiles("berry_plants");
+    if (berryFiles.length === 0) {
+      res.status(404).json(errorBody("PBS file not found.", pbsPath));
+      return;
+    }
+  } else if (file === "encounters.txt") {
+    const encounterFiles = await listPbsFiles("encounters");
+    if (encounterFiles.length === 0) {
+      res.status(404).json(errorBody("PBS file not found.", pbsPath));
+      return;
+    }
+  } else if (file === "trainers.txt") {
+    const trainerFiles = await listPbsFiles("trainers");
+    if (trainerFiles.length === 0) {
       res.status(404).json(errorBody("PBS file not found.", pbsPath));
       return;
     }
@@ -280,19 +360,46 @@ app.get("/api/pbs/:file", async (req, res) => {
       res.json(merged);
       return;
     }
-    if (file === "berry_plants.txt") {
-      const parsed = parseBerryPlantsFile(raw);
-      res.json(parsed);
+    if (file === "moves.txt") {
+      const moveFiles = await listPbsFiles("moves");
+      const merged: MovesMultiFile = { entries: [], files: moveFiles };
+      for (const filename of moveFiles) {
+        const filePath = path.join(pbsDir(), filename);
+        if (!(await fileExists(filePath))) continue;
+        const fileRaw = await fs.readFile(filePath, "utf-8");
+        const parsed = parseMovesFile(fileRaw);
+        const tagged = parsed.entries.map((entry) => ({ ...entry, sourceFile: filename }));
+        merged.entries.push(...tagged);
+      }
+      res.json(merged);
       return;
     }
     if (file === "ribbons.txt") {
-      const parsed = parseRibbonsFile(raw);
-      res.json(parsed);
+      const ribbonFiles = await listPbsFiles("ribbons");
+      const merged: RibbonsMultiFile = { entries: [], files: ribbonFiles };
+      for (const filename of ribbonFiles) {
+        const filePath = path.join(pbsDir(), filename);
+        if (!(await fileExists(filePath))) continue;
+        const fileRaw = await fs.readFile(filePath, "utf-8");
+        const parsed = parseRibbonsFile(fileRaw);
+        const tagged = parsed.entries.map((entry) => ({ ...entry, sourceFile: filename }));
+        merged.entries.push(...tagged);
+      }
+      res.json(merged);
       return;
     }
-    if (file === "moves.txt") {
-      const parsed = parseMovesFile(raw);
-      res.json(parsed);
+    if (file === "berry_plants.txt") {
+      const berryFiles = await listPbsFiles("berry_plants");
+      const merged: BerryPlantsMultiFile = { entries: [], files: berryFiles };
+      for (const filename of berryFiles) {
+        const filePath = path.join(pbsDir(), filename);
+        if (!(await fileExists(filePath))) continue;
+        const fileRaw = await fs.readFile(filePath, "utf-8");
+        const parsed = parseBerryPlantsFile(fileRaw);
+        const tagged = parsed.entries.map((entry) => ({ ...entry, sourceFile: filename }));
+        merged.entries.push(...tagged);
+      }
+      res.json(merged);
       return;
     }
     if (file === "items.txt") {
@@ -323,6 +430,34 @@ app.get("/api/pbs/:file", async (req, res) => {
       res.json(merged);
       return;
     }
+    if (file === "encounters.txt") {
+      const encounterFiles = await listPbsFiles("encounters");
+      const merged: EncountersMultiFile = { entries: [], files: encounterFiles };
+      for (const filename of encounterFiles) {
+        const filePath = path.join(pbsDir(), filename);
+        if (!(await fileExists(filePath))) continue;
+        const fileRaw = await fs.readFile(filePath, "utf-8");
+        const parsed = parseEncountersFile(fileRaw);
+        const tagged = parsed.entries.map((entry) => ({ ...entry, sourceFile: filename }));
+        merged.entries.push(...tagged);
+      }
+      res.json(merged);
+      return;
+    }
+    if (file === "trainers.txt") {
+      const trainerFiles = await listPbsFiles("trainers");
+      const merged: TrainersMultiFile = { entries: [], files: trainerFiles };
+      for (const filename of trainerFiles) {
+        const filePath = path.join(pbsDir(), filename);
+        if (!(await fileExists(filePath))) continue;
+        const fileRaw = await fs.readFile(filePath, "utf-8");
+        const parsed = parseTrainersFile(fileRaw);
+        const tagged = parsed.entries.map((entry) => ({ ...entry, sourceFile: filename }));
+        merged.entries.push(...tagged);
+      }
+      res.json(merged);
+      return;
+    }
     if (file === "pokemon.txt") {
       const parsed = parsePokemonFile(raw);
       res.json(parsed);
@@ -335,16 +470,6 @@ app.get("/api/pbs/:file", async (req, res) => {
     }
     if (file === "trainer_types.txt") {
       const parsed = parseTrainerTypesFile(raw);
-      res.json(parsed);
-      return;
-    }
-    if (file === "encounters.txt") {
-      const parsed = parseEncountersFile(raw);
-      res.json(parsed);
-      return;
-    }
-    if (file === "trainers.txt") {
-      const parsed = parseTrainersFile(raw);
       res.json(parsed);
       return;
     }
@@ -402,6 +527,7 @@ const exportSchema = z.union([
           version: z.number().int().nonnegative(),
           name: z.string(),
           order: z.number().int().nonnegative(),
+          sourceFile: z.string().min(1).optional(),
           encounterTypes: z.array(
             z.object({
               type: z.string(),
@@ -410,6 +536,7 @@ const exportSchema = z.union([
                 z.object({
                   chance: z.string(),
                   pokemon: z.string(),
+                  formNumber: z.string().optional(),
                   levelMin: z.string(),
                   levelMax: z.string(),
                 })
@@ -428,6 +555,7 @@ const exportSchema = z.union([
           name: z.string(),
           version: z.number().int().nonnegative(),
           order: z.number().int().nonnegative(),
+          sourceFile: z.string().min(1).optional(),
           flags: z.array(z.string()),
           items: z.array(z.string()),
           loseText: z.string(),
@@ -544,6 +672,66 @@ app.post("/api/pbs/:file/export", async (req, res) => {
       res.json({ ok: true, paths: outputs });
       return;
     }
+    if (file === "moves.txt") {
+      const entries = (payload as MovesFile).entries ?? [];
+      const grouped = new Map<string, typeof entries>();
+      for (const entry of entries) {
+        const source = entry.sourceFile?.trim() || "moves.txt";
+        const list = grouped.get(source) ?? [];
+        list.push(entry);
+        grouped.set(source, list);
+      }
+      const outputs: string[] = [];
+      for (const [source, groupEntries] of grouped.entries()) {
+        const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
+        const output = exportMovesFile({ entries: sorted });
+        const outputPath = path.join(pbsOutputDir(), source);
+        await fs.writeFile(outputPath, output, "utf-8");
+        outputs.push(outputPath);
+      }
+      res.json({ ok: true, paths: outputs });
+      return;
+    }
+    if (file === "ribbons.txt") {
+      const entries = (payload as RibbonsFile).entries ?? [];
+      const grouped = new Map<string, typeof entries>();
+      for (const entry of entries) {
+        const source = entry.sourceFile?.trim() || "ribbons.txt";
+        const list = grouped.get(source) ?? [];
+        list.push(entry);
+        grouped.set(source, list);
+      }
+      const outputs: string[] = [];
+      for (const [source, groupEntries] of grouped.entries()) {
+        const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
+        const output = exportRibbonsFile({ entries: sorted });
+        const outputPath = path.join(pbsOutputDir(), source);
+        await fs.writeFile(outputPath, output, "utf-8");
+        outputs.push(outputPath);
+      }
+      res.json({ ok: true, paths: outputs });
+      return;
+    }
+    if (file === "berry_plants.txt") {
+      const entries = (payload as BerryPlantsFile).entries ?? [];
+      const grouped = new Map<string, typeof entries>();
+      for (const entry of entries) {
+        const source = entry.sourceFile?.trim() || "berry_plants.txt";
+        const list = grouped.get(source) ?? [];
+        list.push(entry);
+        grouped.set(source, list);
+      }
+      const outputs: string[] = [];
+      for (const [source, groupEntries] of grouped.entries()) {
+        const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
+        const output = exportBerryPlantsFile({ entries: sorted });
+        const outputPath = path.join(pbsOutputDir(), source);
+        await fs.writeFile(outputPath, output, "utf-8");
+        outputs.push(outputPath);
+      }
+      res.json({ ok: true, paths: outputs });
+      return;
+    }
     if (file === "trainer_types.txt") {
       const entries = (payload as TrainerTypesFile).entries ?? [];
       const grouped = new Map<string, typeof entries>();
@@ -557,6 +745,46 @@ app.post("/api/pbs/:file/export", async (req, res) => {
       for (const [source, groupEntries] of grouped.entries()) {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportTrainerTypesFile({ entries: sorted });
+        const outputPath = path.join(pbsOutputDir(), source);
+        await fs.writeFile(outputPath, output, "utf-8");
+        outputs.push(outputPath);
+      }
+      res.json({ ok: true, paths: outputs });
+      return;
+    }
+    if (file === "encounters.txt") {
+      const entries = (payload as EncountersFile).entries ?? [];
+      const grouped = new Map<string, typeof entries>();
+      for (const entry of entries) {
+        const source = entry.sourceFile?.trim() || "encounters.txt";
+        const list = grouped.get(source) ?? [];
+        list.push(entry);
+        grouped.set(source, list);
+      }
+      const outputs: string[] = [];
+      for (const [source, groupEntries] of grouped.entries()) {
+        const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
+        const output = exportEncountersFile({ entries: sorted });
+        const outputPath = path.join(pbsOutputDir(), source);
+        await fs.writeFile(outputPath, output, "utf-8");
+        outputs.push(outputPath);
+      }
+      res.json({ ok: true, paths: outputs });
+      return;
+    }
+    if (file === "trainers.txt") {
+      const entries = (payload as TrainersFile).entries ?? [];
+      const grouped = new Map<string, typeof entries>();
+      for (const entry of entries) {
+        const source = entry.sourceFile?.trim() || "trainers.txt";
+        const list = grouped.get(source) ?? [];
+        list.push(entry);
+        grouped.set(source, list);
+      }
+      const outputs: string[] = [];
+      for (const [source, groupEntries] of grouped.entries()) {
+        const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
+        const output = exportTrainersFile({ entries: sorted });
         const outputPath = path.join(pbsOutputDir(), source);
         await fs.writeFile(outputPath, output, "utf-8");
         outputs.push(outputPath);

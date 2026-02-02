@@ -374,7 +374,7 @@ export default function PokemonFormsPage() {
         setPokemon(normalizedPokemon);
         setTypes({ entries: typesResult.entries });
         setAbilities({ entries: abilitiesResult.entries });
-        setMoves(movesResult);
+        setMoves({ entries: movesResult.entries });
         setItems({ entries: (itemsResult as ItemsMultiFile).entries });
         setActiveId(normalizedForms[0]?.id ?? null);
         const snap = serializeEntries(normalizedForms);

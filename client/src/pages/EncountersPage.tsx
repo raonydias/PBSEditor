@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import type { EncounterEntry, EncounterSlot, EncounterType, EncountersFile, PokemonFile } from "@pbs/shared";
+import type {
+  EncounterEntry,
+  EncounterSlot,
+  EncounterType,
+  EncountersFile,
+  EncountersMultiFile,
+  PokemonFile,
+} from "@pbs/shared";
 import { exportEncounters, getEncounters, getPokemon } from "../api";
 import { useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
 
 const emptyEncounters: EncountersFile = { entries: [] };
+const emptyFiles: string[] = ["encounters.txt"];
 const emptyPokemon: PokemonFile = { entries: [] };
 
 const ENCOUNTER_TYPE_OPTIONS = [
@@ -70,10 +78,21 @@ type EntryWarnings = {
 
 const EMPTY_SLOT: EncounterSlot = { chance: "", pokemon: "", formNumber: "", levelMin: "", levelMax: "" };
 
+function normalizeEncountersMulti(payload: EncountersMultiFile): EncountersFile {
+  const files = payload.files?.length ? payload.files : ["encounters.txt"];
+  const normalized = payload.entries.map((entry) => {
+    const source = entry.sourceFile ?? files[0] ?? "encounters.txt";
+    return ensureEncounterDefaults({ ...entry, sourceFile: source });
+  });
+  return { entries: normalized };
+}
+
 export default function EncountersPage() {
   const [data, setData] = useState<EncountersFile>(emptyEncounters);
   const [pokemon, setPokemon] = useState<PokemonFile>(emptyPokemon);
   const [activeKey, setActiveKey] = useState<string | null>(null);
+  const [sourceFiles, setSourceFiles] = useState<string[]>(emptyFiles);
+  const [activeSource, setActiveSource] = useState<string>("ALL");
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -81,6 +100,8 @@ export default function EncountersPage() {
   const [filter, setFilter] = useState("");
   const [snapshot, setSnapshot] = useState<string | null>(null);
   const [showMoveModal, setShowMoveModal] = useState(false);
+  const [showAddSourceModal, setShowAddSourceModal] = useState(false);
+  const [addSourceDraft, setAddSourceDraft] = useState<string>("encounters.txt");
   const dirty = useDirty();
 
   useEffect(() => {
@@ -88,13 +109,16 @@ export default function EncountersPage() {
     Promise.all([getEncounters(), getPokemon()])
       .then(([encountersResult, pokemonResult]) => {
         if (!isMounted) return;
-        const normalized = { entries: encountersResult.entries.map(ensureEncounterDefaults) };
+        const normalized = normalizeEncountersMulti(encountersResult);
         setData(normalized);
         setPokemon(pokemonResult);
         setActiveKey(normalized.entries[0] ? entryKey(normalized.entries[0]) : null);
+        const files = encountersResult.files?.length ? encountersResult.files : ["encounters.txt"];
+        setSourceFiles(files);
         const snap = serializeEncounters(normalized.entries);
         setSnapshot(snap);
         dirty.setDirty("encounters", false);
+        setActiveSource(files.length === 1 ? files[0] : "ALL");
       })
       .catch((err: Error) => {
         if (!isMounted) return;
@@ -119,13 +143,23 @@ export default function EncountersPage() {
 
   const filteredEntries = useMemo(() => {
     const needle = filter.trim().toLowerCase();
-    if (!needle) return data.entries;
-    return data.entries.filter(
+    const sourceFiltered =
+      activeSource === "ALL"
+        ? data.entries
+        : data.entries.filter((entry) => (entry.sourceFile ?? "encounters.txt") === activeSource);
+    if (!needle) return sourceFiltered;
+    return sourceFiltered.filter(
       (entry) =>
         entry.id.toLowerCase().includes(needle) ||
         (entry.name ?? "").toLowerCase().includes(needle)
     );
-  }, [data.entries, filter]);
+  }, [data.entries, filter, activeSource]);
+
+  useEffect(() => {
+    if (!activeKey) return;
+    if (filteredEntries.some((entry) => entryKey(entry) === activeKey)) return;
+    setActiveKey(filteredEntries[0] ? entryKey(filteredEntries[0]) : null);
+  }, [filteredEntries, activeKey]);
 
   useEffect(() => {
     setIdError(null);
@@ -252,14 +286,17 @@ export default function EncountersPage() {
 
   const hasInvalidEntries = invalidEntries.length > 0;
 
-  const handleAddEntry = () => {
+  const handleAddEntry = (targetFile?: string) => {
+    const availableFiles = sourceFiles.length ? sourceFiles : ["encounters.txt"];
+    const resolvedTarget = targetFile ?? (activeSource === "ALL" ? availableFiles[0] : activeSource);
     const nextId = nextAvailableMapId(data.entries);
     const entry: EncounterEntry = {
       id: nextId,
       version: 0,
       name: "",
-      order: nextOrder(data.entries),
+      order: nextOrderForSource(data.entries, resolvedTarget),
       encounterTypes: [],
+      sourceFile: resolvedTarget,
     };
     setData((prev) => ({ entries: [...prev.entries, entry] }));
     setActiveKey(entryKey(entry));
@@ -271,7 +308,8 @@ export default function EncountersPage() {
     const duplicated: EncounterEntry = {
       ...entry,
       version: nextVersion,
-      order: nextOrder(data.entries),
+      order: nextOrderForSource(data.entries, entry.sourceFile ?? "encounters.txt"),
+      sourceFile: entry.sourceFile,
       encounterTypes: entry.encounterTypes.map((type) => ({
         ...type,
         slots: type.slots.map((slot) => ({ ...slot })),
@@ -307,7 +345,7 @@ export default function EncountersPage() {
     try {
       const normalized = normalizeEncounterOrder(data.entries);
       await exportEncounters({ entries: normalized });
-      setStatus("Exported encounters.txt.");
+      setStatus("Exported encounter files to PBS_Output/");
       setData({ entries: normalized });
       const snap = serializeEncounters(normalized);
       setSnapshot(snap);
@@ -338,9 +376,34 @@ export default function EncountersPage() {
       <section className="list-panel">
         <div className="panel-header">
           <h1>Encounters</h1>
-          <button className="ghost" onClick={handleAddEntry}>
+          <button
+            className="ghost"
+            onClick={() => {
+              const availableFiles = sourceFiles.length ? sourceFiles : ["encounters.txt"];
+              if (activeSource === "ALL" && availableFiles.length > 1) {
+                setAddSourceDraft(availableFiles[0]);
+                setShowAddSourceModal(true);
+                return;
+              }
+              handleAddEntry();
+            }}
+          >
             Add New
           </button>
+        </div>
+        <div className="list-filter">
+          <select
+            className="input"
+            value={activeSource}
+            onChange={(event) => setActiveSource(event.target.value)}
+          >
+            <option value="ALL">All files</option>
+            {sourceFiles.map((file) => (
+              <option key={file} value={file}>
+                {file}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="list-filter">
           <input
@@ -361,7 +424,8 @@ export default function EncountersPage() {
                 {entry.version > 0 ? `${entry.id},${entry.version}` : entry.id}
               </div>
               <div className="list-sub">
-                {entry.name ? entry.name : `Version ${entry.version}`}
+                {entry.name ? entry.name : `Version ${entry.version}`}{" "}
+                {activeSource === "ALL" && entry.sourceFile ? `• ${entry.sourceFile}` : ""}
               </div>
             </button>
           ))}
@@ -384,6 +448,7 @@ export default function EncountersPage() {
             onDuplicate={handleDuplicateEntry}
             onDelete={handleDeleteEntry}
             onMoveEntry={() => setShowMoveModal(true)}
+            canMoveEntry={activeSource !== "ALL"}
             idError={idError}
             onSetIdError={setIdError}
             pokemonOptions={pokemonOptions}
@@ -394,14 +459,64 @@ export default function EncountersPage() {
         {activeEntry && (
           <MoveEntryModal
             open={showMoveModal}
-            total={data.entries.length}
+            total={
+              activeEntry
+                ? data.entries.filter(
+                    (entry) =>
+                      (entry.sourceFile ?? "encounters.txt") === (activeEntry.sourceFile ?? "encounters.txt")
+                  ).length
+                : data.entries.length
+            }
             title={`${activeEntry.id}${activeEntry.version ? `,${activeEntry.version}` : ""}`}
             onClose={() => setShowMoveModal(false)}
             onMove={(targetIndex) => {
-              const nextEntries = moveEncounterGroup(data.entries, activeEntry, targetIndex);
+              const nextEntries = moveEncounterGroupWithinSource(
+                data.entries,
+                activeEntry,
+                activeEntry.sourceFile ?? "encounters.txt",
+                targetIndex
+              );
               setData({ entries: nextEntries });
             }}
           />
+        )}
+        {showAddSourceModal && (
+          <div className="modal-backdrop">
+            <div className="modal">
+              <h2>Add Encounter</h2>
+              <p>Select which file this entry should be added to.</p>
+              <div className="field-list">
+                <div className="field-row single">
+                  <label className="label">Target file</label>
+                  <select
+                    className="input"
+                    value={addSourceDraft}
+                    onChange={(event) => setAddSourceDraft(event.target.value)}
+                  >
+                    {sourceFiles.map((file) => (
+                      <option key={file} value={file}>
+                        {file}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="button-row">
+                <button className="ghost" onClick={() => setShowAddSourceModal(false)}>
+                  Cancel
+                </button>
+                <button
+                  className="primary"
+                  onClick={() => {
+                    handleAddEntry(addSourceDraft || "encounters.txt");
+                    setShowAddSourceModal(false);
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
         )}
         {invalidEntries.length > 0 && (
           <section className="panel">
@@ -448,8 +563,7 @@ export default function EncountersPage() {
       </section>
       <section className="export-bar">
         <div className="export-warning">
-          Exports never overwrite <strong>PBS/encounters.txt</strong>. Output goes to{" "}
-          <strong>PBS_Output/encounters.txt</strong>.
+          Exports never overwrite <strong>PBS/encounters*.txt</strong>. Output goes to <strong>PBS_Output/</strong>.
         </div>
         <div className="export-actions">
           {status && <span className="status">{status}</span>}
@@ -472,6 +586,7 @@ type DetailProps = {
   onDuplicate: (entry: EncounterEntry) => void;
   onDelete: (entry: EncounterEntry) => void;
   onMoveEntry: () => void;
+  canMoveEntry: boolean;
   idError: string | null;
   onSetIdError: (value: string | null) => void;
   pokemonOptions: string[];
@@ -486,6 +601,7 @@ function EncounterDetail({
   onDuplicate,
   onDelete,
   onMoveEntry,
+  canMoveEntry,
   idError,
   onSetIdError,
   pokemonOptions,
@@ -513,7 +629,12 @@ function EncounterDetail({
       <div className="panel-header">
         <h2>{entry.id}{entry.version ? `,${entry.version}` : ""}</h2>
         <div className="button-row">
-          <button className="ghost" onClick={onMoveEntry}>
+          <button
+            className={`ghost${canMoveEntry ? "" : " disabled"}`}
+            onClick={onMoveEntry}
+            disabled={!canMoveEntry}
+            title={!canMoveEntry ? "Can't move while viewing all files." : ""}
+          >
             Move Entry
           </button>
           <button className="ghost" onClick={() => onDuplicate(entry)}>
@@ -748,6 +869,7 @@ function EncounterTypeEditor({
 function ensureEncounterDefaults(entry: EncounterEntry): EncounterEntry {
   return {
     ...entry,
+    sourceFile: entry.sourceFile,
     name: entry.name ?? "",
     encounterTypes: entry.encounterTypes.map((type) => ({
       type: type.type ?? "",
@@ -777,8 +899,11 @@ function emptySlot() {
   return { ...EMPTY_SLOT };
 }
 
-function nextOrder(entries: EncounterEntry[]) {
-  return Math.max(0, ...entries.map((entry) => entry.order + 1));
+function nextOrderForSource(entries: EncounterEntry[], sourceFile: string) {
+  const orders = entries
+    .filter((entry) => (entry.sourceFile ?? "encounters.txt") === sourceFile)
+    .map((entry) => entry.order + 1);
+  return Math.max(0, ...orders);
 }
 
 function nextAvailableMapId(entries: EncounterEntry[]) {
@@ -807,6 +932,7 @@ function serializeEncounters(entries: EncounterEntry[]) {
       version: entry.version,
       name: entry.name,
       order: entry.order,
+      sourceFile: entry.sourceFile ?? "encounters.txt",
       encounterTypes: entry.encounterTypes.map((type) => ({
         type: type.type,
         probability: type.probability,
@@ -816,25 +942,60 @@ function serializeEncounters(entries: EncounterEntry[]) {
   );
 }
 
-function moveEncounterGroup(entries: EncounterEntry[], active: EncounterEntry, targetIndex: number) {
+function moveEncounterGroupWithinSource(
+  entries: EncounterEntry[],
+  active: EncounterEntry,
+  sourceFile: string,
+  targetIndex: number
+) {
   const groupId = active.id;
-  const remaining = entries.filter((entry) => entry.id !== groupId);
-  const group = entries.filter((entry) => entry.id === groupId);
-  const beforeCount = entries
-    .slice(0, Math.max(0, Math.min(entries.length, targetIndex)))
+  const scoped = entries.filter((entry) => (entry.sourceFile ?? "encounters.txt") === sourceFile);
+  const remaining = scoped.filter((entry) => entry.id !== groupId);
+  const group = scoped.filter((entry) => entry.id === groupId);
+  const beforeCount = scoped
+    .slice(0, Math.max(0, Math.min(scoped.length, targetIndex)))
     .filter((entry) => entry.id !== groupId).length;
   const insertIndex = Math.max(0, Math.min(remaining.length, beforeCount));
-  const next = [...remaining.slice(0, insertIndex), ...group, ...remaining.slice(insertIndex)];
-  return next.map((entry, index) => ({ ...entry, order: index }));
+  const reordered = [...remaining.slice(0, insertIndex), ...group, ...remaining.slice(insertIndex)].map(
+    (entry, index) => ({ ...entry, order: index })
+  );
+  let nextIndex = 0;
+  return entries.map((entry) => {
+    if ((entry.sourceFile ?? "encounters.txt") !== sourceFile) return entry;
+    const nextEntry = reordered[nextIndex];
+    nextIndex += 1;
+    return nextEntry ?? entry;
+  });
 }
 
 function normalizeEncounterOrder(entries: EncounterEntry[]) {
-  const seen = new Set<string>();
-  const next: EncounterEntry[] = [];
+  const sourceOrder: string[] = [];
+  const grouped = new Map<string, EncounterEntry[]>();
   for (const entry of entries) {
-    if (seen.has(entry.id)) continue;
-    seen.add(entry.id);
-    next.push(...entries.filter((item) => item.id === entry.id));
+    const source = entry.sourceFile ?? "encounters.txt";
+    if (!grouped.has(source)) {
+      grouped.set(source, []);
+      sourceOrder.push(source);
+    }
+    grouped.get(source)!.push(entry);
   }
-  return next.map((entry, index) => ({ ...entry, order: index }));
+  const next: EncounterEntry[] = [];
+  for (const source of sourceOrder) {
+    const groupEntries = grouped.get(source) ?? [];
+    const seen = new Set<string>();
+    const ordered: EncounterEntry[] = [];
+    for (const entry of groupEntries) {
+      if (seen.has(entry.id)) continue;
+      seen.add(entry.id);
+      ordered.push(...groupEntries.filter((item) => item.id === entry.id));
+    }
+    next.push(
+      ...ordered.map((entry, index) => ({
+        ...entry,
+        order: index,
+        sourceFile: entry.sourceFile ?? source,
+      }))
+    );
+  }
+  return next;
 }

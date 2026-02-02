@@ -70,7 +70,8 @@ export default function TrainerTypesPage() {
         const normalized = normalizeTrainerTypesMulti(trainerResult);
         setData(normalized);
         setBgmFiles(bgmResult);
-        setSourceFiles(trainerResult.files?.length ? trainerResult.files : ["trainer_types.txt"]);
+        const files = trainerResult.files?.length ? trainerResult.files : ["trainer_types.txt"];
+        setSourceFiles(files);
         setActiveId(normalized.entries[0]?.id ?? null);
         const snap = serializeEntries(normalized.entries);
         setSnapshot(snap);
@@ -82,7 +83,7 @@ export default function TrainerTypesPage() {
           if (skillLevel && skillLevel !== baseMoney) manual.add(entry.id);
         }
         setManualSkillLevel(manual);
-        setActiveSource("ALL");
+        setActiveSource(files.length === 1 ? files[0] : "ALL");
       })
       .catch((err: Error) => {
         if (!isMounted) return;

@@ -2,15 +2,20 @@ import {
   AbilitiesFile,
   AbilitiesMultiFile,
   BerryPlantsFile,
+  BerryPlantsMultiFile,
   EncountersFile,
+  EncountersMultiFile,
   ItemsFile,
   ItemsMultiFile,
   MovesFile,
+  MovesMultiFile,
   PokemonFile,
   PokemonFormsFile,
   ProjectStatus,
   RibbonsFile,
+  RibbonsMultiFile,
   TrainersFile,
+  TrainersMultiFile,
   TrainerTypesFile,
   TrainerTypesMultiFile,
   TypesFile,
@@ -67,7 +72,7 @@ export async function exportAbilities(data: AbilitiesFile): Promise<void> {
   }
 }
 
-export async function getBerryPlants(): Promise<BerryPlantsFile> {
+export async function getBerryPlants(): Promise<BerryPlantsMultiFile> {
   const res = await fetch("/api/pbs/berry_plants.txt");
   if (!res.ok) {
     const body = await res.text();
@@ -88,7 +93,7 @@ export async function exportBerryPlants(data: BerryPlantsFile): Promise<void> {
   }
 }
 
-export async function getRibbons(): Promise<RibbonsFile> {
+export async function getRibbons(): Promise<RibbonsMultiFile> {
   const res = await fetch("/api/pbs/ribbons.txt");
   if (!res.ok) {
     const body = await res.text();
@@ -109,7 +114,7 @@ export async function exportRibbons(data: RibbonsFile): Promise<void> {
   }
 }
 
-export async function getMoves(): Promise<MovesFile> {
+export async function getMoves(): Promise<MovesMultiFile> {
   const res = await fetch("/api/pbs/moves.txt");
   if (!res.ok) {
     const body = await res.text();
@@ -214,7 +219,7 @@ export async function exportTrainerTypes(data: TrainerTypesFile): Promise<void> 
   }
 }
 
-export async function getEncounters(): Promise<EncountersFile> {
+export async function getEncounters(): Promise<EncountersMultiFile> {
   const res = await fetch("/api/pbs/encounters.txt");
   if (!res.ok) {
     const body = await res.text();
@@ -235,7 +240,7 @@ export async function exportEncounters(data: EncountersFile): Promise<void> {
   }
 }
 
-export async function getTrainers(): Promise<TrainersFile> {
+export async function getTrainers(): Promise<TrainersMultiFile> {
   const res = await fetch("/api/pbs/trainers.txt");
   if (!res.ok) {
     const body = await res.text();
