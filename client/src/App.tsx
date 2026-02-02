@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { ProjectStatus } from "@pbs/shared";
 import { getProjectStatus } from "./api";
 import { useDirty } from "./dirty";
+import SettingsModal from "./components/SettingsModal";
+import { SettingsProvider } from "./settings";
 
 export default function App() {
   const dirty = useDirty();
@@ -36,7 +38,8 @@ export default function App() {
   const missing = new Set(status?.missingFiles ?? []);
 
   return (
-    <div className="app-shell">
+    <SettingsProvider>
+      <div className="app-shell">
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-title">PBS Editor</div>
@@ -130,6 +133,8 @@ export default function App() {
           </div>
         </div>
       )}
+      <SettingsModal />
     </div>
+    </SettingsProvider>
   );
 }

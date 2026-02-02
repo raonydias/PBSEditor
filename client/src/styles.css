@@ -402,6 +402,12 @@ body {
     padding: 8px 0;
 }
 
+.ghost.settings {
+    width: 38px;
+    text-align: center;
+    padding: 8px 0;
+}
+
 .ghost.disabled,
 .ghost:disabled {
     opacity: 0.5;
@@ -444,14 +450,85 @@ body {
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
 }
 
-.export-warning {
-    color: var(--muted);
+.export-settings {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .export-actions {
     display: flex;
     align-items: center;
     gap: 12px;
+}
+
+.toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.toggle-title {
+    font-weight: 600;
+}
+
+.toggle {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+.toggle-track {
+    width: 44px;
+    height: 24px;
+    border-radius: 999px;
+    background: #cfcfcf;
+    position: relative;
+    transition: background 0.2s ease;
+}
+
+.toggle-track::after {
+    content: "";
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #ffffff;
+    transition: transform 0.2s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+
+.toggle input:checked + .toggle-track {
+    background: #6fd082;
+}
+
+.toggle input:checked + .toggle-track::after {
+    transform: translateX(20px);
+}
+
+.hide-images .pokemon-sprite,
+.hide-images .list-item-icon,
+.hide-images .item-sprite,
+.hide-images .trainer-sprite,
+.hide-images .type-sprite,
+.hide-images .berry-sprite {
+    display: none !important;
+}
+
+.disable-animations .list-item-iconic .list-item-icon img {
+    animation: none !important;
 }
 
 .status {

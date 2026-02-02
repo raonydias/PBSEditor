@@ -4,6 +4,7 @@ import { exportTypes, getTypes } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
 import { useScrollTopButton } from "../hooks/useScrollTopButton";
+import { useSettings } from "../settings";
 
 const emptyFile: TypesFile = { entries: [] };
 const emptyFiles: string[] = ["types.txt"];
@@ -26,6 +27,7 @@ export default function TypesPage() {
   const [showAddSourceModal, setShowAddSourceModal] = useState(false);
   const [addSourceDraft, setAddSourceDraft] = useState<string>("types.txt");
   const showTop = useScrollTopButton();
+  const { openSettings } = useSettings();
 
   const ensureTypeDefaults = (entry: PBSEntry, sourceFile: string) => {
     const defaults = buildDefaultTypeEntry(entry.id, entry.order, sourceFile);
@@ -591,8 +593,12 @@ export default function TypesPage() {
         )}
       </section>
       <section className="export-bar">
-        <div className="export-warning">
-          Exports never overwrite <strong>PBS/types*.txt</strong>. Output goes to <strong>PBS_Output/</strong>.
+        <div className="export-settings">
+          <button className="ghost settings" title="Settings" onClick={openSettings}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z"/>
+            </svg>
+          </button>
         </div>
         <div className="export-actions">
           {status && <span className="status">{status}</span>}
@@ -602,9 +608,9 @@ export default function TypesPage() {
               className="ghost top"
               onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
               title="Back to top"
-            >
-              ↑
-            </button>
+            ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="m7.247 4.86-4.796 5.481c-.566.647-.106 1.659.753 1.659h9.592a1 1 0 0 0 .753-1.659l-4.796-5.48a1 1 0 0 0-1.506 0z"/>
+            </svg></button>
           )}
           <button className="ghost reset" onClick={handleResetEntry} disabled={!isActiveEntryDirty}>
             Reset
