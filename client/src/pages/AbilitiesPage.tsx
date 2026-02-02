@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { AbilitiesFile, PBSEntry } from "@pbs/shared";
+import { AbilitiesFile, AbilitiesMultiFile, PBSEntry } from "@pbs/shared";
 import { exportAbilities, getAbilities } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
 
 const emptyFile: AbilitiesFile = { entries: [] };
+const emptyFiles: string[] = ["abilities.txt"];
 
 export default function AbilitiesPage() {
   const [data, setData] = useState<AbilitiesFile>(emptyFile);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [sourceFiles, setSourceFiles] = useState<string[]>(emptyFiles);
+  const [activeSource, setActiveSource] = useState<string>("ALL");
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -17,9 +20,11 @@ export default function AbilitiesPage() {
   const dirty = useDirty();
   const [snapshot, setSnapshot] = useState<string | null>(null);
   const [showMoveModal, setShowMoveModal] = useState(false);
+  const [showAddSourceModal, setShowAddSourceModal] = useState(false);
+  const [addSourceDraft, setAddSourceDraft] = useState<string>("abilities.txt");
 
-  const ensureAbilityDefaults = (entry: PBSEntry) => {
-    const defaults = buildDefaultAbilityEntry(entry.id, entry.order);
+  const ensureAbilityDefaults = (entry: PBSEntry, sourceFile: string) => {
+    const defaults = buildDefaultAbilityEntry(entry.id, entry.order, sourceFile);
     const existing = new Map(entry.fields.map((field) => [field.key, field.value]));
     const defaultKeys = new Set(defaults.fields.map((field) => field.key));
     const merged = defaults.fields.map((field) => ({
@@ -29,7 +34,16 @@ export default function AbilitiesPage() {
     for (const field of entry.fields) {
       if (!defaultKeys.has(field.key)) merged.push(field);
     }
-    return { ...entry, fields: merged };
+    return { ...entry, fields: merged, sourceFile: entry.sourceFile ?? sourceFile };
+  };
+
+  const normalizeAbilitiesMulti = (payload: AbilitiesMultiFile): AbilitiesFile => {
+    const files = payload.files?.length ? payload.files : ["abilities.txt"];
+    const normalized = payload.entries.map((entry) => {
+      const source = entry.sourceFile ?? files[0] ?? "abilities.txt";
+      return ensureAbilityDefaults(entry, source);
+    });
+    return { entries: normalized };
   };
 
   useEffect(() => {
@@ -37,12 +51,14 @@ export default function AbilitiesPage() {
     getAbilities()
       .then((result) => {
         if (!isMounted) return;
-        const normalized = { entries: result.entries.map(ensureAbilityDefaults) };
+        const normalized = normalizeAbilitiesMulti(result);
         setData(normalized);
+        setSourceFiles(result.files?.length ? result.files : ["abilities.txt"]);
         setActiveId(normalized.entries[0]?.id ?? null);
         const snap = serializeEntries(normalized.entries);
         setSnapshot(snap);
         dirty.setDirty("abilities", false);
+        setActiveSource("ALL");
       })
       .catch((err: Error) => {
         if (!isMounted) return;
@@ -67,9 +83,19 @@ export default function AbilitiesPage() {
 
   const filteredEntries = useMemo(() => {
     const needle = filter.trim().toUpperCase();
-    if (!needle) return data.entries;
-    return data.entries.filter((entry) => entry.id.includes(needle));
-  }, [data.entries, filter]);
+    const sourceFiltered =
+      activeSource === "ALL"
+        ? data.entries
+        : data.entries.filter((entry) => (entry.sourceFile ?? "abilities.txt") === activeSource);
+    if (!needle) return sourceFiltered;
+    return sourceFiltered.filter((entry) => entry.id.includes(needle));
+  }, [data.entries, filter, activeSource]);
+
+  useEffect(() => {
+    if (!activeId) return;
+    if (filteredEntries.some((entry) => entry.id === activeId)) return;
+    setActiveId(filteredEntries[0]?.id ?? null);
+  }, [filteredEntries, activeId]);
 
   useEffect(() => {
     setIdError(null);
@@ -178,19 +204,25 @@ export default function AbilitiesPage() {
       const nextSnap = serializeEntries(data.entries);
       setSnapshot(nextSnap);
       dirty.setDirty("abilities", false);
-      setStatus("Exported to PBS_Output/abilities.txt");
+      setStatus("Exported ability files to PBS_Output/");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
     }
   };
 
-  const handleAddEntry = () => {
+  const handleAddEntry = (targetFile?: string) => {
     setStatus(null);
     setError(null);
     setIdError(null);
+    const availableFiles = sourceFiles.length ? sourceFiles : ["abilities.txt"];
+    const resolvedTarget = targetFile ?? (activeSource === "ALL" ? availableFiles[0] : activeSource);
     const newId = nextAvailableId("NEWABILITY");
-    const newEntry: PBSEntry = buildDefaultAbilityEntry(newId, nextOrder());
+    const newEntry: PBSEntry = buildDefaultAbilityEntry(
+      newId,
+      nextOrderForSource(resolvedTarget),
+      resolvedTarget
+    );
     setData((prev) => ({
       ...prev,
       entries: [...prev.entries, newEntry],
@@ -208,7 +240,8 @@ export default function AbilitiesPage() {
     const duplicated: PBSEntry = {
       ...entry,
       id: newId,
-      order: nextOrder(),
+      order: nextOrderForSource(entry.sourceFile ?? "abilities.txt"),
+      sourceFile: entry.sourceFile,
       fields: entry.fields.map((field) => ({ ...field })),
     };
     setData((prev) => ({
@@ -237,7 +270,12 @@ export default function AbilitiesPage() {
     setStatus(`Deleted ${entry.id}.`);
   };
 
-  const nextOrder = () => Math.max(0, ...data.entries.map((entry) => entry.order + 1));
+  const nextOrderForSource = (sourceFile: string) => {
+    const orders = data.entries
+      .filter((entry) => (entry.sourceFile ?? "abilities.txt") === sourceFile)
+      .map((entry) => entry.order + 1);
+    return Math.max(0, ...orders);
+  };
 
   const nextAvailableId = (base: string) => {
     const existing = new Set(data.entries.map((entry) => entry.id.toLowerCase()));
@@ -270,9 +308,10 @@ export default function AbilitiesPage() {
     return result;
   };
 
-  const buildDefaultAbilityEntry = (id: string, order: number): PBSEntry => ({
+  const buildDefaultAbilityEntry = (id: string, order: number, sourceFile: string): PBSEntry => ({
     id,
     order,
+    sourceFile,
     fields: [
       { key: "Name", value: toTitleCase(id) },
       { key: "Description", value: "???" },
@@ -303,9 +342,34 @@ export default function AbilitiesPage() {
       <section className="list-panel">
         <div className="panel-header">
           <h1>Abilities</h1>
-          <button className="ghost" onClick={handleAddEntry}>
+          <button
+            className="ghost"
+            onClick={() => {
+              const availableFiles = sourceFiles.length ? sourceFiles : ["abilities.txt"];
+              if (activeSource === "ALL" && availableFiles.length > 1) {
+                setAddSourceDraft(availableFiles[0]);
+                setShowAddSourceModal(true);
+                return;
+              }
+              handleAddEntry();
+            }}
+          >
             Add New
           </button>
+        </div>
+        <div className="list-filter">
+          <select
+            className="input"
+            value={activeSource}
+            onChange={(event) => setActiveSource(event.target.value)}
+          >
+            <option value="ALL">All files</option>
+            {sourceFiles.map((file) => (
+              <option key={file} value={file}>
+                {file}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="list-filter">
           <input
@@ -323,7 +387,10 @@ export default function AbilitiesPage() {
               onClick={() => setActiveId(entry.id)}
             >
               <div className="list-title">{entry.id}</div>
-              <div className="list-sub">{entry.fields.find((f) => f.key === "Name")?.value ?? "(no name)"}</div>
+              <div className="list-sub">
+                {entry.fields.find((f) => f.key === "Name")?.value ?? "(no name)"}{" "}
+                {activeSource === "ALL" && entry.sourceFile ? `• ${entry.sourceFile}` : ""}
+              </div>
             </button>
           ))}
         </div>
@@ -338,6 +405,7 @@ export default function AbilitiesPage() {
             onDuplicate={handleDuplicateEntry}
             onDelete={handleDeleteEntry}
             onMoveEntry={() => setShowMoveModal(true)}
+            canMoveEntry={activeSource !== "ALL"}
             idError={idError}
             onSetIdError={setIdError}
             fieldErrors={fieldErrors}
@@ -348,14 +416,64 @@ export default function AbilitiesPage() {
         {activeEntry && (
           <MoveEntryModal
             open={showMoveModal}
-            total={data.entries.length}
+            total={
+              activeEntry
+                ? data.entries.filter(
+                    (entry) =>
+                      (entry.sourceFile ?? "abilities.txt") === (activeEntry.sourceFile ?? "abilities.txt")
+                  ).length
+                : data.entries.length
+            }
             title={activeEntry.id}
             onClose={() => setShowMoveModal(false)}
             onMove={(targetIndex) => {
-              const nextEntries = moveEntryById(data.entries, activeEntry.id, targetIndex);
+              const nextEntries = moveEntryByIdWithinSource(
+                data.entries,
+                activeEntry.id,
+                activeEntry.sourceFile ?? "abilities.txt",
+                targetIndex
+              );
               setData({ entries: nextEntries });
             }}
           />
+        )}
+        {showAddSourceModal && (
+          <div className="modal-backdrop">
+            <div className="modal">
+              <h2>Add Ability</h2>
+              <p>Select which file this entry should be added to.</p>
+              <div className="field-list">
+                <div className="field-row single">
+                  <label className="label">Target file</label>
+                  <select
+                    className="input"
+                    value={addSourceDraft}
+                    onChange={(event) => setAddSourceDraft(event.target.value)}
+                  >
+                    {sourceFiles.map((file) => (
+                      <option key={file} value={file}>
+                        {file}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="button-row">
+                <button className="ghost" onClick={() => setShowAddSourceModal(false)}>
+                  Cancel
+                </button>
+                <button
+                  className="primary"
+                  onClick={() => {
+                    handleAddEntry(addSourceDraft || "abilities.txt");
+                    setShowAddSourceModal(false);
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
         )}
         {invalidEntries.length > 0 && (
           <section className="panel">
@@ -381,7 +499,7 @@ export default function AbilitiesPage() {
       </section>
       <section className="export-bar">
         <div className="export-warning">
-          Exports never overwrite <strong>PBS/abilities.txt</strong>. Output goes to <strong>PBS_Output/abilities.txt</strong>.
+          Exports never overwrite <strong>PBS/abilities*.txt</strong>. Output goes to <strong>PBS_Output/</strong>.
         </div>
         <div className="export-actions">
           {status && <span className="status">{status}</span>}
@@ -403,6 +521,7 @@ type DetailProps = {
   onDuplicate: (entry: PBSEntry) => void;
   onDelete: (entry: PBSEntry) => void;
   onMoveEntry: () => void;
+  canMoveEntry: boolean;
   idError: string | null;
   onSetIdError: (value: string | null) => void;
   fieldErrors: Record<string, string>;
@@ -416,6 +535,7 @@ function AbilityDetail({
   onDuplicate,
   onDelete,
   onMoveEntry,
+  canMoveEntry,
   idError,
   onSetIdError,
   fieldErrors,
@@ -445,7 +565,12 @@ function AbilityDetail({
       <div className="panel-header">
         <h2>{entry.id}</h2>
         <div className="button-row">
-          <button className="ghost" onClick={onMoveEntry}>
+          <button
+            className={`ghost${canMoveEntry ? "" : " disabled"}`}
+            onClick={onMoveEntry}
+            disabled={!canMoveEntry}
+            title={!canMoveEntry ? "Can't move while viewing all files." : ""}
+          >
             Move Entry
           </button>
           <button className="ghost" onClick={() => onDuplicate(entry)}>
@@ -599,12 +724,20 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
   );
 }
 
-function moveEntryById(entries: PBSEntry[], id: string, targetIndex: number) {
-  const fromIndex = entries.findIndex((entry) => entry.id === id);
+function moveEntryByIdWithinSource(entries: PBSEntry[], id: string, sourceFile: string, targetIndex: number) {
+  const scoped = entries.filter((entry) => (entry.sourceFile ?? "abilities.txt") === sourceFile);
+  const fromIndex = scoped.findIndex((entry) => entry.id === id);
   if (fromIndex === -1) return entries;
-  const next = [...entries];
-  const [moved] = next.splice(fromIndex, 1);
-  const clamped = Math.max(0, Math.min(next.length, targetIndex));
-  next.splice(clamped, 0, moved);
-  return next.map((entry, index) => ({ ...entry, order: index }));
+  const scopedNext = [...scoped];
+  const [moved] = scopedNext.splice(fromIndex, 1);
+  const clamped = Math.max(0, Math.min(scopedNext.length, targetIndex));
+  scopedNext.splice(clamped, 0, moved);
+  const reordered = scopedNext.map((entry, index) => ({ ...entry, order: index }));
+  let nextIndex = 0;
+  return entries.map((entry) => {
+    if ((entry.sourceFile ?? "abilities.txt") !== sourceFile) return entry;
+    const nextEntry = reordered[nextIndex];
+    nextIndex += 1;
+    return nextEntry ?? entry;
+  });
 }

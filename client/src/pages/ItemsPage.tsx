@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { ItemsFile, MovesFile, PBSEntry } from "@pbs/shared";
+import { ItemsFile, ItemsMultiFile, MovesFile, PBSEntry } from "@pbs/shared";
 import { exportItems, getItems, getMoves } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
 
 const emptyFile: ItemsFile = { entries: [] };
 const emptyMoves: MovesFile = { entries: [] };
+const emptyFiles: string[] = ["items.txt"];
 
 const FIELD_USE_OPTIONS = ["OnPokemon", "Direct", "TR", "TM", "HM"] as const;
 const BATTLE_USE_OPTIONS = ["OnPokemon", "OnMove", "OnBattler", "OnFoe", "Direct"] as const;
@@ -38,6 +39,8 @@ const splitList = (value: string) =>
 export default function ItemsPage() {
   const [data, setData] = useState<ItemsFile>(emptyFile);
   const [moves, setMoves] = useState<MovesFile>(emptyMoves);
+  const [sourceFiles, setSourceFiles] = useState<string[]>(emptyFiles);
+  const [activeSource, setActiveSource] = useState<string>("ALL");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
@@ -50,6 +53,8 @@ export default function ItemsPage() {
   const [manualSellPrice, setManualSellPrice] = useState<Set<string>>(new Set());
   const [manualConsumable, setManualConsumable] = useState<Set<string>>(new Set());
   const [manualShowQuantity, setManualShowQuantity] = useState<Set<string>>(new Set());
+  const [showAddSourceModal, setShowAddSourceModal] = useState(false);
+  const [addSourceDraft, setAddSourceDraft] = useState<string>("");
   const dirty = useDirty();
 
   const toTitleCase = (value: string) => {
@@ -66,8 +71,8 @@ export default function ItemsPage() {
     return fieldUse === "HM" || fieldUse === "TM" || fieldUse === "TR";
   };
 
-  const ensureItemDefaults = (entry: PBSEntry) => {
-    const defaults = buildDefaultItemEntry(entry.id, entry.order);
+  const ensureItemDefaults = (entry: PBSEntry, sourceFile: string) => {
+    const defaults = buildDefaultItemEntry(entry.id, entry.order, sourceFile);
     const existing = new Map(entry.fields.map((field) => [field.key, field.value]));
     const defaultKeys = new Set(defaults.fields.map((field) => field.key));
     const merged = defaults.fields.map((field) => ({
@@ -81,7 +86,16 @@ export default function ItemsPage() {
     for (const field of entry.fields) {
       if (!defaultKeys.has(field.key)) merged.push(field);
     }
-    return { ...entry, fields: merged };
+    return { ...entry, fields: merged, sourceFile: entry.sourceFile ?? sourceFile };
+  };
+
+  const normalizeItemsMulti = (payload: ItemsMultiFile): ItemsFile => {
+    const files = payload.files?.length ? payload.files : ["items.txt"];
+    const normalized = payload.entries.map((entry) => {
+      const source = entry.sourceFile ?? files[0] ?? "items.txt";
+      return ensureItemDefaults(entry, source);
+    });
+    return { entries: normalized };
   };
 
   useEffect(() => {
@@ -89,9 +103,10 @@ export default function ItemsPage() {
     Promise.all([getItems(), getMoves()])
       .then(([itemsResult, movesResult]) => {
         if (!isMounted) return;
-        const normalized = { entries: itemsResult.entries.map(ensureItemDefaults) };
+        const normalized = normalizeItemsMulti(itemsResult);
         setData(normalized);
         setMoves(movesResult);
+        setSourceFiles(itemsResult.files?.length ? itemsResult.files : ["items.txt"]);
         setActiveId(normalized.entries[0]?.id ?? null);
         const snap = serializeEntries(normalized.entries);
         setSnapshot(snap);
@@ -115,6 +130,7 @@ export default function ItemsPage() {
         setManualSellPrice(sellPriceManual);
         setManualConsumable(consumableManual);
         setManualShowQuantity(showQuantityManual);
+        setActiveSource("ALL");
       })
       .catch((err: Error) => {
         if (!isMounted) return;
@@ -139,9 +155,19 @@ export default function ItemsPage() {
 
   const filteredEntries = useMemo(() => {
     const needle = filter.trim().toUpperCase();
-    if (!needle) return data.entries;
-    return data.entries.filter((entry) => entry.id.includes(needle));
-  }, [data.entries, filter]);
+    const sourceFiltered =
+      activeSource === "ALL"
+        ? data.entries
+        : data.entries.filter((entry) => (entry.sourceFile ?? "items.txt") === activeSource);
+    if (!needle) return sourceFiltered;
+    return sourceFiltered.filter((entry) => entry.id.includes(needle));
+  }, [data.entries, filter, activeSource]);
+
+  useEffect(() => {
+    if (!activeId) return;
+    if (filteredEntries.some((entry) => entry.id === activeId)) return;
+    setActiveId(filteredEntries[0]?.id ?? null);
+  }, [filteredEntries, activeId]);
 
   useEffect(() => {
     setIdError(null);
@@ -333,25 +359,42 @@ export default function ItemsPage() {
       const nextSnap = serializeEntries(data.entries);
       setSnapshot(nextSnap);
       dirty.setDirty("items", false);
-      setStatus("Exported to PBS_Output/items.txt");
+      setStatus("Exported item files to PBS_Output/");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
     }
   };
 
-  const handleAddEntry = () => {
+  const handleAddEntry = (targetFile?: string) => {
     setStatus(null);
     setError(null);
     setIdError(null);
+    const availableFiles = sourceFiles.length ? sourceFiles : ["items.txt"];
+    const resolvedTarget = targetFile ?? (activeSource === "ALL" ? availableFiles[0] : activeSource);
     const newId = nextAvailableId("NEWITEM");
-    const newEntry: PBSEntry = buildDefaultItemEntry(newId, nextOrder());
+    const newEntry: PBSEntry = buildDefaultItemEntry(
+      newId,
+      nextOrderForSource(resolvedTarget),
+      resolvedTarget
+    );
     setData((prev) => ({
       ...prev,
       entries: [...prev.entries, newEntry],
     }));
     setActiveId(newId);
     setStatus(`Added ${newId}. Remember to export when ready.`);
+  };
+
+  const requestSourceChange = (nextSource: string) => {
+    if (nextSource === activeSource) return;
+    setActiveSource(nextSource);
+  };
+
+  const openAddSourceModal = () => {
+    const files = sourceFiles.length ? sourceFiles : ["items.txt"];
+    setAddSourceDraft(files[0] ?? "items.txt");
+    setShowAddSourceModal(true);
   };
 
   const handleDuplicateEntry = (entry: PBSEntry) => {
@@ -363,7 +406,8 @@ export default function ItemsPage() {
     const duplicated: PBSEntry = {
       ...entry,
       id: newId,
-      order: nextOrder(),
+      order: nextOrderForSource(entry.sourceFile ?? "items.txt"),
+      sourceFile: entry.sourceFile,
       fields: entry.fields.map((field) => ({ ...field })),
     };
     if (manualNamePlural.has(entry.id)) {
@@ -424,7 +468,12 @@ export default function ItemsPage() {
     setStatus(`Deleted ${entry.id}.`);
   };
 
-  const nextOrder = () => Math.max(0, ...data.entries.map((entry) => entry.order + 1));
+  const nextOrderForSource = (sourceFile: string) => {
+    const orders = data.entries
+      .filter((entry) => (entry.sourceFile ?? "items.txt") === sourceFile)
+      .map((entry) => entry.order + 1);
+    return Math.max(0, ...orders);
+  };
 
   const nextAvailableId = (base: string) => {
     const existing = new Set(data.entries.map((entry) => entry.id.toLowerCase()));
@@ -457,9 +506,10 @@ export default function ItemsPage() {
     return result;
   };
 
-  const buildDefaultItemEntry = (id: string, order: number): PBSEntry => ({
+  const buildDefaultItemEntry = (id: string, order: number, sourceFile: string): PBSEntry => ({
     id,
     order,
+    sourceFile,
     fields: [
       { key: "Name", value: toTitleCase(id) },
       { key: "NamePlural", value: `${toTitleCase(id)}s` },
@@ -527,9 +577,33 @@ export default function ItemsPage() {
       <section className="list-panel">
         <div className="panel-header">
           <h1>Items</h1>
-          <button className="ghost" onClick={handleAddEntry}>
+          <button
+            className="ghost"
+            onClick={() => {
+              const availableFiles = sourceFiles.length ? sourceFiles : ["items.txt"];
+              if (activeSource === "ALL" && availableFiles.length > 1) {
+                openAddSourceModal();
+                return;
+              }
+              handleAddEntry();
+            }}
+          >
             Add New
           </button>
+        </div>
+        <div className="list-filter">
+          <select
+            className="input"
+            value={activeSource}
+            onChange={(event) => requestSourceChange(event.target.value)}
+          >
+            <option value="ALL">All files</option>
+            {sourceFiles.map((file) => (
+              <option key={file} value={file}>
+                {file}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="list-filter">
           <input
@@ -547,7 +621,10 @@ export default function ItemsPage() {
               onClick={() => setActiveId(entry.id)}
             >
               <div className="list-title">{entry.id}</div>
-              <div className="list-sub">{getFieldValue(entry, "Name") || "(no name)"}</div>
+              <div className="list-sub">
+                {getFieldValue(entry, "Name") || "(no name)"}{" "}
+                {activeSource === "ALL" && entry.sourceFile ? `• ${entry.sourceFile}` : ""}
+              </div>
             </button>
           ))}
         </div>
@@ -562,6 +639,7 @@ export default function ItemsPage() {
             onDuplicate={handleDuplicateEntry}
             onDelete={handleDeleteEntry}
             onMoveEntry={() => setShowMoveModal(true)}
+            canMoveEntry={activeSource !== "ALL"}
             idError={idError}
             onSetIdError={setIdError}
             fieldErrors={fieldErrors}
@@ -582,14 +660,68 @@ export default function ItemsPage() {
         {activeEntry && (
           <MoveEntryModal
             open={showMoveModal}
-            total={data.entries.length}
+            total={
+              activeEntry
+                ? data.entries.filter(
+                    (entry) => (entry.sourceFile ?? "items.txt") === (activeEntry.sourceFile ?? "items.txt")
+                  ).length
+                : data.entries.length
+            }
             title={activeEntry.id}
             onClose={() => setShowMoveModal(false)}
             onMove={(targetIndex) => {
-              const nextEntries = moveEntryById(data.entries, activeEntry.id, targetIndex);
+              const nextEntries = moveEntryByIdWithinSource(
+                data.entries,
+                activeEntry.id,
+                activeEntry.sourceFile ?? "items.txt",
+                targetIndex
+              );
               setData({ entries: nextEntries });
             }}
           />
+        )}
+        {showAddSourceModal && (
+          <div className="modal-backdrop">
+            <div className="modal">
+              <h2>Add Item</h2>
+              <p>Select which file this entry should be added to.</p>
+              <div className="field-list">
+                <div className="field-row single">
+                  <label className="label">Target file</label>
+                  <select
+                    className="input"
+                    value={addSourceDraft}
+                    onChange={(event) => setAddSourceDraft(event.target.value)}
+                  >
+                    {(sourceFiles.length ? sourceFiles : ["items.txt"]).map((file) => (
+                      <option key={file} value={file}>
+                        {file}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="button-row">
+                <button
+                  className="ghost"
+                  onClick={() => {
+                    setShowAddSourceModal(false);
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="primary"
+                  onClick={() => {
+                    handleAddEntry(addSourceDraft || "items.txt");
+                    setShowAddSourceModal(false);
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
         )}
         {invalidEntries.length > 0 && (
           <section className="panel">
@@ -615,7 +747,7 @@ export default function ItemsPage() {
       </section>
       <section className="export-bar">
         <div className="export-warning">
-          Exports never overwrite <strong>PBS/items.txt</strong>. Output goes to <strong>PBS_Output/items.txt</strong>.
+          Exports never overwrite <strong>PBS/items*.txt</strong>. Output goes to <strong>PBS_Output/</strong>.
         </div>
         <div className="export-actions">
           {status && <span className="status">{status}</span>}
@@ -637,6 +769,7 @@ type DetailProps = {
   onDuplicate: (entry: PBSEntry) => void;
   onDelete: (entry: PBSEntry) => void;
   onMoveEntry: () => void;
+  canMoveEntry: boolean;
   idError: string | null;
   onSetIdError: (value: string | null) => void;
   fieldErrors: Record<string, string>;
@@ -660,6 +793,7 @@ function ItemDetail({
   onDuplicate,
   onDelete,
   onMoveEntry,
+  canMoveEntry,
   idError,
   onSetIdError,
   fieldErrors,
@@ -715,7 +849,12 @@ function ItemDetail({
       <div className="panel-header">
         <h2>{entry.id}</h2>
         <div className="button-row">
-          <button className="ghost" onClick={onMoveEntry}>
+          <button
+            className={`ghost${canMoveEntry ? "" : " disabled"}`}
+            onClick={onMoveEntry}
+            disabled={!canMoveEntry}
+            title={!canMoveEntry ? "Can't move while viewing all files." : ""}
+          >
             Move Entry
           </button>
           <button className="ghost" onClick={() => onDuplicate(entry)}>
@@ -1140,12 +1279,20 @@ function normalizeOption(value: string, options: readonly string[]) {
   return match ?? value;
 }
 
-function moveEntryById(entries: PBSEntry[], id: string, targetIndex: number) {
-  const fromIndex = entries.findIndex((entry) => entry.id === id);
+function moveEntryByIdWithinSource(entries: PBSEntry[], id: string, sourceFile: string, targetIndex: number) {
+  const scoped = entries.filter((entry) => (entry.sourceFile ?? "items.txt") === sourceFile);
+  const fromIndex = scoped.findIndex((entry) => entry.id === id);
   if (fromIndex === -1) return entries;
-  const next = [...entries];
-  const [moved] = next.splice(fromIndex, 1);
-  const clamped = Math.max(0, Math.min(next.length, targetIndex));
-  next.splice(clamped, 0, moved);
-  return next.map((entry, index) => ({ ...entry, order: index }));
+  const scopedNext = [...scoped];
+  const [moved] = scopedNext.splice(fromIndex, 1);
+  const clamped = Math.max(0, Math.min(scopedNext.length, targetIndex));
+  scopedNext.splice(clamped, 0, moved);
+  const reordered = scopedNext.map((entry, index) => ({ ...entry, order: index }));
+  let nextIndex = 0;
+  return entries.map((entry) => {
+    if ((entry.sourceFile ?? "items.txt") !== sourceFile) return entry;
+    const nextEntry = reordered[nextIndex];
+    nextIndex += 1;
+    return nextEntry ?? entry;
+  });
 }

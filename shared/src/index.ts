@@ -7,14 +7,30 @@ export type PBSEntry = {
   id: string;
   fields: KeyValue[];
   order: number;
+  sourceFile?: string;
+};
+
+export type ItemsMultiFile = {
+  entries: PBSEntry[];
+  files: string[];
 };
 
 export type TypesFile = {
   entries: PBSEntry[];
 };
 
+export type TypesMultiFile = {
+  entries: PBSEntry[];
+  files: string[];
+};
+
 export type AbilitiesFile = {
   entries: PBSEntry[];
+};
+
+export type AbilitiesMultiFile = {
+  entries: PBSEntry[];
+  files: string[];
 };
 
 export type BerryPlantsFile = {
@@ -35,6 +51,11 @@ export type ItemsFile = {
 
 export type TrainerTypesFile = {
   entries: PBSEntry[];
+};
+
+export type TrainerTypesMultiFile = {
+  entries: PBSEntry[];
+  files: string[];
 };
 
 export type PokemonFile = {

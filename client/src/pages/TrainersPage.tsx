@@ -1,6 +1,6 @@
 
 import { useEffect, useMemo, useState } from "react";
-import type { TrainerEntry, TrainerPokemon, TrainersFile, PokemonFile, MovesFile, ItemsFile, AbilitiesFile } from "@pbs/shared";
+import type { TrainerEntry, TrainerPokemon, TrainersFile, PokemonFile, MovesFile, ItemsFile, ItemsMultiFile, AbilitiesFile } from "@pbs/shared";
 import { exportTrainers, getAbilities, getItems, getMoves, getPokemon, getTrainers } from "../api";
 import { useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
@@ -73,8 +73,8 @@ export default function TrainersPage() {
         setData(normalized);
         setPokemon(pokemonResult);
         setMoves(movesResult);
-        setItems(itemsResult);
-        setAbilities(abilitiesResult);
+        setItems({ entries: (itemsResult as ItemsMultiFile).entries });
+        setAbilities({ entries: abilitiesResult.entries });
         setActiveKey(normalized.entries[0] ? entryKey(normalized.entries[0]) : null);
         setSnapshot(serializeTrainers(normalized.entries));
         dirty.setDirty("trainers", false);

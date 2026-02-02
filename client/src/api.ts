@@ -1,8 +1,10 @@
 import {
   AbilitiesFile,
+  AbilitiesMultiFile,
   BerryPlantsFile,
   EncountersFile,
   ItemsFile,
+  ItemsMultiFile,
   MovesFile,
   PokemonFile,
   PokemonFormsFile,
@@ -10,7 +12,9 @@ import {
   RibbonsFile,
   TrainersFile,
   TrainerTypesFile,
+  TrainerTypesMultiFile,
   TypesFile,
+  TypesMultiFile,
 } from "@pbs/shared";
 
 export async function getProjectStatus(): Promise<ProjectStatus> {
@@ -21,7 +25,7 @@ export async function getProjectStatus(): Promise<ProjectStatus> {
   return res.json();
 }
 
-export async function getTypes(): Promise<TypesFile> {
+export async function getTypes(): Promise<TypesMultiFile> {
   const res = await fetch("/api/pbs/types.txt");
   if (!res.ok) {
     const body = await res.text();
@@ -42,7 +46,7 @@ export async function exportTypes(data: TypesFile): Promise<void> {
   }
 }
 
-export async function getAbilities(): Promise<AbilitiesFile> {
+export async function getAbilities(): Promise<AbilitiesMultiFile> {
   const res = await fetch("/api/pbs/abilities.txt");
   if (!res.ok) {
     const body = await res.text();
@@ -126,7 +130,7 @@ export async function exportMoves(data: MovesFile): Promise<void> {
   }
 }
 
-export async function getItems(): Promise<ItemsFile> {
+export async function getItems(): Promise<ItemsMultiFile> {
   const res = await fetch("/api/pbs/items.txt");
   if (!res.ok) {
     const body = await res.text();
@@ -189,7 +193,7 @@ export async function exportPokemonForms(data: PokemonFormsFile): Promise<void> 
   }
 }
 
-export async function getTrainerTypes(): Promise<TrainerTypesFile> {
+export async function getTrainerTypes(): Promise<TrainerTypesMultiFile> {
   const res = await fetch("/api/pbs/trainer_types.txt");
   if (!res.ok) {
     const body = await res.text();

@@ -44,6 +44,7 @@ export function serializeEntries(entries: PBSEntry[]) {
     entries.map((entry) => ({
       id: entry.id,
       order: entry.order,
+      sourceFile: entry.sourceFile ?? "",
       fields: entry.fields.map((field) => ({
         key: field.key,
         value: field.value,

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AbilitiesFile,
   ItemsFile,
+  ItemsMultiFile,
   MovesFile,
   PBSEntry,
   PokemonFile,
@@ -371,10 +372,10 @@ export default function PokemonFormsPage() {
         const normalizedForms = normalizeFormEntries(formsResult.entries, normalizedPokemon.entries);
         setData({ entries: normalizedForms });
         setPokemon(normalizedPokemon);
-        setTypes(typesResult);
-        setAbilities(abilitiesResult);
+        setTypes({ entries: typesResult.entries });
+        setAbilities({ entries: abilitiesResult.entries });
         setMoves(movesResult);
-        setItems(itemsResult);
+        setItems({ entries: (itemsResult as ItemsMultiFile).entries });
         setActiveId(normalizedForms[0]?.id ?? null);
         const snap = serializeEntries(normalizedForms);
         setSnapshot(snap);

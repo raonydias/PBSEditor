@@ -85,7 +85,7 @@ export default function MovesPage() {
         if (!isMounted) return;
         const normalized = { entries: movesResult.entries.map(ensureMoveDefaults) };
         setData(normalized);
-        setTypes(typesResult);
+        setTypes({ entries: typesResult.entries });
         setActiveId(normalized.entries[0]?.id ?? null);
         const snap = serializeEntries(normalized.entries);
         setSnapshot(snap);

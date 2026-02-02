@@ -390,6 +390,12 @@ body {
     cursor: pointer;
 }
 
+.ghost.disabled,
+.ghost:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .danger {
     background: transparent;
     border: 1px solid #5a2a2a;

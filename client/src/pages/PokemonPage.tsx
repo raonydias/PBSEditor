@@ -1,6 +1,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AbilitiesFile, ItemsFile, MovesFile, PBSEntry, PokemonFile, TypesFile } from "@pbs/shared";
+import { AbilitiesFile, ItemsFile, ItemsMultiFile, MovesFile, PBSEntry, PokemonFile, TypesFile } from "@pbs/shared";
 import { exportPokemon, getAbilities, getItems, getMoves, getPokemon, getTypes } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
@@ -301,10 +301,10 @@ export default function PokemonPage() {
         if (!isMounted) return;
         const normalized = { entries: pokemonResult.entries.map(ensurePokemonDefaults) };
         setData(normalized);
-        setTypes(typesResult);
-        setAbilities(abilitiesResult);
+        setTypes({ entries: typesResult.entries });
+        setAbilities({ entries: abilitiesResult.entries });
         setMoves(movesResult);
-        setItems(itemsResult);
+        setItems({ entries: (itemsResult as ItemsMultiFile).entries });
         setActiveId(normalized.entries[0]?.id ?? null);
         const snap = serializeEntries(normalized.entries);
         setSnapshot(snap);

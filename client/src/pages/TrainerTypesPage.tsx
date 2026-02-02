@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { PBSEntry, TrainerTypesFile } from "@pbs/shared";
+import { PBSEntry, TrainerTypesFile, TrainerTypesMultiFile } from "@pbs/shared";
 import { exportTrainerTypes, getBgmFiles, getTrainerTypes } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
 
 const emptyFile: TrainerTypesFile = { entries: [] };
+const emptyFiles: string[] = ["trainer_types.txt"];
 const emptyBgm: string[] = [];
 
 const GENDER_OPTIONS = ["Male", "Female", "Unknown"] as const;
@@ -14,6 +15,8 @@ export default function TrainerTypesPage() {
   const [data, setData] = useState<TrainerTypesFile>(emptyFile);
   const [bgmFiles, setBgmFiles] = useState<string[]>(emptyBgm);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [sourceFiles, setSourceFiles] = useState<string[]>(emptyFiles);
+  const [activeSource, setActiveSource] = useState<string>("ALL");
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +24,8 @@ export default function TrainerTypesPage() {
   const [filter, setFilter] = useState("");
   const [snapshot, setSnapshot] = useState<string | null>(null);
   const [showMoveModal, setShowMoveModal] = useState(false);
+  const [showAddSourceModal, setShowAddSourceModal] = useState(false);
+  const [addSourceDraft, setAddSourceDraft] = useState<string>("trainer_types.txt");
   const [manualSkillLevel, setManualSkillLevel] = useState<Set<string>>(new Set());
   const dirty = useDirty();
   const bgmOptions = useMemo(() => {
@@ -34,8 +39,8 @@ export default function TrainerTypesPage() {
     }, []);
   }, [bgmFiles]);
 
-  const ensureTrainerTypeDefaults = (entry: PBSEntry) => {
-    const defaults = buildDefaultTrainerTypeEntry(entry.id, entry.order);
+  const ensureTrainerTypeDefaults = (entry: PBSEntry, sourceFile: string) => {
+    const defaults = buildDefaultTrainerTypeEntry(entry.id, entry.order, sourceFile);
     const existing = new Map(entry.fields.map((field) => [field.key, field.value]));
     const defaultKeys = new Set(defaults.fields.map((field) => field.key));
     const merged = defaults.fields.map((field) => ({
@@ -45,7 +50,16 @@ export default function TrainerTypesPage() {
     for (const field of entry.fields) {
       if (!defaultKeys.has(field.key)) merged.push(field);
     }
-    return { ...entry, fields: merged };
+    return { ...entry, fields: merged, sourceFile: entry.sourceFile ?? sourceFile };
+  };
+
+  const normalizeTrainerTypesMulti = (payload: TrainerTypesMultiFile): TrainerTypesFile => {
+    const files = payload.files?.length ? payload.files : ["trainer_types.txt"];
+    const normalized = payload.entries.map((entry) => {
+      const source = entry.sourceFile ?? files[0] ?? "trainer_types.txt";
+      return ensureTrainerTypeDefaults(entry, source);
+    });
+    return { entries: normalized };
   };
 
   useEffect(() => {
@@ -53,9 +67,10 @@ export default function TrainerTypesPage() {
     Promise.all([getTrainerTypes(), getBgmFiles()])
       .then(([trainerResult, bgmResult]) => {
         if (!isMounted) return;
-        const normalized = { entries: trainerResult.entries.map(ensureTrainerTypeDefaults) };
+        const normalized = normalizeTrainerTypesMulti(trainerResult);
         setData(normalized);
         setBgmFiles(bgmResult);
+        setSourceFiles(trainerResult.files?.length ? trainerResult.files : ["trainer_types.txt"]);
         setActiveId(normalized.entries[0]?.id ?? null);
         const snap = serializeEntries(normalized.entries);
         setSnapshot(snap);
@@ -67,6 +82,7 @@ export default function TrainerTypesPage() {
           if (skillLevel && skillLevel !== baseMoney) manual.add(entry.id);
         }
         setManualSkillLevel(manual);
+        setActiveSource("ALL");
       })
       .catch((err: Error) => {
         if (!isMounted) return;
@@ -91,9 +107,19 @@ export default function TrainerTypesPage() {
 
   const filteredEntries = useMemo(() => {
     const needle = filter.trim().toUpperCase();
-    if (!needle) return data.entries;
-    return data.entries.filter((entry) => entry.id.includes(needle));
-  }, [data.entries, filter]);
+    const sourceFiltered =
+      activeSource === "ALL"
+        ? data.entries
+        : data.entries.filter((entry) => (entry.sourceFile ?? "trainer_types.txt") === activeSource);
+    if (!needle) return sourceFiltered;
+    return sourceFiltered.filter((entry) => entry.id.includes(needle));
+  }, [data.entries, filter, activeSource]);
+
+  useEffect(() => {
+    if (!activeId) return;
+    if (filteredEntries.some((entry) => entry.id === activeId)) return;
+    setActiveId(filteredEntries[0]?.id ?? null);
+  }, [filteredEntries, activeId]);
 
   useEffect(() => {
     setIdError(null);
@@ -241,19 +267,25 @@ export default function TrainerTypesPage() {
       const nextSnap = serializeEntries(data.entries);
       setSnapshot(nextSnap);
       dirty.setDirty("trainer_types", false);
-      setStatus("Exported to PBS_Output/trainer_types.txt");
+      setStatus("Exported trainer type files to PBS_Output/");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
     }
   };
 
-  const handleAddEntry = () => {
+  const handleAddEntry = (targetFile?: string) => {
     setStatus(null);
     setError(null);
     setIdError(null);
+    const availableFiles = sourceFiles.length ? sourceFiles : ["trainer_types.txt"];
+    const resolvedTarget = targetFile ?? (activeSource === "ALL" ? availableFiles[0] : activeSource);
     const newId = nextAvailableId("NEWTRAINERTYPE");
-    const newEntry: PBSEntry = buildDefaultTrainerTypeEntry(newId, nextOrder());
+    const newEntry: PBSEntry = buildDefaultTrainerTypeEntry(
+      newId,
+      nextOrderForSource(resolvedTarget),
+      resolvedTarget
+    );
     setData((prev) => ({
       ...prev,
       entries: [...prev.entries, newEntry],
@@ -271,7 +303,8 @@ export default function TrainerTypesPage() {
     const duplicated: PBSEntry = {
       ...entry,
       id: newId,
-      order: nextOrder(),
+      order: nextOrderForSource(entry.sourceFile ?? "trainer_types.txt"),
+      sourceFile: entry.sourceFile,
       fields: entry.fields.map((field) => ({ ...field })),
     };
     if (manualSkillLevel.has(entry.id)) {
@@ -308,7 +341,12 @@ export default function TrainerTypesPage() {
     setStatus(`Deleted ${entry.id}.`);
   };
 
-  const nextOrder = () => Math.max(0, ...data.entries.map((entry) => entry.order + 1));
+  const nextOrderForSource = (sourceFile: string) => {
+    const orders = data.entries
+      .filter((entry) => (entry.sourceFile ?? "trainer_types.txt") === sourceFile)
+      .map((entry) => entry.order + 1);
+    return Math.max(0, ...orders);
+  };
 
   const nextAvailableId = (base: string) => {
     const existing = new Set(data.entries.map((entry) => entry.id.toLowerCase()));
@@ -341,9 +379,10 @@ export default function TrainerTypesPage() {
     return result;
   };
 
-  const buildDefaultTrainerTypeEntry = (id: string, order: number): PBSEntry => ({
+  const buildDefaultTrainerTypeEntry = (id: string, order: number, sourceFile: string): PBSEntry => ({
     id,
     order,
+    sourceFile,
     fields: [
       { key: "Name", value: toTitleCase(id) },
       { key: "Gender", value: "Unknown" },
@@ -379,9 +418,34 @@ export default function TrainerTypesPage() {
       <section className="list-panel">
         <div className="panel-header">
           <h1>Trainer Types</h1>
-          <button className="ghost" onClick={handleAddEntry}>
+          <button
+            className="ghost"
+            onClick={() => {
+              const availableFiles = sourceFiles.length ? sourceFiles : ["trainer_types.txt"];
+              if (activeSource === "ALL" && availableFiles.length > 1) {
+                setAddSourceDraft(availableFiles[0]);
+                setShowAddSourceModal(true);
+                return;
+              }
+              handleAddEntry();
+            }}
+          >
             Add New
           </button>
+        </div>
+        <div className="list-filter">
+          <select
+            className="input"
+            value={activeSource}
+            onChange={(event) => setActiveSource(event.target.value)}
+          >
+            <option value="ALL">All files</option>
+            {sourceFiles.map((file) => (
+              <option key={file} value={file}>
+                {file}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="list-filter">
           <input
@@ -399,7 +463,10 @@ export default function TrainerTypesPage() {
               onClick={() => setActiveId(entry.id)}
             >
               <div className="list-title">{entry.id}</div>
-              <div className="list-sub">{getFieldValue(entry, "Name") || "(no name)"}</div>
+              <div className="list-sub">
+                {getFieldValue(entry, "Name") || "(no name)"}{" "}
+                {activeSource === "ALL" && entry.sourceFile ? `• ${entry.sourceFile}` : ""}
+              </div>
             </button>
           ))}
         </div>
@@ -414,6 +481,7 @@ export default function TrainerTypesPage() {
             onDuplicate={handleDuplicateEntry}
             onDelete={handleDeleteEntry}
             onMoveEntry={() => setShowMoveModal(true)}
+            canMoveEntry={activeSource !== "ALL"}
             idError={idError}
             onSetIdError={setIdError}
             fieldErrors={fieldErrors}
@@ -427,14 +495,64 @@ export default function TrainerTypesPage() {
         {activeEntry && (
           <MoveEntryModal
             open={showMoveModal}
-            total={data.entries.length}
+            total={
+              activeEntry
+                ? data.entries.filter(
+                    (entry) =>
+                      (entry.sourceFile ?? "trainer_types.txt") === (activeEntry.sourceFile ?? "trainer_types.txt")
+                  ).length
+                : data.entries.length
+            }
             title={activeEntry.id}
             onClose={() => setShowMoveModal(false)}
             onMove={(targetIndex) => {
-              const nextEntries = moveEntryById(data.entries, activeEntry.id, targetIndex);
+              const nextEntries = moveEntryByIdWithinSource(
+                data.entries,
+                activeEntry.id,
+                activeEntry.sourceFile ?? "trainer_types.txt",
+                targetIndex
+              );
               setData({ entries: nextEntries });
             }}
           />
+        )}
+        {showAddSourceModal && (
+          <div className="modal-backdrop">
+            <div className="modal">
+              <h2>Add Trainer Type</h2>
+              <p>Select which file this entry should be added to.</p>
+              <div className="field-list">
+                <div className="field-row single">
+                  <label className="label">Target file</label>
+                  <select
+                    className="input"
+                    value={addSourceDraft}
+                    onChange={(event) => setAddSourceDraft(event.target.value)}
+                  >
+                    {sourceFiles.map((file) => (
+                      <option key={file} value={file}>
+                        {file}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="button-row">
+                <button className="ghost" onClick={() => setShowAddSourceModal(false)}>
+                  Cancel
+                </button>
+                <button
+                  className="primary"
+                  onClick={() => {
+                    handleAddEntry(addSourceDraft || "trainer_types.txt");
+                    setShowAddSourceModal(false);
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
         )}
         {invalidEntries.length > 0 && (
           <section className="panel">
@@ -460,8 +578,7 @@ export default function TrainerTypesPage() {
       </section>
       <section className="export-bar">
         <div className="export-warning">
-          Exports never overwrite <strong>PBS/trainer_types.txt</strong>. Output goes to{" "}
-          <strong>PBS_Output/trainer_types.txt</strong>.
+          Exports never overwrite <strong>PBS/trainer_types*.txt</strong>. Output goes to <strong>PBS_Output/</strong>.
         </div>
         <div className="export-actions">
           {status && <span className="status">{status}</span>}
@@ -483,6 +600,7 @@ type DetailProps = {
   onDuplicate: (entry: PBSEntry) => void;
   onDelete: (entry: PBSEntry) => void;
   onMoveEntry: () => void;
+  canMoveEntry: boolean;
   idError: string | null;
   onSetIdError: (value: string | null) => void;
   fieldErrors: Record<string, string>;
@@ -499,6 +617,7 @@ function TrainerTypeDetail({
   onDuplicate,
   onDelete,
   onMoveEntry,
+  canMoveEntry,
   idError,
   onSetIdError,
   fieldErrors,
@@ -556,7 +675,12 @@ function TrainerTypeDetail({
       <div className="panel-header">
         <h2>{entry.id}</h2>
         <div className="button-row">
-          <button className="ghost" onClick={onMoveEntry}>
+          <button
+            className={`ghost${canMoveEntry ? "" : " disabled"}`}
+            onClick={onMoveEntry}
+            disabled={!canMoveEntry}
+            title={!canMoveEntry ? "Can't move while viewing all files." : ""}
+          >
             Move Entry
           </button>
           <button className="ghost" onClick={() => onDuplicate(entry)}>
@@ -818,12 +942,20 @@ function getFieldValue(entry: PBSEntry, key: string) {
   return entry.fields.find((field) => field.key === key)?.value ?? "";
 }
 
-function moveEntryById(entries: PBSEntry[], id: string, targetIndex: number) {
-  const fromIndex = entries.findIndex((entry) => entry.id === id);
+function moveEntryByIdWithinSource(entries: PBSEntry[], id: string, sourceFile: string, targetIndex: number) {
+  const scoped = entries.filter((entry) => (entry.sourceFile ?? "trainer_types.txt") === sourceFile);
+  const fromIndex = scoped.findIndex((entry) => entry.id === id);
   if (fromIndex === -1) return entries;
-  const next = [...entries];
-  const [moved] = next.splice(fromIndex, 1);
-  const clamped = Math.max(0, Math.min(next.length, targetIndex));
-  next.splice(clamped, 0, moved);
-  return next.map((entry, index) => ({ ...entry, order: index }));
+  const scopedNext = [...scoped];
+  const [moved] = scopedNext.splice(fromIndex, 1);
+  const clamped = Math.max(0, Math.min(scopedNext.length, targetIndex));
+  scopedNext.splice(clamped, 0, moved);
+  const reordered = scopedNext.map((entry, index) => ({ ...entry, order: index }));
+  let nextIndex = 0;
+  return entries.map((entry) => {
+    if ((entry.sourceFile ?? "trainer_types.txt") !== sourceFile) return entry;
+    const nextEntry = reordered[nextIndex];
+    nextIndex += 1;
+    return nextEntry ?? entry;
+  });
 }
