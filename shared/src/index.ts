@@ -71,6 +71,40 @@ export type EncountersFile = {
   entries: EncounterEntry[];
 };
 
+export type TrainerPokemon = {
+  pokemonId: string;
+  level: string;
+  name: string;
+  gender: string;
+  shiny: string;
+  superShiny: string;
+  shadow: string;
+  moves: string[];
+  ability: string;
+  abilityIndex: string;
+  item: string;
+  nature: string;
+  ivs: string[];
+  evs: string[];
+  happiness: string;
+  ball: string;
+};
+
+export type TrainerEntry = {
+  id: string;
+  name: string;
+  version: number;
+  flags: string[];
+  items: string[];
+  loseText: string;
+  pokemon: TrainerPokemon[];
+  order: number;
+};
+
+export type TrainersFile = {
+  entries: TrainerEntry[];
+};
+
 export type ProjectStatus = {
   root: string;
   hasPbs: boolean;

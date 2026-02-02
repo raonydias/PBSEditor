@@ -8,6 +8,7 @@ import {
   PokemonFormsFile,
   ProjectStatus,
   RibbonsFile,
+  TrainersFile,
   TrainerTypesFile,
   TypesFile,
 } from "@pbs/shared";
@@ -220,6 +221,27 @@ export async function getEncounters(): Promise<EncountersFile> {
 
 export async function exportEncounters(data: EncountersFile): Promise<void> {
   const res = await fetch("/api/pbs/encounters.txt/export", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Export failed: ${body}`);
+  }
+}
+
+export async function getTrainers(): Promise<TrainersFile> {
+  const res = await fetch("/api/pbs/trainers.txt");
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Failed to load trainers.txt: ${body}`);
+  }
+  return res.json();
+}
+
+export async function exportTrainers(data: TrainersFile): Promise<void> {
+  const res = await fetch("/api/pbs/trainers.txt/export", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),

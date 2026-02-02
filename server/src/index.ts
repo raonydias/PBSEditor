@@ -13,6 +13,7 @@ import {
   PokemonFormsFile,
   ProjectStatus,
   RibbonsFile,
+  TrainersFile,
   TrainerTypesFile,
   TypesFile,
 } from "@pbs/shared";
@@ -25,6 +26,7 @@ import {
   exportPokemonFile,
   exportPokemonFormsFile,
   exportRibbonsFile,
+  exportTrainersFile,
   exportTrainerTypesFile,
   exportTypesFile,
   parseAbilitiesFile,
@@ -35,6 +37,7 @@ import {
   parsePokemonFile,
   parsePokemonFormsFile,
   parseRibbonsFile,
+  parseTrainersFile,
   parseTrainerTypesFile,
   parseTypesFile,
 } from "./pbs.js";
@@ -56,6 +59,7 @@ const supportedFiles = [
   "pokemon.txt",
   "pokemon_forms.txt",
   "encounters.txt",
+  "trainers.txt",
 ] as const;
 const readableFiles = [
   "types.txt",
@@ -68,6 +72,7 @@ const readableFiles = [
   "pokemon.txt",
   "pokemon_forms.txt",
   "encounters.txt",
+  "trainers.txt",
 ] as const;
 const exportableFiles = [
   "types.txt",
@@ -80,6 +85,7 @@ const exportableFiles = [
   "pokemon.txt",
   "pokemon_forms.txt",
   "encounters.txt",
+  "trainers.txt",
 ] as const;
 
 type SupportedFile = (typeof supportedFiles)[number];
@@ -220,6 +226,11 @@ app.get("/api/pbs/:file", async (req, res) => {
       res.json(parsed);
       return;
     }
+    if (file === "trainers.txt") {
+      const parsed = parseTrainersFile(raw);
+      res.json(parsed);
+      return;
+    }
     res.status(500).json(errorBody("Parser not implemented.", file));
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
@@ -291,6 +302,41 @@ const exportSchema = z.union([
       )
       .min(1),
   }),
+  z.object({
+    entries: z
+      .array(
+        z.object({
+          id: z.string().min(1),
+          name: z.string(),
+          version: z.number().int().nonnegative(),
+          order: z.number().int().nonnegative(),
+          flags: z.array(z.string()),
+          items: z.array(z.string()),
+          loseText: z.string(),
+          pokemon: z.array(
+            z.object({
+              pokemonId: z.string(),
+              level: z.string(),
+              name: z.string(),
+              gender: z.string(),
+              shiny: z.string(),
+              superShiny: z.string(),
+              shadow: z.string(),
+              moves: z.array(z.string()),
+              ability: z.string(),
+              abilityIndex: z.string(),
+              item: z.string(),
+              nature: z.string(),
+              ivs: z.array(z.string()),
+              evs: z.array(z.string()),
+              happiness: z.string(),
+              ball: z.string(),
+            })
+          ),
+        })
+      )
+      .min(1),
+  }),
 ]);
 
 app.post("/api/pbs/:file/export", async (req, res) => {
@@ -338,6 +384,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
         ? exportTrainerTypesFile(payload as TrainerTypesFile)
         : file === "encounters.txt"
         ? exportEncountersFile(payload as EncountersFile)
+        : file === "trainers.txt"
+        ? exportTrainersFile(payload as TrainersFile)
         : exportTypesFile(payload as TypesFile);
     const outputPath = path.join(pbsOutputDir(), file);
     await fs.writeFile(outputPath, output, "utf-8");

@@ -43,13 +43,37 @@ export default function App() {
           <div className="brand-sub">Local Essentials Project</div>
         </div>
         <nav className="nav">
-          <NavLink to="/types" className="nav-link">
-            Types
-            {missing.has("types.txt") && <span className="badge">Missing</span>}
+          <NavLink to="/pokemon" className="nav-link">
+            Pok&eacute;mon
+            {missing.has("pokemon.txt") && <span className="badge">Missing</span>}
+          </NavLink>
+          <NavLink to="/pokemon-forms" className="nav-link">
+            Pok&eacute;mon Forms
+            {missing.has("pokemon_forms.txt") && <span className="badge">Missing</span>}
           </NavLink>
           <NavLink to="/abilities" className="nav-link">
             Abilities
             {missing.has("abilities.txt") && <span className="badge">Missing</span>}
+          </NavLink>
+          <NavLink to="/moves" className="nav-link">
+            Moves
+            {missing.has("moves.txt") && <span className="badge">Missing</span>}
+          </NavLink>
+          <NavLink to="/encounters" className="nav-link">
+            Encounters
+            {missing.has("encounters.txt") && <span className="badge">Missing</span>}
+          </NavLink>
+          <NavLink to="/trainer-types" className="nav-link">
+            Trainer Types
+            {missing.has("trainer_types.txt") && <span className="badge">Missing</span>}
+          </NavLink>
+          <NavLink to="/trainers" className="nav-link">
+            Trainers
+            {missing.has("trainers.txt") && <span className="badge">Missing</span>}
+          </NavLink>
+          <NavLink to="/items" className="nav-link">
+            Items
+            {missing.has("items.txt") && <span className="badge">Missing</span>}
           </NavLink>
           <NavLink to="/berry-plants" className="nav-link">
             Berry Plants
@@ -59,29 +83,9 @@ export default function App() {
             Ribbons
             {missing.has("ribbons.txt") && <span className="badge">Missing</span>}
           </NavLink>
-          <NavLink to="/moves" className="nav-link">
-            Moves
-            {missing.has("moves.txt") && <span className="badge">Missing</span>}
-          </NavLink>
-          <NavLink to="/items" className="nav-link">
-            Items
-            {missing.has("items.txt") && <span className="badge">Missing</span>}
-          </NavLink>
-          <NavLink to="/trainer-types" className="nav-link">
-            Trainer Types
-            {missing.has("trainer_types.txt") && <span className="badge">Missing</span>}
-          </NavLink>
-          <NavLink to="/pokemon" className="nav-link">
-            Pokemon
-            {missing.has("pokemon.txt") && <span className="badge">Missing</span>}
-          </NavLink>
-          <NavLink to="/pokemon-forms" className="nav-link">
-            Pokemon Forms
-            {missing.has("pokemon_forms.txt") && <span className="badge">Missing</span>}
-          </NavLink>
-          <NavLink to="/encounters" className="nav-link">
-            Encounters
-            {missing.has("encounters.txt") && <span className="badge">Missing</span>}
+          <NavLink to="/types" className="nav-link">
+            Types
+            {missing.has("types.txt") && <span className="badge">Missing</span>}
           </NavLink>
         </nav>
         <div className="sidebar-footer">

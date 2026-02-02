@@ -8,7 +8,9 @@ import {
   PokemonFile,
   PokemonFormsFile,
   RibbonsFile,
+  TrainerEntry,
   TrainerTypesFile,
+  TrainersFile,
   TypesFile,
 } from "@pbs/shared";
 
@@ -366,6 +368,234 @@ export function exportEncountersFile(data: EncountersFile): string {
       }
     });
 
+    lines.push("#-------------------------------");
+  }
+
+  return lines.join("\n").trimEnd() + "\n";
+}
+
+const TRAINER_PROPERTY_ORDER = [
+  "Name",
+  "Gender",
+  "Shiny",
+  "SuperShiny",
+  "Shadow",
+  "Moves",
+  "Ability",
+  "AbilityIndex",
+  "Item",
+  "Nature",
+  "IV",
+  "EV",
+  "Happiness",
+  "Ball",
+] as const;
+
+function normalizeStatList(values: string[]) {
+  const normalized = Array.from({ length: 6 }).map((_, idx) => values[idx] ?? "");
+  return normalized;
+}
+
+export function parseTrainersFile(text: string): TrainersFile {
+  const lines = text.split(/\r?\n/);
+  const entries: TrainersFile["entries"] = [];
+  let current: TrainerEntry | null = null;
+  let currentPokemon: TrainerEntry["pokemon"][number] | null = null;
+
+  const pushCurrent = () => {
+    if (current) entries.push(current);
+  };
+
+  for (const rawLine of lines) {
+    if (!rawLine.trim()) continue;
+    const line = rawLine.trim();
+    if (line.startsWith("#") || line.startsWith(";")) continue;
+
+    const headerMatch = line.match(/^\[(.+?)\]$/);
+    if (headerMatch) {
+      pushCurrent();
+      const [idRaw = "", nameRaw = "", versionRaw = ""] = headerMatch[1]
+        .split(",")
+        .map((part) => part.trim());
+      const version = versionRaw && /^\d+$/.test(versionRaw) ? Number(versionRaw) : 0;
+      current = {
+        id: idRaw,
+        name: nameRaw,
+        version,
+        flags: [],
+        items: [],
+        loseText: "",
+        pokemon: [],
+        order: entries.length,
+      };
+      currentPokemon = null;
+      continue;
+    }
+
+    if (!current) continue;
+    const eqIndex = line.indexOf("=");
+    if (eqIndex === -1) continue;
+    const key = line.slice(0, eqIndex).trim();
+    const value = line.slice(eqIndex + 1).trim();
+
+    if (key === "Pokemon") {
+      const [pokemonId = "", level = ""] = value.split(",").map((part) => part.trim());
+      currentPokemon = {
+        pokemonId,
+        level,
+        name: "",
+        gender: "",
+        shiny: "",
+        superShiny: "",
+        shadow: "",
+        moves: [],
+        ability: "",
+        abilityIndex: "",
+        item: "",
+        nature: "",
+        ivs: normalizeStatList([]),
+        evs: normalizeStatList([]),
+        happiness: "",
+        ball: "",
+      };
+      current.pokemon.push(currentPokemon);
+      continue;
+    }
+
+    if (!currentPokemon) {
+      if (key === "Flags") {
+        current.flags = value ? value.split(",").map((part) => part.trim()).filter(Boolean) : [];
+        continue;
+      }
+      if (key === "Items") {
+        current.items = value ? value.split(",").map((part) => part.trim()).filter(Boolean) : [];
+        continue;
+      }
+      if (key === "LoseText") {
+        current.loseText = value;
+        continue;
+      }
+      continue;
+    }
+
+    switch (key) {
+      case "Name":
+        currentPokemon.name = value;
+        break;
+      case "Gender":
+        currentPokemon.gender = value;
+        break;
+      case "Shiny":
+        currentPokemon.shiny = value;
+        break;
+      case "SuperShiny":
+        currentPokemon.superShiny = value;
+        break;
+      case "Shadow":
+        currentPokemon.shadow = value;
+        break;
+      case "Moves":
+        currentPokemon.moves = value ? value.split(",").map((part) => part.trim()).filter(Boolean) : [];
+        break;
+      case "Ability":
+        currentPokemon.ability = value;
+        break;
+      case "AbilityIndex":
+        currentPokemon.abilityIndex = value;
+        break;
+      case "Item":
+        currentPokemon.item = value;
+        break;
+      case "Nature":
+        currentPokemon.nature = value;
+        break;
+      case "IV":
+        currentPokemon.ivs = normalizeStatList(value.split(",").map((part) => part.trim()));
+        break;
+      case "EV":
+        currentPokemon.evs = normalizeStatList(value.split(",").map((part) => part.trim()));
+        break;
+      case "Happiness":
+        currentPokemon.happiness = value;
+        break;
+      case "Ball":
+        currentPokemon.ball = value;
+        break;
+      default:
+        break;
+    }
+  }
+
+  pushCurrent();
+  return { entries };
+}
+
+export function exportTrainersFile(data: TrainersFile): string {
+  const sorted = [...data.entries].sort((a, b) => a.order - b.order);
+  const lines: string[] = [];
+
+  for (const entry of sorted) {
+    const headerParts = [entry.id, entry.name].filter(Boolean);
+    if (entry.version > 0) headerParts.push(String(entry.version));
+    lines.push(`[${headerParts.join(",")}]`);
+
+    const flags = entry.flags.map((flag) => flag.trim()).filter(Boolean);
+    if (flags.length > 0) {
+      lines.push(`Flags = ${flags.join(",")}`);
+    }
+    const items = entry.items.map((item) => item.trim()).filter(Boolean);
+    if (items.length > 0) {
+      lines.push(`Items = ${items.join(",")}`);
+    }
+    if (entry.loseText.trim()) {
+      lines.push(`LoseText = ${entry.loseText.trim()}`);
+    }
+
+    for (const mon of entry.pokemon) {
+      if (!mon.pokemonId.trim() || !mon.level.trim()) continue;
+      lines.push(`Pokemon = ${mon.pokemonId.trim()},${mon.level.trim()}`);
+
+      const ivList = mon.ivs.map((val) => val.trim());
+      const evList = mon.evs.map((val) => val.trim());
+      const ivValue = ivList.some((val) => val !== "")
+        ? ivList.map((val) => (val === "" ? "0" : val)).join(",")
+        : "";
+      const evValue = evList.some((val) => val !== "")
+        ? evList.map((val) => (val === "" ? "0" : val)).join(",")
+        : "";
+
+      const abilityIndexValue = mon.abilityIndex.trim().toLowerCase() === "none" ? "" : mon.abilityIndex.trim();
+
+      const props: Record<string, string> = {
+        Name: mon.name.trim(),
+        Gender: mon.gender.trim(),
+        Shiny: mon.shiny.trim(),
+        SuperShiny: mon.superShiny.trim(),
+        Shadow: mon.shadow.trim(),
+        Moves: mon.moves.filter(Boolean).join(","),
+        Ability: mon.ability.trim(),
+        AbilityIndex: abilityIndexValue,
+        Item: mon.item.trim(),
+        Nature: mon.nature.trim(),
+        IV: ivValue,
+        EV: evValue,
+        Happiness: mon.happiness.trim(),
+        Ball: mon.ball.trim(),
+      };
+
+      for (const key of TRAINER_PROPERTY_ORDER) {
+        let value = props[key] ?? "";
+        if (!value) continue;
+        if (key === "Ability" && !props.Ability) continue;
+        if (key === "AbilityIndex" && props.Ability) continue;
+        if ((key === "Shiny" || key === "SuperShiny" || key === "Shadow") && value.toLowerCase() === "no") {
+          continue;
+        }
+        if (key === "Happiness" && value === "70") continue;
+        if ((key === "IV" || key === "EV") && value.replace(/,/g, "") === "") continue;
+        lines.push(`    ${key} = ${value}`);
+      }
+    }
     lines.push("#-------------------------------");
   }
 
