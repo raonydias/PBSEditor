@@ -111,7 +111,7 @@ export default function EncountersPage() {
         if (!isMounted) return;
         const normalized = normalizeEncountersMulti(encountersResult);
         setData(normalized);
-        setPokemon(pokemonResult);
+        setPokemon({ entries: pokemonResult.entries });
         setActiveKey(normalized.entries[0] ? entryKey(normalized.entries[0]) : null);
         const files = encountersResult.files?.length ? encountersResult.files : ["encounters.txt"];
         setSourceFiles(files);

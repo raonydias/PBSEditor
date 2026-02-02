@@ -15,6 +15,8 @@ import {
   MovesMultiFile,
   MovesFile,
   PokemonFile,
+  PokemonMultiFile,
+  PokemonFormsMultiFile,
   PokemonFormsFile,
   RibbonsMultiFile,
   ProjectStatus,
@@ -149,6 +151,14 @@ async function listPbsFiles(prefix: string): Promise<string[]> {
   });
 }
 
+async function listPokemonFiles(): Promise<string[]> {
+  const files = await listPbsFiles("pokemon");
+  return files.filter((name) => {
+    const lower = name.toLowerCase();
+    return !lower.startsWith("pokemon_forms") && !lower.startsWith("pokemon_metrics");
+  });
+}
+
 function clientDistDir(): string | null {
   const configured = process.env.PBS_EDITOR_CLIENT_DIST;
   if (configured && configured.trim()) {
@@ -246,6 +256,16 @@ app.get("/api/project/status", async (_req, res) => {
         if (files.length === 0) missingFiles.push(file);
         continue;
       }
+      if (file === "pokemon.txt") {
+        const files = await listPokemonFiles();
+        if (files.length === 0) missingFiles.push(file);
+        continue;
+      }
+      if (file === "pokemon_forms.txt") {
+        const files = await listPbsFiles("pokemon_forms");
+        if (files.length === 0) missingFiles.push(file);
+        continue;
+      }
       const filePath = path.join(pbsPath, file);
       if (!(await fileExists(filePath))) missingFiles.push(file);
     }
@@ -325,13 +345,25 @@ app.get("/api/pbs/:file", async (req, res) => {
       res.status(404).json(errorBody("PBS file not found.", pbsPath));
       return;
     }
+  } else if (file === "pokemon.txt") {
+    const pokemonFiles = await listPokemonFiles();
+    if (pokemonFiles.length === 0) {
+      res.status(404).json(errorBody("PBS file not found.", pbsPath));
+      return;
+    }
+  } else if (file === "pokemon_forms.txt") {
+    const formFiles = await listPbsFiles("pokemon_forms");
+    if (formFiles.length === 0) {
+      res.status(404).json(errorBody("PBS file not found.", pbsPath));
+      return;
+    }
   } else if (!(await fileExists(pbsPath))) {
     res.status(404).json(errorBody("PBS file not found.", pbsPath));
     return;
   }
 
   try {
-    const raw = await fs.readFile(pbsPath, "utf-8");
+    let raw = "";
     if (file === "types.txt") {
       const typeFiles = await listPbsFiles("types");
       const merged: TypesMultiFile = { entries: [], files: typeFiles };
@@ -416,6 +448,34 @@ app.get("/api/pbs/:file", async (req, res) => {
       res.json(merged);
       return;
     }
+    if (file === "pokemon_forms.txt") {
+      const formFiles = await listPbsFiles("pokemon_forms");
+      const merged: PokemonFormsMultiFile = { entries: [], files: formFiles };
+      for (const filename of formFiles) {
+        const filePath = path.join(pbsDir(), filename);
+        if (!(await fileExists(filePath))) continue;
+        const fileRaw = await fs.readFile(filePath, "utf-8");
+        const parsed = parsePokemonFormsFile(fileRaw);
+        const tagged = parsed.entries.map((entry) => ({ ...entry, sourceFile: filename }));
+        merged.entries.push(...tagged);
+      }
+      res.json(merged);
+      return;
+    }
+    if (file === "pokemon.txt") {
+      const pokemonFiles = await listPokemonFiles();
+      const merged: PokemonMultiFile = { entries: [], files: pokemonFiles };
+      for (const filename of pokemonFiles) {
+        const filePath = path.join(pbsDir(), filename);
+        if (!(await fileExists(filePath))) continue;
+        const fileRaw = await fs.readFile(filePath, "utf-8");
+        const parsed = parsePokemonFile(fileRaw);
+        const tagged = parsed.entries.map((entry) => ({ ...entry, sourceFile: filename }));
+        merged.entries.push(...tagged);
+      }
+      res.json(merged);
+      return;
+    }
     if (file === "trainer_types.txt") {
       const trainerTypeFiles = await listPbsFiles("trainer_types");
       const merged: TrainerTypesMultiFile = { entries: [], files: trainerTypeFiles };
@@ -464,6 +524,7 @@ app.get("/api/pbs/:file", async (req, res) => {
       return;
     }
     if (file === "pokemon_forms.txt") {
+      if (!raw) raw = await fs.readFile(pbsPath, "utf-8");
       const parsed = parsePokemonFormsFile(raw);
       res.json(parsed);
       return;
@@ -785,6 +846,46 @@ app.post("/api/pbs/:file/export", async (req, res) => {
       for (const [source, groupEntries] of grouped.entries()) {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportTrainersFile({ entries: sorted });
+        const outputPath = path.join(pbsOutputDir(), source);
+        await fs.writeFile(outputPath, output, "utf-8");
+        outputs.push(outputPath);
+      }
+      res.json({ ok: true, paths: outputs });
+      return;
+    }
+    if (file === "pokemon.txt") {
+      const entries = (payload as PokemonFile).entries ?? [];
+      const grouped = new Map<string, typeof entries>();
+      for (const entry of entries) {
+        const source = entry.sourceFile?.trim() || "pokemon.txt";
+        const list = grouped.get(source) ?? [];
+        list.push(entry);
+        grouped.set(source, list);
+      }
+      const outputs: string[] = [];
+      for (const [source, groupEntries] of grouped.entries()) {
+        const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
+        const output = exportPokemonFile({ entries: sorted });
+        const outputPath = path.join(pbsOutputDir(), source);
+        await fs.writeFile(outputPath, output, "utf-8");
+        outputs.push(outputPath);
+      }
+      res.json({ ok: true, paths: outputs });
+      return;
+    }
+    if (file === "pokemon_forms.txt") {
+      const entries = (payload as PokemonFormsFile).entries ?? [];
+      const grouped = new Map<string, typeof entries>();
+      for (const entry of entries) {
+        const source = entry.sourceFile?.trim() || "pokemon_forms.txt";
+        const list = grouped.get(source) ?? [];
+        list.push(entry);
+        grouped.set(source, list);
+      }
+      const outputs: string[] = [];
+      for (const [source, groupEntries] of grouped.entries()) {
+        const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
+        const output = exportPokemonFormsFile({ entries: sorted });
         const outputPath = path.join(pbsOutputDir(), source);
         await fs.writeFile(outputPath, output, "utf-8");
         outputs.push(outputPath);

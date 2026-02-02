@@ -76,8 +76,17 @@ export type PokemonFile = {
   entries: PBSEntry[];
 };
 
+export type PokemonMultiFile = {
+  entries: PBSEntry[];
+  files: string[];
+};
 export type PokemonFormsFile = {
   entries: PBSEntry[];
+};
+
+export type PokemonFormsMultiFile = {
+  entries: PBSEntry[];
+  files: string[];
 };
 
 export type EncounterSlot = {

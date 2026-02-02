@@ -95,7 +95,7 @@ export default function TrainersPage() {
         if (!isMounted) return;
         const normalized = normalizeTrainersMulti(trainerResult);
         setData(normalized);
-        setPokemon(pokemonResult);
+        setPokemon({ entries: pokemonResult.entries });
         setMoves({ entries: movesResult.entries });
         setItems({ entries: (itemsResult as ItemsMultiFile).entries });
         setAbilities({ entries: abilitiesResult.entries });

@@ -1,11 +1,21 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AbilitiesFile, ItemsFile, ItemsMultiFile, MovesFile, PBSEntry, PokemonFile, TypesFile } from "@pbs/shared";
+import {
+  AbilitiesFile,
+  ItemsFile,
+  ItemsMultiFile,
+  MovesFile,
+  PBSEntry,
+  PokemonFile,
+  PokemonMultiFile,
+  TypesFile,
+} from "@pbs/shared";
 import { exportPokemon, getAbilities, getItems, getMoves, getPokemon, getTypes } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
 
 const emptyPokemon: PokemonFile = { entries: [] };
+const emptyFiles: string[] = ["pokemon.txt"];
 const emptyTypes: TypesFile = { entries: [] };
 const emptyAbilities: AbilitiesFile = { entries: [] };
 const emptyMoves: MovesFile = { entries: [] };
@@ -270,6 +280,8 @@ export default function PokemonPage() {
   const [moves, setMoves] = useState<MovesFile>(emptyMoves);
   const [items, setItems] = useState<ItemsFile>(emptyItems);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [sourceFiles, setSourceFiles] = useState<string[]>(emptyFiles);
+  const [activeSource, setActiveSource] = useState<string>("ALL");
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -279,10 +291,12 @@ export default function PokemonPage() {
   const [filter, setFilter] = useState("");
   const [snapshot, setSnapshot] = useState<string | null>(null);
   const [showMoveModal, setShowMoveModal] = useState(false);
+  const [showAddSourceModal, setShowAddSourceModal] = useState(false);
+  const [addSourceDraft, setAddSourceDraft] = useState<string>("pokemon.txt");
   const dirty = useDirty();
 
-  const ensurePokemonDefaults = (entry: PBSEntry) => {
-    const defaults = buildDefaultPokemonEntry(entry.id, entry.order);
+  const ensurePokemonDefaults = (entry: PBSEntry, sourceFile: string) => {
+    const defaults = buildDefaultPokemonEntry(entry.id, entry.order, sourceFile);
     const existing = new Map(entry.fields.map((field) => [field.key, field.value]));
     const defaultKeys = new Set(defaults.fields.map((field) => field.key));
     const merged = defaults.fields.map((field) => ({
@@ -292,23 +306,35 @@ export default function PokemonPage() {
     for (const field of entry.fields) {
       if (!defaultKeys.has(field.key)) merged.push(field);
     }
-    return { ...entry, fields: merged };
+    return { ...entry, fields: merged, sourceFile: entry.sourceFile ?? sourceFile };
+  };
+
+  const normalizePokemonMulti = (payload: PokemonMultiFile): PokemonFile => {
+    const files = payload.files?.length ? payload.files : ["pokemon.txt"];
+    const normalized = payload.entries.map((entry) => {
+      const source = entry.sourceFile ?? files[0] ?? "pokemon.txt";
+      return ensurePokemonDefaults(entry, source);
+    });
+    return { entries: normalized };
   };
   useEffect(() => {
     let isMounted = true;
     Promise.all([getPokemon(), getTypes(), getAbilities(), getMoves(), getItems()])
       .then(([pokemonResult, typesResult, abilitiesResult, movesResult, itemsResult]) => {
         if (!isMounted) return;
-        const normalized = { entries: pokemonResult.entries.map(ensurePokemonDefaults) };
+        const normalized = normalizePokemonMulti(pokemonResult);
         setData(normalized);
         setTypes({ entries: typesResult.entries });
         setAbilities({ entries: abilitiesResult.entries });
         setMoves({ entries: movesResult.entries });
         setItems({ entries: (itemsResult as ItemsMultiFile).entries });
         setActiveId(normalized.entries[0]?.id ?? null);
+        const files = pokemonResult.files?.length ? pokemonResult.files : ["pokemon.txt"];
+        setSourceFiles(files);
         const snap = serializeEntries(normalized.entries);
         setSnapshot(snap);
         dirty.setDirty("pokemon", false);
+        setActiveSource(files.length === 1 ? files[0] : "ALL");
       })
       .catch((err: Error) => {
         if (!isMounted) return;
@@ -333,9 +359,19 @@ export default function PokemonPage() {
 
   const filteredEntries = useMemo(() => {
     const needle = filter.trim().toUpperCase();
-    if (!needle) return data.entries;
-    return data.entries.filter((entry) => entry.id.includes(needle));
-  }, [data.entries, filter]);
+    const sourceFiltered =
+      activeSource === "ALL"
+        ? data.entries
+        : data.entries.filter((entry) => (entry.sourceFile ?? "pokemon.txt") === activeSource);
+    if (!needle) return sourceFiltered;
+    return sourceFiltered.filter((entry) => entry.id.includes(needle));
+  }, [data.entries, filter, activeSource]);
+
+  useEffect(() => {
+    if (!activeId) return;
+    if (filteredEntries.some((entry) => entry.id === activeId)) return;
+    setActiveId(filteredEntries[0]?.id ?? null);
+  }, [filteredEntries, activeId]);
 
   useEffect(() => {
     setIdError(null);
@@ -478,8 +514,8 @@ export default function PokemonPage() {
         errors.Moves = "Move entries need a level.";
         break;
       }
-      if (!/^\d+$/.test(pair.level) || Number(pair.level) < 0) {
-        errors.Moves = "Move levels must be integers of at least 0.";
+      if (!/^-?\d+$/.test(pair.level) || Number(pair.level) < -1) {
+        errors.Moves = "Move levels must be integers of at least -1.";
         break;
       }
       if (!pair.move) {
@@ -765,19 +801,25 @@ export default function PokemonPage() {
       const nextSnap = serializeEntries(data.entries);
       setSnapshot(nextSnap);
       dirty.setDirty("pokemon", false);
-      setStatus("Exported to PBS_Output/pokemon.txt");
+      setStatus("Exported Pokemon files to PBS_Output/");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
     }
   };
 
-  const handleAddEntry = () => {
+  const handleAddEntry = (targetFile?: string) => {
     setStatus(null);
     setError(null);
     setIdError(null);
+    const availableFiles = sourceFiles.length ? sourceFiles : ["pokemon.txt"];
+    const resolvedTarget = targetFile ?? (activeSource === "ALL" ? availableFiles[0] : activeSource);
     const newId = nextAvailableId("NEWPOKEMON");
-    const newEntry: PBSEntry = buildDefaultPokemonEntry(newId, nextOrder());
+    const newEntry: PBSEntry = buildDefaultPokemonEntry(
+      newId,
+      nextOrderForSource(resolvedTarget),
+      resolvedTarget
+    );
     setData((prev) => ({
       ...prev,
       entries: [...prev.entries, newEntry],
@@ -798,7 +840,8 @@ export default function PokemonPage() {
     const duplicated: PBSEntry = {
       ...entry,
       id: newId,
-      order: nextOrder(),
+      order: nextOrderForSource(entry.sourceFile ?? "pokemon.txt"),
+      sourceFile: entry.sourceFile,
       fields: entry.fields.map((field) => ({ ...field })),
     };
     setData((prev) => ({
@@ -840,7 +883,12 @@ export default function PokemonPage() {
     setStatus(`Deleted ${entry.id}.`);
   };
 
-  const nextOrder = () => Math.max(0, ...data.entries.map((entry) => entry.order + 1));
+  const nextOrderForSource = (sourceFile: string) => {
+    const orders = data.entries
+      .filter((entry) => (entry.sourceFile ?? "pokemon.txt") === sourceFile)
+      .map((entry) => entry.order + 1);
+    return Math.max(0, ...orders);
+  };
 
   const nextAvailableId = (base: string) => {
     const existing = new Set(data.entries.map((entry) => entry.id.toLowerCase()));
@@ -873,9 +921,10 @@ export default function PokemonPage() {
     return result;
   };
 
-  const buildDefaultPokemonEntry = (id: string, order: number): PBSEntry => ({
+  const buildDefaultPokemonEntry = (id: string, order: number, sourceFile: string): PBSEntry => ({
     id,
     order,
+    sourceFile,
     fields: [
       { key: "Name", value: toTitleCase(id) },
       { key: "FormName", value: "" },
@@ -934,10 +983,35 @@ export default function PokemonPage() {
     <div className="editor-layout">
       <section className="list-panel">
         <div className="panel-header">
-          <h1>Pokemon</h1>
-          <button className="ghost" onClick={handleAddEntry}>
+          <h1>Pokémon</h1>
+          <button
+            className="ghost"
+            onClick={() => {
+              const availableFiles = sourceFiles.length ? sourceFiles : ["pokemon.txt"];
+              if (activeSource === "ALL" && availableFiles.length > 1) {
+                setAddSourceDraft(availableFiles[0]);
+                setShowAddSourceModal(true);
+                return;
+              }
+              handleAddEntry();
+            }}
+          >
             Add New
           </button>
+        </div>
+        <div className="list-filter">
+          <select
+            className="input"
+            value={activeSource}
+            onChange={(event) => setActiveSource(event.target.value)}
+          >
+            <option value="ALL">All files</option>
+            {sourceFiles.map((file) => (
+              <option key={file} value={file}>
+                {file}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="list-filter">
           <input
@@ -957,7 +1031,10 @@ export default function PokemonPage() {
               <div className="list-item-content">
                 <div className="list-item-text">
                   <div className="list-title">{entry.id}</div>
-                  <div className="list-sub">{getFieldValue(entry, "Name") || "(no name)"}</div>
+                  <div className="list-sub">
+                    {getFieldValue(entry, "Name") || "(no name)"}{" "}
+                    {activeSource === "ALL" && entry.sourceFile ? `• ${entry.sourceFile}` : ""}
+                  </div>
                 </div>
                 <span className="list-item-icon" aria-hidden="true">
                   <img
@@ -988,6 +1065,7 @@ export default function PokemonPage() {
             onDuplicate={handleDuplicateEntry}
             onDelete={handleDeleteEntry}
             onMoveEntry={() => setShowMoveModal(true)}
+            canMoveEntry={activeSource !== "ALL"}
             idError={idError}
             onSetIdError={setIdError}
             fieldErrors={fieldErrors}
@@ -1003,14 +1081,101 @@ export default function PokemonPage() {
         {activeEntry && (
           <MoveEntryModal
             open={showMoveModal}
-            total={data.entries.length}
+            total={
+              activeEntry
+                ? data.entries.filter(
+                    (entry) => (entry.sourceFile ?? "pokemon.txt") === (activeEntry.sourceFile ?? "pokemon.txt")
+                  ).length
+                : data.entries.length
+            }
             title={activeEntry.id}
             onClose={() => setShowMoveModal(false)}
             onMove={(targetIndex) => {
-              const nextEntries = moveEntryById(data.entries, activeEntry.id, targetIndex);
+              const nextEntries = moveEntryByIdWithinSource(
+                data.entries,
+                activeEntry.id,
+                activeEntry.sourceFile ?? "pokemon.txt",
+                targetIndex
+              );
               setData({ entries: nextEntries });
             }}
           />
+        )}
+        {showAddSourceModal && (
+          <div className="modal-backdrop">
+            <div className="modal">
+              <h2>Add Pokémon</h2>
+              <p>Select which file this entry should be added to.</p>
+              <div className="field-list">
+                <div className="field-row single">
+                  <label className="label">Target file</label>
+                  <select
+                    className="input"
+                    value={addSourceDraft}
+                    onChange={(event) => setAddSourceDraft(event.target.value)}
+                  >
+                    {sourceFiles.map((file) => (
+                      <option key={file} value={file}>
+                        {file}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="button-row">
+                <button className="ghost" onClick={() => setShowAddSourceModal(false)}>
+                  Cancel
+                </button>
+                <button
+                  className="primary"
+                  onClick={() => {
+                    handleAddEntry(addSourceDraft || "pokemon.txt");
+                    setShowAddSourceModal(false);
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {showAddSourceModal && (
+          <div className="modal-backdrop">
+            <div className="modal">
+              <h2>Add Pokémon</h2>
+              <p>Select which file this entry should be added to.</p>
+              <div className="field-list">
+                <div className="field-row single">
+                  <label className="label">Target file</label>
+                  <select
+                    className="input"
+                    value={addSourceDraft}
+                    onChange={(event) => setAddSourceDraft(event.target.value)}
+                  >
+                    {sourceFiles.map((file) => (
+                      <option key={file} value={file}>
+                        {file}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="button-row">
+                <button className="ghost" onClick={() => setShowAddSourceModal(false)}>
+                  Cancel
+                </button>
+                <button
+                  className="primary"
+                  onClick={() => {
+                    handleAddEntry(addSourceDraft || "pokemon.txt");
+                    setShowAddSourceModal(false);
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
         )}
         {invalidEntries.length > 0 && (
           <section className="panel">
@@ -1036,7 +1201,7 @@ export default function PokemonPage() {
       </section>
       <section className="export-bar">
         <div className="export-warning">
-          Exports never overwrite <strong>PBS/pokemon.txt</strong>. Output goes to <strong>PBS_Output/pokemon.txt</strong>.
+          Exports never overwrite <strong>PBS/pokemon*.txt</strong>. Output goes to <strong>PBS_Output/</strong>.
         </div>
         <div className="export-actions" onMouseEnter={validateAllEntries}>
           {status && <span className="status">{status}</span>}
@@ -1060,6 +1225,7 @@ type DetailProps = {
   onDuplicate: (entry: PBSEntry) => void;
   onDelete: (entry: PBSEntry) => void;
   onMoveEntry: () => void;
+  canMoveEntry: boolean;
   idError: string | null;
   onSetIdError: (value: string | null) => void;
   fieldErrors: Record<string, string>;
@@ -1079,6 +1245,7 @@ function PokemonDetail({
   onDuplicate,
   onDelete,
   onMoveEntry,
+  canMoveEntry,
   idError,
   onSetIdError,
   fieldErrors,
@@ -1189,7 +1356,12 @@ function PokemonDetail({
       <div className="panel-header">
         <h2>{entry.id}</h2>
         <div className="button-row">
-          <button className="ghost" onClick={onMoveEntry}>
+          <button
+            className={`ghost${canMoveEntry ? "" : " disabled"}`}
+            onClick={onMoveEntry}
+            disabled={!canMoveEntry}
+            title={!canMoveEntry ? "Can't move while viewing all files." : ""}
+          >
             Move Entry
           </button>
           <button className="ghost" onClick={() => onDuplicate(entry)}>
@@ -2300,12 +2472,20 @@ function resolveEvolutionParamKind(methodRaw: string) {
   return "string";
 }
 
-function moveEntryById(entries: PBSEntry[], id: string, targetIndex: number) {
-  const fromIndex = entries.findIndex((entry) => entry.id === id);
+function moveEntryByIdWithinSource(entries: PBSEntry[], id: string, sourceFile: string, targetIndex: number) {
+  const scoped = entries.filter((entry) => (entry.sourceFile ?? "pokemon.txt") === sourceFile);
+  const fromIndex = scoped.findIndex((entry) => entry.id === id);
   if (fromIndex === -1) return entries;
-  const next = [...entries];
-  const [moved] = next.splice(fromIndex, 1);
-  const clamped = Math.max(0, Math.min(next.length, targetIndex));
-  next.splice(clamped, 0, moved);
-  return next.map((entry, index) => ({ ...entry, order: index }));
+  const scopedNext = [...scoped];
+  const [moved] = scopedNext.splice(fromIndex, 1);
+  const clamped = Math.max(0, Math.min(scopedNext.length, targetIndex));
+  scopedNext.splice(clamped, 0, moved);
+  const reordered = scopedNext.map((entry, index) => ({ ...entry, order: index }));
+  let nextIndex = 0;
+  return entries.map((entry) => {
+    if ((entry.sourceFile ?? "pokemon.txt") !== sourceFile) return entry;
+    const nextEntry = reordered[nextIndex];
+    nextIndex += 1;
+    return nextEntry ?? entry;
+  });
 }

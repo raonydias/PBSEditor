@@ -10,7 +10,9 @@ import {
   MovesFile,
   MovesMultiFile,
   PokemonFile,
+  PokemonMultiFile,
   PokemonFormsFile,
+  PokemonFormsMultiFile,
   ProjectStatus,
   RibbonsFile,
   RibbonsMultiFile,
@@ -156,7 +158,7 @@ export async function exportItems(data: ItemsFile): Promise<void> {
   }
 }
 
-export async function getPokemon(): Promise<PokemonFile> {
+export async function getPokemon(): Promise<PokemonMultiFile> {
   const res = await fetch("/api/pbs/pokemon.txt");
   if (!res.ok) {
     const body = await res.text();
@@ -177,7 +179,7 @@ export async function exportPokemon(data: PokemonFile): Promise<void> {
   }
 }
 
-export async function getPokemonForms(): Promise<PokemonFormsFile> {
+export async function getPokemonForms(): Promise<PokemonFormsMultiFile> {
   const res = await fetch("/api/pbs/pokemon_forms.txt");
   if (!res.ok) {
     const body = await res.text();

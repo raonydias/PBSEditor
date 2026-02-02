@@ -8,6 +8,7 @@ import {
   PBSEntry,
   PokemonFile,
   PokemonFormsFile,
+  PokemonFormsMultiFile,
   TypesFile,
 } from "@pbs/shared";
 import { exportPokemonForms, getAbilities, getItems, getMoves, getPokemon, getPokemonForms, getTypes } from "../api";
@@ -16,6 +17,7 @@ import MoveEntryModal from "../components/MoveEntryModal";
 
 const emptyForms: PokemonFormsFile = { entries: [] };
 const emptyPokemon: PokemonFile = { entries: [] };
+const emptyFiles: string[] = ["pokemon_forms.txt"];
 const emptyTypes: TypesFile = { entries: [] };
 const emptyAbilities: AbilitiesFile = { entries: [] };
 const emptyMoves: MovesFile = { entries: [] };
@@ -341,6 +343,8 @@ export default function PokemonFormsPage() {
   const [moves, setMoves] = useState<MovesFile>(emptyMoves);
   const [items, setItems] = useState<ItemsFile>(emptyItems);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [sourceFiles, setSourceFiles] = useState<string[]>(emptyFiles);
+  const [activeSource, setActiveSource] = useState<string>("ALL");
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -348,10 +352,12 @@ export default function PokemonFormsPage() {
   const [filter, setFilter] = useState("");
   const [snapshot, setSnapshot] = useState<string | null>(null);
   const [showMoveModal, setShowMoveModal] = useState(false);
+  const [showAddSourceModal, setShowAddSourceModal] = useState(false);
+  const [addSourceDraft, setAddSourceDraft] = useState<string>("pokemon_forms.txt");
   const dirty = useDirty();
 
-  const ensurePokemonDefaults = (entry: PBSEntry) => {
-    const defaults = buildDefaultPokemonEntry(entry.id, entry.order);
+  const ensurePokemonDefaults = (entry: PBSEntry, sourceFile: string) => {
+    const defaults = buildDefaultPokemonEntry(entry.id, entry.order, sourceFile);
     const existing = new Map(entry.fields.map((field) => [field.key, field.value]));
     const defaultKeys = new Set(defaults.fields.map((field) => field.key));
     const merged = defaults.fields.map((field) => ({
@@ -361,15 +367,29 @@ export default function PokemonFormsPage() {
     for (const field of entry.fields) {
       if (!defaultKeys.has(field.key)) merged.push(field);
     }
-    return { ...entry, fields: merged };
+    return { ...entry, fields: merged, sourceFile: entry.sourceFile ?? sourceFile };
+  };
+
+  const ensureFormSource = (entry: PBSEntry, sourceFile: string) => ({
+    ...entry,
+    sourceFile: entry.sourceFile ?? sourceFile,
+  });
+
+  const normalizeFormsMulti = (payload: PokemonFormsMultiFile): PokemonFormsFile => {
+    const files = payload.files?.length ? payload.files : ["pokemon_forms.txt"];
+    const normalized = payload.entries.map((entry) => {
+      const source = entry.sourceFile ?? files[0] ?? "pokemon_forms.txt";
+      return ensureFormSource(entry, source);
+    });
+    return { entries: normalized };
   };
   useEffect(() => {
     let isMounted = true;
     Promise.all([getPokemonForms(), getPokemon(), getTypes(), getAbilities(), getMoves(), getItems()])
       .then(([formsResult, pokemonResult, typesResult, abilitiesResult, movesResult, itemsResult]) => {
         if (!isMounted) return;
-        const normalizedPokemon = { entries: pokemonResult.entries.map(ensurePokemonDefaults) };
-        const normalizedForms = normalizeFormEntries(formsResult.entries, normalizedPokemon.entries);
+        const normalizedPokemon = { entries: pokemonResult.entries.map((entry) => ensurePokemonDefaults(entry, "pokemon.txt")) };
+        const normalizedForms = normalizeFormEntries(normalizeFormsMulti(formsResult).entries, normalizedPokemon.entries);
         setData({ entries: normalizedForms });
         setPokemon(normalizedPokemon);
         setTypes({ entries: typesResult.entries });
@@ -380,6 +400,9 @@ export default function PokemonFormsPage() {
         const snap = serializeEntries(normalizedForms);
         setSnapshot(snap);
         dirty.setDirty("pokemon_forms", false);
+        const files = formsResult.files?.length ? formsResult.files : ["pokemon_forms.txt"];
+        setSourceFiles(files);
+        setActiveSource(files.length === 1 ? files[0] : "ALL");
       })
       .catch((err: Error) => {
         if (!isMounted) return;
@@ -404,9 +427,19 @@ export default function PokemonFormsPage() {
 
   const filteredEntries = useMemo(() => {
     const needle = filter.trim().toUpperCase();
-    if (!needle) return data.entries;
-    return data.entries.filter((entry) => entry.id.includes(needle));
-  }, [data.entries, filter]);
+    const sourceFiltered =
+      activeSource === "ALL"
+        ? data.entries
+        : data.entries.filter((entry) => (entry.sourceFile ?? "pokemon_forms.txt") === activeSource);
+    if (!needle) return sourceFiltered;
+    return sourceFiltered.filter((entry) => entry.id.includes(needle));
+  }, [data.entries, filter, activeSource]);
+
+  useEffect(() => {
+    if (!activeId) return;
+    if (filteredEntries.some((entry) => entry.id === activeId)) return;
+    setActiveId(filteredEntries[0]?.id ?? null);
+  }, [filteredEntries, activeId]);
 
   useEffect(() => {
     setIdError(null);
@@ -538,8 +571,8 @@ export default function PokemonFormsPage() {
         errors.Moves = "Move entries need a level.";
         break;
       }
-      if (!/^\d+$/.test(pair.level) || Number(pair.level) < 0) {
-        errors.Moves = "Move levels must be integers of at least 0.";
+      if (!/^-?\d+$/.test(pair.level) || Number(pair.level) < -1) {
+        errors.Moves = "Move levels must be integers of at least -1.";
         break;
       }
       if (!pair.move) {
@@ -740,8 +773,8 @@ export default function PokemonFormsPage() {
     }
 
     const unmegaForm = getField("UnmegaForm").trim();
-    if (unmegaForm && !pokemonOptions.includes(unmegaForm)) {
-      errors.UnmegaForm = "UnmegaForm must be a valid Pokemon ID.";
+    if (unmegaForm && (!/^\d+$/.test(unmegaForm) || Number(unmegaForm) < 0)) {
+      errors.UnmegaForm = "UnmegaForm must be an integer of at least 0.";
     }
 
     return errors;
@@ -814,7 +847,7 @@ export default function PokemonFormsPage() {
       const nextSnap = serializeEntries(data.entries);
       setSnapshot(nextSnap);
       dirty.setDirty("pokemon_forms", false);
-      setStatus("Exported to PBS_Output/pokemon_forms.txt");
+      setStatus("Exported Pokemon form files to PBS_Output/");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
@@ -849,16 +882,19 @@ export default function PokemonFormsPage() {
     }
   };
 
-  const handleAddEntry = () => {
+  const handleAddEntry = (targetFile?: string) => {
     setStatus(null);
     setError(null);
     setIdError(null);
+    const availableFiles = sourceFiles.length ? sourceFiles : ["pokemon_forms.txt"];
+    const resolvedTarget = targetFile ?? (activeSource === "ALL" ? availableFiles[0] : activeSource);
     const defaultPokemon = pokemon.entries[0]?.id ?? "";
     const formNumber = nextFormNumber(defaultPokemon, data.entries);
     const newId = buildFormId(defaultPokemon, String(formNumber));
     const newEntry: PBSEntry = {
       id: newId,
-      order: nextOrder(),
+      order: nextOrderForSource(resolvedTarget),
+      sourceFile: resolvedTarget,
       fields: buildFormFields(defaultPokemon, pokemon.entries, []),
     };
     setData((prev) => ({
@@ -879,7 +915,8 @@ export default function PokemonFormsPage() {
     const duplicated: PBSEntry = {
       ...entry,
       id: newId,
-      order: nextOrder(),
+      order: nextOrderForSource(entry.sourceFile ?? "pokemon_forms.txt"),
+      sourceFile: entry.sourceFile,
       fields: entry.fields.map((field) => ({ ...field })),
     };
     setData((prev) => ({
@@ -908,11 +945,17 @@ export default function PokemonFormsPage() {
     setStatus(`Deleted ${entry.id}.`);
   };
 
-  const nextOrder = () => Math.max(0, ...data.entries.map((entry) => entry.order + 1));
+  const nextOrderForSource = (sourceFile: string) => {
+    const orders = data.entries
+      .filter((entry) => (entry.sourceFile ?? "pokemon_forms.txt") === sourceFile)
+      .map((entry) => entry.order + 1);
+    return Math.max(0, ...orders);
+  };
 
-  const buildDefaultPokemonEntry = (id: string, order: number): PBSEntry => ({
+  const buildDefaultPokemonEntry = (id: string, order: number, sourceFile: string): PBSEntry => ({
     id,
     order,
+    sourceFile,
     fields: [
       { key: "Name", value: toTitleCase(id) },
       { key: "FormName", value: "" },
@@ -972,9 +1015,34 @@ export default function PokemonFormsPage() {
       <section className="list-panel">
         <div className="panel-header">
           <h1>Pokemon Forms</h1>
-          <button className="ghost" onClick={handleAddEntry}>
+          <button
+            className="ghost"
+            onClick={() => {
+              const availableFiles = sourceFiles.length ? sourceFiles : ["pokemon_forms.txt"];
+              if (activeSource === "ALL" && availableFiles.length > 1) {
+                setAddSourceDraft(availableFiles[0]);
+                setShowAddSourceModal(true);
+                return;
+              }
+              handleAddEntry();
+            }}
+          >
             Add New
           </button>
+        </div>
+        <div className="list-filter">
+          <select
+            className="input"
+            value={activeSource}
+            onChange={(event) => setActiveSource(event.target.value)}
+          >
+            <option value="ALL">All files</option>
+            {sourceFiles.map((file) => (
+              <option key={file} value={file}>
+                {file}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="list-filter">
           <input
@@ -1003,7 +1071,8 @@ export default function PokemonFormsPage() {
                   <div className="list-item-text">
                     <div className="list-title">{entry.id}</div>
                     <div className="list-sub">
-                      {baseName ? `${baseName} (Form ${formNumber || "?"})` : "(unknown)"}
+                      {baseName ? `${baseName} (Form ${formNumber || "?"})` : "(unknown)"}{" "}
+                      {activeSource === "ALL" && entry.sourceFile ? `• ${entry.sourceFile}` : ""}
                     </div>
                   </div>
                   <span className="list-item-icon" aria-hidden="true">
@@ -1040,6 +1109,7 @@ export default function PokemonFormsPage() {
             onDuplicate={handleDuplicateEntry}
             onDelete={handleDeleteEntry}
             onMoveEntry={() => setShowMoveModal(true)}
+            canMoveEntry={activeSource !== "ALL"}
             idError={idError}
             onSetIdError={setIdError}
             fieldErrors={fieldErrors}
@@ -1055,14 +1125,64 @@ export default function PokemonFormsPage() {
         {activeEntry && (
           <MoveEntryModal
             open={showMoveModal}
-            total={data.entries.length}
+            total={
+              activeEntry
+                ? data.entries.filter(
+                    (entry) =>
+                      (entry.sourceFile ?? "pokemon_forms.txt") === (activeEntry.sourceFile ?? "pokemon_forms.txt")
+                  ).length
+                : data.entries.length
+            }
             title={activeEntry.id}
             onClose={() => setShowMoveModal(false)}
             onMove={(targetIndex) => {
-              const nextEntries = movePokemonFormGroup(data.entries, activeEntry, targetIndex);
+              const nextEntries = movePokemonFormGroupWithinSource(
+                data.entries,
+                activeEntry,
+                activeEntry.sourceFile ?? "pokemon_forms.txt",
+                targetIndex
+              );
               setData({ entries: nextEntries });
             }}
           />
+        )}
+        {showAddSourceModal && (
+          <div className="modal-backdrop">
+            <div className="modal">
+              <h2>Add Pokemon Form</h2>
+              <p>Select which file this entry should be added to.</p>
+              <div className="field-list">
+                <div className="field-row single">
+                  <label className="label">Target file</label>
+                  <select
+                    className="input"
+                    value={addSourceDraft}
+                    onChange={(event) => setAddSourceDraft(event.target.value)}
+                  >
+                    {sourceFiles.map((file) => (
+                      <option key={file} value={file}>
+                        {file}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="button-row">
+                <button className="ghost" onClick={() => setShowAddSourceModal(false)}>
+                  Cancel
+                </button>
+                <button
+                  className="primary"
+                  onClick={() => {
+                    handleAddEntry(addSourceDraft || "pokemon_forms.txt");
+                    setShowAddSourceModal(false);
+                  }}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
         )}
         {invalidEntries.length > 0 && (
           <section className="panel">
@@ -1115,8 +1235,8 @@ export default function PokemonFormsPage() {
       </section>
       <section className="export-bar">
         <div className="export-warning">
-          Exports never overwrite <strong>PBS/pokemon_forms.txt</strong>. Output goes to{" "}
-          <strong>PBS_Output/pokemon_forms.txt</strong>.
+          Exports never overwrite <strong>PBS/pokemon_forms*.txt</strong>. Output goes to{" "}
+          <strong>PBS_Output/</strong>.
         </div>
         <div className="export-actions">
           {status && <span className="status">{status}</span>}
@@ -1139,6 +1259,7 @@ type DetailProps = {
   onDuplicate: (entry: PBSEntry) => void;
   onDelete: (entry: PBSEntry) => void;
   onMoveEntry: () => void;
+  canMoveEntry: boolean;
   idError: string | null;
   onSetIdError: (value: string | null) => void;
   fieldErrors: Record<string, string>;
@@ -1157,6 +1278,7 @@ function PokemonFormDetail({
   onDuplicate,
   onDelete,
   onMoveEntry,
+  canMoveEntry,
   idError,
   onSetIdError,
   fieldErrors,
@@ -1275,7 +1397,12 @@ function PokemonFormDetail({
       <div className="panel-header">
         <h2>{entry.id}</h2>
         <div className="button-row">
-          <button className="ghost" onClick={onMoveEntry}>
+          <button
+            className={`ghost${canMoveEntry ? "" : " disabled"}`}
+            onClick={onMoveEntry}
+            disabled={!canMoveEntry}
+            title={!canMoveEntry ? "Can't move while viewing all files." : ""}
+          >
             Move Entry
           </button>
           <button className="ghost" onClick={() => onDuplicate(entry)}>
@@ -1982,7 +2109,7 @@ function PokemonFormDetail({
                 <input className="input" value="UnmegaForm" readOnly />
                 <input
                   className="input"
-                  list="pokemon-options"
+                  inputMode="numeric"
                   value={field.value}
                   placeholder="(none)"
                   onChange={(event) => updateField(index, field.key, event.target.value)}
@@ -2412,7 +2539,7 @@ function normalizeFormEntries(entries: PBSEntry[], pokemonEntries: PBSEntry[]) {
   return entries.map((entry) => {
     const { pokemonId } = parseFormId(entry.id);
     const fields = buildFormFields(pokemonId, pokemonEntries, entry.fields);
-    return { ...entry, fields };
+    return { ...entry, fields, sourceFile: entry.sourceFile ?? "pokemon_forms.txt" };
   });
 }
 
@@ -2541,14 +2668,28 @@ function buildFormId(pokemonId: string, formNumber: string) {
   return `${pokemonId.trim().toUpperCase()},${formNumber.trim()}`;
 }
 
-function movePokemonFormGroup(entries: PBSEntry[], active: PBSEntry, targetIndex: number) {
+function movePokemonFormGroupWithinSource(
+  entries: PBSEntry[],
+  active: PBSEntry,
+  sourceFile: string,
+  targetIndex: number
+) {
   const groupId = parseFormId(active.id).pokemonId;
-  const remaining = entries.filter((entry) => parseFormId(entry.id).pokemonId !== groupId);
-  const group = entries.filter((entry) => parseFormId(entry.id).pokemonId === groupId);
-  const beforeCount = entries
-    .slice(0, Math.max(0, Math.min(entries.length, targetIndex)))
+  const scoped = entries.filter((entry) => (entry.sourceFile ?? "pokemon_forms.txt") === sourceFile);
+  const remaining = scoped.filter((entry) => parseFormId(entry.id).pokemonId !== groupId);
+  const group = scoped.filter((entry) => parseFormId(entry.id).pokemonId === groupId);
+  const beforeCount = scoped
+    .slice(0, Math.max(0, Math.min(scoped.length, targetIndex)))
     .filter((entry) => parseFormId(entry.id).pokemonId !== groupId).length;
   const insertIndex = Math.max(0, Math.min(remaining.length, beforeCount));
-  const next = [...remaining.slice(0, insertIndex), ...group, ...remaining.slice(insertIndex)];
-  return next.map((entry, index) => ({ ...entry, order: index }));
+  const reordered = [...remaining.slice(0, insertIndex), ...group, ...remaining.slice(insertIndex)].map(
+    (entry, index) => ({ ...entry, order: index })
+  );
+  let nextIndex = 0;
+  return entries.map((entry) => {
+    if ((entry.sourceFile ?? "pokemon_forms.txt") !== sourceFile) return entry;
+    const nextEntry = reordered[nextIndex];
+    nextIndex += 1;
+    return nextEntry ?? entry;
+  });
 }
