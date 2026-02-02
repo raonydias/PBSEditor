@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { ItemsFile, MovesFile, PBSEntry } from "@pbs/shared";
 import { exportItems, getItems, getMoves } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
+import MoveEntryModal from "../components/MoveEntryModal";
 
 const emptyFile: ItemsFile = { entries: [] };
 const emptyMoves: MovesFile = { entries: [] };
@@ -44,6 +45,7 @@ export default function ItemsPage() {
   const [idError, setIdError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [showMoveModal, setShowMoveModal] = useState(false);
   const [manualNamePlural, setManualNamePlural] = useState<Set<string>>(new Set());
   const [manualSellPrice, setManualSellPrice] = useState<Set<string>>(new Set());
   const [manualConsumable, setManualConsumable] = useState<Set<string>>(new Set());
@@ -559,6 +561,7 @@ export default function ItemsPage() {
             onValidateId={validateEntryId}
             onDuplicate={handleDuplicateEntry}
             onDelete={handleDeleteEntry}
+            onMoveEntry={() => setShowMoveModal(true)}
             idError={idError}
             onSetIdError={setIdError}
             fieldErrors={fieldErrors}
@@ -575,6 +578,18 @@ export default function ItemsPage() {
           />
         ) : (
           <div className="panel">Select an item to edit.</div>
+        )}
+        {activeEntry && (
+          <MoveEntryModal
+            open={showMoveModal}
+            total={data.entries.length}
+            title={activeEntry.id}
+            onClose={() => setShowMoveModal(false)}
+            onMove={(targetIndex) => {
+              const nextEntries = moveEntryById(data.entries, activeEntry.id, targetIndex);
+              setData({ entries: nextEntries });
+            }}
+          />
         )}
         {invalidEntries.length > 0 && (
           <section className="panel">
@@ -621,6 +636,7 @@ type DetailProps = {
   onValidateId: (entry: PBSEntry, nextId: string) => string | null;
   onDuplicate: (entry: PBSEntry) => void;
   onDelete: (entry: PBSEntry) => void;
+  onMoveEntry: () => void;
   idError: string | null;
   onSetIdError: (value: string | null) => void;
   fieldErrors: Record<string, string>;
@@ -643,6 +659,7 @@ function ItemDetail({
   onValidateId,
   onDuplicate,
   onDelete,
+  onMoveEntry,
   idError,
   onSetIdError,
   fieldErrors,
@@ -698,6 +715,9 @@ function ItemDetail({
       <div className="panel-header">
         <h2>{entry.id}</h2>
         <div className="button-row">
+          <button className="ghost" onClick={onMoveEntry}>
+            Move Entry
+          </button>
           <button className="ghost" onClick={() => onDuplicate(entry)}>
             Duplicate
           </button>
@@ -1118,4 +1138,14 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
 function normalizeOption(value: string, options: readonly string[]) {
   const match = options.find((option) => option.toLowerCase() === value.toLowerCase());
   return match ?? value;
+}
+
+function moveEntryById(entries: PBSEntry[], id: string, targetIndex: number) {
+  const fromIndex = entries.findIndex((entry) => entry.id === id);
+  if (fromIndex === -1) return entries;
+  const next = [...entries];
+  const [moved] = next.splice(fromIndex, 1);
+  const clamped = Math.max(0, Math.min(next.length, targetIndex));
+  next.splice(clamped, 0, moved);
+  return next.map((entry, index) => ({ ...entry, order: index }));
 }

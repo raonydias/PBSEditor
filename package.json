@@ -6,6 +6,7 @@
     "dev:server": "npm --workspace server run dev",
     "dev:client": "npm --workspace client run dev",
     "build": "npm --workspace shared run build && npm --workspace server run build && npm --workspace client run build",
-    "start": "npm --workspace server run start"
+    "start": "npm --workspace server run start",
+    "release": "npm run build && npm --workspace server run build:pkg && node scripts/release.js"
   }
 }

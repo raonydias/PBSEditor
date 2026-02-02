@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BerryPlantsFile, PBSEntry } from "@pbs/shared";
 import { exportBerryPlants, getBerryPlants } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
+import MoveEntryModal from "../components/MoveEntryModal";
 
 const emptyFile: BerryPlantsFile = { entries: [] };
 
@@ -15,6 +16,7 @@ export default function BerryPlantsPage() {
   const [filter, setFilter] = useState("");
   const dirty = useDirty();
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [showMoveModal, setShowMoveModal] = useState(false);
 
   const ensureBerryPlantDefaults = (entry: PBSEntry) => {
     const defaults = buildDefaultBerryPlantEntry(entry.id, entry.order);
@@ -343,12 +345,25 @@ export default function BerryPlantsPage() {
             onValidateId={validateEntryId}
             onDuplicate={handleDuplicateEntry}
             onDelete={handleDeleteEntry}
+            onMoveEntry={() => setShowMoveModal(true)}
             idError={idError}
             onSetIdError={setIdError}
             fieldErrors={fieldErrors}
           />
         ) : (
           <div className="panel">Select a berry plant to edit.</div>
+        )}
+        {activeEntry && (
+          <MoveEntryModal
+            open={showMoveModal}
+            total={data.entries.length}
+            title={activeEntry.id}
+            onClose={() => setShowMoveModal(false)}
+            onMove={(targetIndex) => {
+              const nextEntries = moveEntryById(data.entries, activeEntry.id, targetIndex);
+              setData({ entries: nextEntries });
+            }}
+          />
         )}
         {invalidEntries.length > 0 && (
           <section className="panel">
@@ -395,6 +410,7 @@ type DetailProps = {
   onValidateId: (entry: PBSEntry, nextId: string) => string | null;
   onDuplicate: (entry: PBSEntry) => void;
   onDelete: (entry: PBSEntry) => void;
+  onMoveEntry: () => void;
   idError: string | null;
   onSetIdError: (value: string | null) => void;
   fieldErrors: Record<string, string>;
@@ -407,6 +423,7 @@ function BerryPlantDetail({
   onValidateId,
   onDuplicate,
   onDelete,
+  onMoveEntry,
   idError,
   onSetIdError,
   fieldErrors,
@@ -439,6 +456,9 @@ function BerryPlantDetail({
       <div className="panel-header">
         <h2>{entry.id}</h2>
         <div className="button-row">
+          <button className="ghost" onClick={onMoveEntry}>
+            Move Entry
+          </button>
           <button className="ghost" onClick={() => onDuplicate(entry)}>
             Duplicate
           </button>
@@ -532,4 +552,14 @@ function BerryPlantDetail({
       </div>
     </div>
   );
+}
+
+function moveEntryById(entries: PBSEntry[], id: string, targetIndex: number) {
+  const fromIndex = entries.findIndex((entry) => entry.id === id);
+  if (fromIndex === -1) return entries;
+  const next = [...entries];
+  const [moved] = next.splice(fromIndex, 1);
+  const clamped = Math.max(0, Math.min(next.length, targetIndex));
+  next.splice(clamped, 0, moved);
+  return next.map((entry, index) => ({ ...entry, order: index }));
 }

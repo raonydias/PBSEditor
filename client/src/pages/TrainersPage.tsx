@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { TrainerEntry, TrainerPokemon, TrainersFile, PokemonFile, MovesFile, ItemsFile, AbilitiesFile } from "@pbs/shared";
 import { exportTrainers, getAbilities, getItems, getMoves, getPokemon, getTrainers } from "../api";
 import { useDirty } from "../dirty";
+import MoveEntryModal from "../components/MoveEntryModal";
 
 const emptyFile: TrainersFile = { entries: [] };
 const emptyPokemonFile: PokemonFile = { entries: [] };
@@ -60,6 +61,7 @@ export default function TrainersPage() {
   const [idError, setIdError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [showMoveModal, setShowMoveModal] = useState(false);
   const dirty = useDirty();
 
   useEffect(() => {
@@ -360,6 +362,7 @@ export default function TrainersPage() {
             onValidateId={validateEntryId}
             onDuplicate={handleDuplicateEntry}
             onDelete={handleDeleteEntry}
+            onMoveEntry={() => setShowMoveModal(true)}
             idError={idError}
             onSetIdError={setIdError}
             pokemonOptions={pokemonOptions}
@@ -371,6 +374,18 @@ export default function TrainersPage() {
           />
         ) : (
           <div className="panel">Select a trainer to edit.</div>
+        )}
+        {activeEntry && (
+          <MoveEntryModal
+            open={showMoveModal}
+            total={data.entries.length}
+            title={`${activeEntry.id},${activeEntry.name}${activeEntry.version ? `,${activeEntry.version}` : ""}`}
+            onClose={() => setShowMoveModal(false)}
+            onMove={(targetIndex) => {
+              const nextEntries = moveTrainerGroup(data.entries, activeEntry, targetIndex);
+              setData({ entries: nextEntries });
+            }}
+          />
         )}
         {invalidEntries.length > 0 && (
           <section className="panel">
@@ -438,6 +453,7 @@ type DetailProps = {
   onValidateId: (entry: TrainerEntry, nextId: string, nextName: string, nextVersion: string) => string | null;
   onDuplicate: (entry: TrainerEntry) => void;
   onDelete: (entry: TrainerEntry) => void;
+  onMoveEntry: () => void;
   idError: string | null;
   onSetIdError: (value: string | null) => void;
   pokemonOptions: string[];
@@ -455,6 +471,7 @@ function TrainerDetail({
   onValidateId,
   onDuplicate,
   onDelete,
+  onMoveEntry,
   idError,
   onSetIdError,
   pokemonOptions,
@@ -518,6 +535,9 @@ function TrainerDetail({
       <div className="panel-header">
         <h2>{entry.version > 0 ? `${entry.id},${entry.name},${entry.version}` : `${entry.id},${entry.name}`}</h2>
         <div className="button-row">
+          <button className="ghost" onClick={onMoveEntry}>
+            Move Entry
+          </button>
           <button className="ghost" onClick={() => onDuplicate(entry)}>
             Add New Trainer Version
           </button>
@@ -984,6 +1004,22 @@ function abilitiesFromPokemon(pokemonId: string, pokemonEntries: PokemonFile["en
 
 function entryKey(entry: TrainerEntry) {
   return `${entry.id},${entry.name},${entry.version}`;
+}
+
+function trainerGroupKey(entry: TrainerEntry) {
+  return `${entry.id}::${entry.name}`;
+}
+
+function moveTrainerGroup(entries: TrainerEntry[], active: TrainerEntry, targetIndex: number) {
+  const groupId = trainerGroupKey(active);
+  const remaining = entries.filter((entry) => trainerGroupKey(entry) !== groupId);
+  const group = entries.filter((entry) => trainerGroupKey(entry) === groupId);
+  const beforeCount = entries
+    .slice(0, Math.max(0, Math.min(entries.length, targetIndex)))
+    .filter((entry) => trainerGroupKey(entry) !== groupId).length;
+  const insertIndex = Math.max(0, Math.min(remaining.length, beforeCount));
+  const next = [...remaining.slice(0, insertIndex), ...group, ...remaining.slice(insertIndex)];
+  return next.map((entry, index) => ({ ...entry, order: index }));
 }
 
 function nextOrder(entries: TrainerEntry[]) {

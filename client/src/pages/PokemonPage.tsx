@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AbilitiesFile, ItemsFile, MovesFile, PBSEntry, PokemonFile, TypesFile } from "@pbs/shared";
 import { exportPokemon, getAbilities, getItems, getMoves, getPokemon, getTypes } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
+import MoveEntryModal from "../components/MoveEntryModal";
 
 const emptyPokemon: PokemonFile = { entries: [] };
 const emptyTypes: TypesFile = { entries: [] };
@@ -277,6 +278,7 @@ export default function PokemonPage() {
   const [entryIdErrors, setEntryIdErrors] = useState<Record<string, string | null>>({});
   const [filter, setFilter] = useState("");
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [showMoveModal, setShowMoveModal] = useState(false);
   const dirty = useDirty();
 
   const ensurePokemonDefaults = (entry: PBSEntry) => {
@@ -985,6 +987,7 @@ export default function PokemonPage() {
             onValidateEntry={validateAndStoreEntry}
             onDuplicate={handleDuplicateEntry}
             onDelete={handleDeleteEntry}
+            onMoveEntry={() => setShowMoveModal(true)}
             idError={idError}
             onSetIdError={setIdError}
             fieldErrors={fieldErrors}
@@ -996,6 +999,18 @@ export default function PokemonPage() {
           />
         ) : (
           <div className="panel">Select a Pokemon to edit.</div>
+        )}
+        {activeEntry && (
+          <MoveEntryModal
+            open={showMoveModal}
+            total={data.entries.length}
+            title={activeEntry.id}
+            onClose={() => setShowMoveModal(false)}
+            onMove={(targetIndex) => {
+              const nextEntries = moveEntryById(data.entries, activeEntry.id, targetIndex);
+              setData({ entries: nextEntries });
+            }}
+          />
         )}
         {invalidEntries.length > 0 && (
           <section className="panel">
@@ -1044,6 +1059,7 @@ type DetailProps = {
   onValidateEntry: (entry: PBSEntry) => void;
   onDuplicate: (entry: PBSEntry) => void;
   onDelete: (entry: PBSEntry) => void;
+  onMoveEntry: () => void;
   idError: string | null;
   onSetIdError: (value: string | null) => void;
   fieldErrors: Record<string, string>;
@@ -1062,6 +1078,7 @@ function PokemonDetail({
   onValidateEntry,
   onDuplicate,
   onDelete,
+  onMoveEntry,
   idError,
   onSetIdError,
   fieldErrors,
@@ -1172,6 +1189,9 @@ function PokemonDetail({
       <div className="panel-header">
         <h2>{entry.id}</h2>
         <div className="button-row">
+          <button className="ghost" onClick={onMoveEntry}>
+            Move Entry
+          </button>
           <button className="ghost" onClick={() => onDuplicate(entry)}>
             Duplicate
           </button>
@@ -2278,4 +2298,14 @@ function resolveEvolutionParamKind(methodRaw: string) {
   if (EVOLUTION_PARAM_POKEMON.has(method)) return "pokemon";
   if (EVOLUTION_PARAM_STRING.has(method)) return "string";
   return "string";
+}
+
+function moveEntryById(entries: PBSEntry[], id: string, targetIndex: number) {
+  const fromIndex = entries.findIndex((entry) => entry.id === id);
+  if (fromIndex === -1) return entries;
+  const next = [...entries];
+  const [moved] = next.splice(fromIndex, 1);
+  const clamped = Math.max(0, Math.min(next.length, targetIndex));
+  next.splice(clamped, 0, moved);
+  return next.map((entry, index) => ({ ...entry, order: index }));
 }

@@ -11,6 +11,7 @@ import {
 } from "@pbs/shared";
 import { exportPokemonForms, getAbilities, getItems, getMoves, getPokemon, getPokemonForms, getTypes } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
+import MoveEntryModal from "../components/MoveEntryModal";
 
 const emptyForms: PokemonFormsFile = { entries: [] };
 const emptyPokemon: PokemonFile = { entries: [] };
@@ -345,6 +346,7 @@ export default function PokemonFormsPage() {
   const [idError, setIdError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [showMoveModal, setShowMoveModal] = useState(false);
   const dirty = useDirty();
 
   const ensurePokemonDefaults = (entry: PBSEntry) => {
@@ -1036,6 +1038,7 @@ export default function PokemonFormsPage() {
             onValidateId={validateEntryId}
             onDuplicate={handleDuplicateEntry}
             onDelete={handleDeleteEntry}
+            onMoveEntry={() => setShowMoveModal(true)}
             idError={idError}
             onSetIdError={setIdError}
             fieldErrors={fieldErrors}
@@ -1047,6 +1050,18 @@ export default function PokemonFormsPage() {
           />
         ) : (
           <div className="panel">Select a form to edit.</div>
+        )}
+        {activeEntry && (
+          <MoveEntryModal
+            open={showMoveModal}
+            total={data.entries.length}
+            title={activeEntry.id}
+            onClose={() => setShowMoveModal(false)}
+            onMove={(targetIndex) => {
+              const nextEntries = movePokemonFormGroup(data.entries, activeEntry, targetIndex);
+              setData({ entries: nextEntries });
+            }}
+          />
         )}
         {invalidEntries.length > 0 && (
           <section className="panel">
@@ -1122,6 +1137,7 @@ type DetailProps = {
   onValidateId: (entry: PBSEntry, pokemonId: string, formNumber: string) => string | null;
   onDuplicate: (entry: PBSEntry) => void;
   onDelete: (entry: PBSEntry) => void;
+  onMoveEntry: () => void;
   idError: string | null;
   onSetIdError: (value: string | null) => void;
   fieldErrors: Record<string, string>;
@@ -1139,6 +1155,7 @@ function PokemonFormDetail({
   onValidateId,
   onDuplicate,
   onDelete,
+  onMoveEntry,
   idError,
   onSetIdError,
   fieldErrors,
@@ -1257,6 +1274,9 @@ function PokemonFormDetail({
       <div className="panel-header">
         <h2>{entry.id}</h2>
         <div className="button-row">
+          <button className="ghost" onClick={onMoveEntry}>
+            Move Entry
+          </button>
           <button className="ghost" onClick={() => onDuplicate(entry)}>
             Duplicate
           </button>
@@ -2518,4 +2538,16 @@ function parseFormId(raw: string) {
 
 function buildFormId(pokemonId: string, formNumber: string) {
   return `${pokemonId.trim().toUpperCase()},${formNumber.trim()}`;
+}
+
+function movePokemonFormGroup(entries: PBSEntry[], active: PBSEntry, targetIndex: number) {
+  const groupId = parseFormId(active.id).pokemonId;
+  const remaining = entries.filter((entry) => parseFormId(entry.id).pokemonId !== groupId);
+  const group = entries.filter((entry) => parseFormId(entry.id).pokemonId === groupId);
+  const beforeCount = entries
+    .slice(0, Math.max(0, Math.min(entries.length, targetIndex)))
+    .filter((entry) => parseFormId(entry.id).pokemonId !== groupId).length;
+  const insertIndex = Math.max(0, Math.min(remaining.length, beforeCount));
+  const next = [...remaining.slice(0, insertIndex), ...group, ...remaining.slice(insertIndex)];
+  return next.map((entry, index) => ({ ...entry, order: index }));
 }

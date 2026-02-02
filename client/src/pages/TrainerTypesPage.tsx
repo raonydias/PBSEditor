@@ -3,6 +3,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { PBSEntry, TrainerTypesFile } from "@pbs/shared";
 import { exportTrainerTypes, getBgmFiles, getTrainerTypes } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
+import MoveEntryModal from "../components/MoveEntryModal";
 
 const emptyFile: TrainerTypesFile = { entries: [] };
 const emptyBgm: string[] = [];
@@ -19,6 +20,7 @@ export default function TrainerTypesPage() {
   const [idError, setIdError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [showMoveModal, setShowMoveModal] = useState(false);
   const [manualSkillLevel, setManualSkillLevel] = useState<Set<string>>(new Set());
   const dirty = useDirty();
   const bgmOptions = useMemo(() => {
@@ -411,6 +413,7 @@ export default function TrainerTypesPage() {
             onValidateId={validateEntryId}
             onDuplicate={handleDuplicateEntry}
             onDelete={handleDeleteEntry}
+            onMoveEntry={() => setShowMoveModal(true)}
             idError={idError}
             onSetIdError={setIdError}
             fieldErrors={fieldErrors}
@@ -420,6 +423,18 @@ export default function TrainerTypesPage() {
           />
         ) : (
           <div className="panel">Select a trainer type to edit.</div>
+        )}
+        {activeEntry && (
+          <MoveEntryModal
+            open={showMoveModal}
+            total={data.entries.length}
+            title={activeEntry.id}
+            onClose={() => setShowMoveModal(false)}
+            onMove={(targetIndex) => {
+              const nextEntries = moveEntryById(data.entries, activeEntry.id, targetIndex);
+              setData({ entries: nextEntries });
+            }}
+          />
         )}
         {invalidEntries.length > 0 && (
           <section className="panel">
@@ -467,6 +482,7 @@ type DetailProps = {
   onValidateId: (entry: PBSEntry, nextId: string) => string | null;
   onDuplicate: (entry: PBSEntry) => void;
   onDelete: (entry: PBSEntry) => void;
+  onMoveEntry: () => void;
   idError: string | null;
   onSetIdError: (value: string | null) => void;
   fieldErrors: Record<string, string>;
@@ -482,6 +498,7 @@ function TrainerTypeDetail({
   onValidateId,
   onDuplicate,
   onDelete,
+  onMoveEntry,
   idError,
   onSetIdError,
   fieldErrors,
@@ -539,6 +556,9 @@ function TrainerTypeDetail({
       <div className="panel-header">
         <h2>{entry.id}</h2>
         <div className="button-row">
+          <button className="ghost" onClick={onMoveEntry}>
+            Move Entry
+          </button>
           <button className="ghost" onClick={() => onDuplicate(entry)}>
             Duplicate
           </button>
@@ -796,4 +816,14 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
 
 function getFieldValue(entry: PBSEntry, key: string) {
   return entry.fields.find((field) => field.key === key)?.value ?? "";
+}
+
+function moveEntryById(entries: PBSEntry[], id: string, targetIndex: number) {
+  const fromIndex = entries.findIndex((entry) => entry.id === id);
+  if (fromIndex === -1) return entries;
+  const next = [...entries];
+  const [moved] = next.splice(fromIndex, 1);
+  const clamped = Math.max(0, Math.min(next.length, targetIndex));
+  next.splice(clamped, 0, moved);
+  return next.map((entry, index) => ({ ...entry, order: index }));
 }

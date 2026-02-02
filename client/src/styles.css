@@ -179,7 +179,7 @@ body {
     object-fit: none;
     object-position: 0 0;
     image-rendering: pixelated;
-    animation: icon-bounce 0.6s ease-in-out infinite;
+  animation: icon-bounce 0.45s ease-in-out infinite;
 }
 
 .encounter-type-row {

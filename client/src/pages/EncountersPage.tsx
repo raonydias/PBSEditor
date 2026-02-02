@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { EncounterEntry, EncounterSlot, EncounterType, EncountersFile, PokemonFile } from "@pbs/shared";
 import { exportEncounters, getEncounters, getPokemon } from "../api";
 import { useDirty } from "../dirty";
+import MoveEntryModal from "../components/MoveEntryModal";
 
 const emptyEncounters: EncountersFile = { entries: [] };
 const emptyPokemon: PokemonFile = { entries: [] };
@@ -79,6 +80,7 @@ export default function EncountersPage() {
   const [idError, setIdError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [showMoveModal, setShowMoveModal] = useState(false);
   const dirty = useDirty();
 
   useEffect(() => {
@@ -303,9 +305,11 @@ export default function EncountersPage() {
     setStatus(null);
     setError(null);
     try {
-      await exportEncounters(data);
+      const normalized = normalizeEncounterOrder(data.entries);
+      await exportEncounters({ entries: normalized });
       setStatus("Exported encounters.txt.");
-      const snap = serializeEncounters(data.entries);
+      setData({ entries: normalized });
+      const snap = serializeEncounters(normalized);
       setSnapshot(snap);
       dirty.setDirty("encounters", false);
     } catch (err) {
@@ -379,12 +383,25 @@ export default function EncountersPage() {
             }}
             onDuplicate={handleDuplicateEntry}
             onDelete={handleDeleteEntry}
+            onMoveEntry={() => setShowMoveModal(true)}
             idError={idError}
             onSetIdError={setIdError}
             pokemonOptions={pokemonOptions}
           />
         ) : (
           <div className="panel">Select an encounter to edit.</div>
+        )}
+        {activeEntry && (
+          <MoveEntryModal
+            open={showMoveModal}
+            total={data.entries.length}
+            title={`${activeEntry.id}${activeEntry.version ? `,${activeEntry.version}` : ""}`}
+            onClose={() => setShowMoveModal(false)}
+            onMove={(targetIndex) => {
+              const nextEntries = moveEncounterGroup(data.entries, activeEntry, targetIndex);
+              setData({ entries: nextEntries });
+            }}
+          />
         )}
         {invalidEntries.length > 0 && (
           <section className="panel">
@@ -454,6 +471,7 @@ type DetailProps = {
   onAddType: (entry: EncounterEntry) => void;
   onDuplicate: (entry: EncounterEntry) => void;
   onDelete: (entry: EncounterEntry) => void;
+  onMoveEntry: () => void;
   idError: string | null;
   onSetIdError: (value: string | null) => void;
   pokemonOptions: string[];
@@ -467,6 +485,7 @@ function EncounterDetail({
   onAddType,
   onDuplicate,
   onDelete,
+  onMoveEntry,
   idError,
   onSetIdError,
   pokemonOptions,
@@ -494,6 +513,9 @@ function EncounterDetail({
       <div className="panel-header">
         <h2>{entry.id}{entry.version ? `,${entry.version}` : ""}</h2>
         <div className="button-row">
+          <button className="ghost" onClick={onMoveEntry}>
+            Move Entry
+          </button>
           <button className="ghost" onClick={() => onDuplicate(entry)}>
             Add New Encounter Version
           </button>
@@ -792,4 +814,27 @@ function serializeEncounters(entries: EncounterEntry[]) {
       })),
     }))
   );
+}
+
+function moveEncounterGroup(entries: EncounterEntry[], active: EncounterEntry, targetIndex: number) {
+  const groupId = active.id;
+  const remaining = entries.filter((entry) => entry.id !== groupId);
+  const group = entries.filter((entry) => entry.id === groupId);
+  const beforeCount = entries
+    .slice(0, Math.max(0, Math.min(entries.length, targetIndex)))
+    .filter((entry) => entry.id !== groupId).length;
+  const insertIndex = Math.max(0, Math.min(remaining.length, beforeCount));
+  const next = [...remaining.slice(0, insertIndex), ...group, ...remaining.slice(insertIndex)];
+  return next.map((entry, index) => ({ ...entry, order: index }));
+}
+
+function normalizeEncounterOrder(entries: EncounterEntry[]) {
+  const seen = new Set<string>();
+  const next: EncounterEntry[] = [];
+  for (const entry of entries) {
+    if (seen.has(entry.id)) continue;
+    seen.add(entry.id);
+    next.push(...entries.filter((item) => item.id === entry.id));
+  }
+  return next.map((entry, index) => ({ ...entry, order: index }));
 }

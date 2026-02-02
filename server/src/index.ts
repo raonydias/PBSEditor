@@ -119,6 +119,24 @@ function audioBgmDir(): string {
   return path.join(projectRoot(), "Audio", "BGM");
 }
 
+function clientDistDir(): string | null {
+  const configured = process.env.PBS_EDITOR_CLIENT_DIST;
+  if (configured && configured.trim()) {
+    const resolved = path.resolve(configured);
+    if (fileExistsSync(resolved)) return resolved;
+  }
+  const candidates = [
+    path.join(projectRoot(), "client", "dist"),
+    path.join(projectRoot(), "client-dist"),
+    path.join(projectRoot(), "dist", "client"),
+    path.join(projectRoot(), "dist"),
+  ];
+  for (const candidate of candidates) {
+    if (fileExistsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
 async function ensurePbsOutput(): Promise<void> {
   await fs.mkdir(pbsOutputDir(), { recursive: true });
 }
@@ -126,6 +144,15 @@ async function ensurePbsOutput(): Promise<void> {
 async function fileExists(filePath: string): Promise<boolean> {
   try {
     await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function fileExistsSync(filePath: string): boolean {
+  try {
+    accessSync(filePath);
     return true;
   } catch {
     return false;
@@ -364,7 +391,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
       | TrainerTypesFile
       | PokemonFile
       | PokemonFormsFile
-      | EncountersFile;
+      | EncountersFile
+      | TrainersFile;
     const output =
       file === "abilities.txt"
         ? exportAbilitiesFile(payload as AbilitiesFile)
@@ -395,6 +423,17 @@ app.post("/api/pbs/:file/export", async (req, res) => {
     res.status(500).json(errorBody("Failed to export PBS file.", detail));
   }
 });
+
+const clientDist = clientDistDir();
+if (clientDist) {
+  app.use(express.static(clientDist));
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api")) return next();
+    const indexPath = path.join(clientDist, "index.html");
+    if (!fileExistsSync(indexPath)) return next();
+    res.sendFile(indexPath);
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`PBS Editor server running on http://localhost:${PORT}`);
