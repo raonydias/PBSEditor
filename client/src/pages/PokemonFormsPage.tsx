@@ -1,5 +1,5 @@
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   AbilitiesFile,
   ItemsFile,
@@ -354,6 +354,8 @@ export default function PokemonFormsPage() {
   const [idError, setIdError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [entryErrors, setEntryErrors] = useState<Record<string, Record<string, string>>>({});
+  const [entryIdErrors, setEntryIdErrors] = useState<Record<string, string | null>>({});
   const [baselineEntries, setBaselineEntries] = useState<PBSEntry[]>([]);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showAddSourceModal, setShowAddSourceModal] = useState(false);
@@ -489,6 +491,18 @@ export default function PokemonFormsPage() {
       }),
     }));
     setActiveId(nextId);
+    setEntryErrors((prev) => {
+      if (!(entry.id in prev)) return prev;
+      const next = { ...prev, [nextId]: prev[entry.id] };
+      delete next[entry.id];
+      return next;
+    });
+    setEntryIdErrors((prev) => {
+      if (!(entry.id in prev)) return prev;
+      const next = { ...prev, [nextId]: prev[entry.id] };
+      delete next[entry.id];
+      return next;
+    });
   };
   const validateEntryFields = (entry: PBSEntry) => {
     const errors: Record<string, string> = {};
@@ -786,18 +800,35 @@ export default function PokemonFormsPage() {
 
     return errors;
   };
-  const fieldErrors = useMemo(() => {
-    if (!activeEntry) return {};
-    return validateEntryFields(activeEntry);
-  }, [activeEntry, typeOptions, abilityOptions, moveOptions, itemOptions, pokemonOptions]);
+  const validateAndStoreEntry = (entry: PBSEntry) => {
+    const fieldErrorMap = validateEntryFields(entry);
+    const { pokemonId, formNumber } = parseFormId(entry.id);
+    const idErrorMessage = validateEntryId(entry, pokemonId, formNumber);
+    setEntryErrors((prev) => ({ ...prev, [entry.id]: fieldErrorMap }));
+    setEntryIdErrors((prev) => ({ ...prev, [entry.id]: idErrorMessage }));
+    return { fieldErrorMap, idErrorMessage };
+  };
+
+  const validateAllEntries = () => {
+    const nextFieldErrors: Record<string, Record<string, string>> = {};
+    const nextIdErrors: Record<string, string | null> = {};
+    for (const entry of data.entries) {
+      nextFieldErrors[entry.id] = validateEntryFields(entry);
+      const { pokemonId, formNumber } = parseFormId(entry.id);
+      nextIdErrors[entry.id] = validateEntryId(entry, pokemonId, formNumber);
+    }
+    setEntryErrors(nextFieldErrors);
+    setEntryIdErrors(nextIdErrors);
+  };
+
+  const fieldErrors = activeEntry ? entryErrors[activeEntry.id] ?? {} : {};
 
   const collectEntryErrors = (entry: PBSEntry) => {
     const errors: string[] = [];
-    const { pokemonId, formNumber } = parseFormId(entry.id);
-    const idErrorMessage = validateEntryId(entry, pokemonId, formNumber);
+    const idErrorMessage = entryIdErrors[entry.id];
     if (idErrorMessage) errors.push(`ID: ${idErrorMessage}`);
-    const fieldErrorMap = validateEntryFields(entry);
-    for (const [key, message] of Object.entries(fieldErrorMap)) {
+    const fieldErrorMap = entryErrors[entry.id] ?? {};
+    for (const [key, message] of Object.entries(fieldErrorMap ?? {})) {
       errors.push(`${key}: ${message}`);
     }
     return errors;
@@ -818,17 +849,18 @@ export default function PokemonFormsPage() {
     return warnings;
   };
 
+  const deferredEntries = useDeferredValue(data.entries);
   const invalidEntries = useMemo(() => {
-    return data.entries
+    return deferredEntries
       .map((entry) => ({ entry, errors: collectEntryErrors(entry) }))
       .filter((item) => item.errors.length > 0);
-  }, [data.entries, typeOptions, abilityOptions, moveOptions, itemOptions, pokemonOptions]);
+  }, [deferredEntries, entryErrors, entryIdErrors]);
 
   const warningEntries = useMemo(() => {
-    return data.entries
+    return deferredEntries
       .map((entry) => ({ entry, warnings: collectEntryWarnings(entry) }))
       .filter((item) => item.warnings.length > 0);
-  }, [data.entries]);
+  }, [deferredEntries]);
 
   const hasInvalidEntries = useMemo(() => {
     for (const entry of data.entries) {
@@ -872,6 +904,18 @@ export default function PokemonFormsPage() {
     }));
     setStatus(`Reset ${activeEntry.id}.`);
   };
+
+  useEffect(() => {
+    if (loading) return;
+    validateAllEntries();
+  }, [
+    loading,
+    typeOptions.length,
+    abilityOptions.length,
+    moveOptions.length,
+    itemOptions.length,
+    pokemonOptions.length,
+  ]);
 
   useEffect(() => {
     if (!snapshot) return;
@@ -946,6 +990,8 @@ export default function PokemonFormsPage() {
       entries: [...prev.entries, newEntry],
     }));
     setActiveId(newId);
+    setEntryErrors((prev) => ({ ...prev, [newId]: validateEntryFields(newEntry) }));
+    setEntryIdErrors((prev) => ({ ...prev, [newId]: validateEntryId(newEntry, defaultPokemon, String(formNumber)) }));
     setStatus(`Added ${newId}. Remember to export when ready.`);
   };
 
@@ -968,6 +1014,8 @@ export default function PokemonFormsPage() {
       entries: [...prev.entries, duplicated],
     }));
     setActiveId(newId);
+    setEntryErrors((prev) => ({ ...prev, [newId]: validateEntryFields(duplicated) }));
+    setEntryIdErrors((prev) => ({ ...prev, [newId]: validateEntryId(duplicated, pokemonId, String(formNumber)) }));
     setStatus(`Duplicated ${entry.id} as ${newId}.`);
   };
 
@@ -985,6 +1033,18 @@ export default function PokemonFormsPage() {
         null;
       setActiveId(nextActive);
       return { ...prev, entries: nextEntries };
+    });
+    setEntryErrors((prev) => {
+      if (!(entry.id in prev)) return prev;
+      const next = { ...prev };
+      delete next[entry.id];
+      return next;
+    });
+    setEntryIdErrors((prev) => {
+      if (!(entry.id in prev)) return prev;
+      const next = { ...prev };
+      delete next[entry.id];
+      return next;
     });
     setStatus(`Deleted ${entry.id}.`);
   };
@@ -1152,6 +1212,7 @@ export default function PokemonFormsPage() {
             onChange={updateEntry}
             onRename={updateEntryId}
             onValidateId={validateEntryId}
+            onValidateEntry={validateAndStoreEntry}
             onDuplicate={handleDuplicateEntry}
             onDelete={handleDeleteEntry}
             onMoveEntry={() => setShowMoveModal(true)}
@@ -1292,7 +1353,7 @@ export default function PokemonFormsPage() {
               : "PBS_Output"}
           </span>
         </div>
-        <div className="export-actions">
+        <div className="export-actions" onMouseEnter={validateAllEntries}>
           {status && <span className="status">{status}</span>}
           {error && <span className="error">{error}</span>}
           {showTop && (
@@ -1322,6 +1383,7 @@ type DetailProps = {
   onChange: (entry: PBSEntry) => void;
   onRename: (entry: PBSEntry, pokemonId: string, formNumber: string, resetFields: boolean) => void;
   onValidateId: (entry: PBSEntry, pokemonId: string, formNumber: string) => string | null;
+  onValidateEntry: (entry: PBSEntry) => void;
   onDuplicate: (entry: PBSEntry) => void;
   onDelete: (entry: PBSEntry) => void;
   onMoveEntry: () => void;
@@ -1341,6 +1403,7 @@ function PokemonFormDetail({
   onChange,
   onRename,
   onValidateId,
+  onValidateEntry,
   onDuplicate,
   onDelete,
   onMoveEntry,
@@ -1359,10 +1422,11 @@ function PokemonFormDetail({
     const safeFormNumber = formNumber.trim();
     const formNameValue = entry.fields.find((field) => field.key === "FormName")?.value ?? "";
     const isGigantamax = formNameValue.trim().toLowerCase() === "gigantamax";
-    const [idDraft, setIdDraft] = useState(pokemonId);
-    const [formDraft, setFormDraft] = useState(formNumber);
-    const [focusedField, setFocusedField] = useState<string | null>(null);
-    const validateTimer = useRef<number | null>(null);
+  const [idDraft, setIdDraft] = useState(pokemonId);
+  const [formDraft, setFormDraft] = useState(formNumber);
+  const [fieldDrafts, setFieldDrafts] = useState<Record<string, string>>({});
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const validateTimer = useRef<number | null>(null);
     const frontBaseSrc = `/assets/graphics/Pokemon/Front/${safePokemonId}.png`;
     const frontFormSrc = isGigantamax
       ? `/assets/graphics/Pokemon/Front/${safePokemonId}_gmax.png`
@@ -1372,6 +1436,7 @@ function PokemonFormDetail({
   useEffect(() => {
     setIdDraft(pokemonId);
     setFormDraft(formNumber);
+    setFieldDrafts({});
   }, [pokemonId, formNumber, entry.id]);
 
   useEffect(() => {
@@ -1389,6 +1454,7 @@ function PokemonFormDetail({
     validateTimer.current = window.setTimeout(() => {
       const errorMessage = onValidateId(entry, idDraft, formDraft);
       onSetIdError(errorMessage);
+      onValidateEntry(entry);
     }, 0);
   };
 
@@ -1422,6 +1488,21 @@ function PokemonFormDetail({
     const index = entry.fields.findIndex((field) => field.key === key);
     if (index === -1) return;
     updateFieldValue(key, value);
+  };
+  const getDraftValue = (key: string, fallback: string) => {
+    return fieldDrafts[key] ?? fallback;
+  };
+  const setDraftValue = (key: string, value: string) => {
+    setFieldDrafts((prev) => ({ ...prev, [key]: value }));
+  };
+  const commitDraftValue = (key: string, value: string) => {
+    setFieldValue(key, value);
+    setFieldDrafts((prev) => {
+      if (!(key in prev)) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
   };
 
   const typesValue = getFieldValue("Types");
@@ -1530,11 +1611,12 @@ function PokemonFormDetail({
         <div className="field-row single">
           <label className="label">{formatKeyLabel("Pokemon ID")}</label>
           <div className="stack">
-            <select
+            <input
               className="input"
+              list="pokemon-options"
               value={idDraft}
               onChange={(event) => {
-                const next = event.target.value;
+                const next = event.target.value.toUpperCase();
                 setIdDraft(next);
                 const errorMessage = onValidateId(entry, next, formDraft);
                 onSetIdError(errorMessage);
@@ -1542,13 +1624,7 @@ function PokemonFormDetail({
                   onRename(entry, next, formDraft, true);
                 }
               }}
-            >
-              {pokemonOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
+            />
             <div className="field-row">
               <input className="input key-label" value={formatKeyLabel("FormNumber")} readOnly tabIndex={-1} />
               <input
@@ -1574,13 +1650,21 @@ function PokemonFormDetail({
           if (FORBIDDEN_FIELDS.has(field.key)) return null;
 
           if (field.key === "FormName") {
+            const draftValue = getDraftValue(field.key, field.value);
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("FormName")} readOnly tabIndex={-1} />
                 <input
                   className="input"
-                  value={field.value}
-                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
+                  value={draftValue}
+                  onChange={(event) => setDraftValue(field.key, event.target.value)}
+                  onBlur={() => commitDraftValue(field.key, draftValue)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue);
+                    }
+                  }}
                 />
               </div>
             );
@@ -1624,15 +1708,23 @@ function PokemonFormDetail({
           }
 
           if (field.key === "BaseExp" || field.key === "CatchRate" || field.key === "Happiness") {
+            const draftValue = getDraftValue(field.key, field.value);
             const warn =
-              (field.key === "CatchRate" || field.key === "Happiness") && Number(field.value || 0) > 255;
+              (field.key === "CatchRate" || field.key === "Happiness") && Number(draftValue || 0) > 255;
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <input
                   className="input"
-                  value={field.value}
-                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
+                  value={draftValue}
+                  onChange={(event) => setDraftValue(field.key, event.target.value)}
+                  onBlur={() => commitDraftValue(field.key, draftValue)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue);
+                    }
+                  }}
                 />
                 {warn && <span className="field-warning">Values above 255 have no effect.</span>}
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
@@ -2015,15 +2107,25 @@ function PokemonFormDetail({
           }
 
           if (field.key === "HatchSteps") {
+            const draftValue = getDraftValue(field.key, field.value);
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("HatchSteps")} readOnly tabIndex={-1} />
                 <input
                   className="input"
-                  value={field.value}
+                  value={draftValue}
                   onFocus={() => setFocusedField(field.key)}
-                  onBlur={() => setFocusedField(null)}
-                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
+                  onBlur={() => {
+                    setFocusedField(null);
+                    commitDraftValue(field.key, draftValue);
+                  }}
+                  onChange={(event) => setDraftValue(field.key, event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue);
+                    }
+                  }}
                 />
                 {focusedField === field.key && (
                   <span className="field-hint">As of Scarlet &amp; Violet 1 cycle = 128 steps.</span>
@@ -2052,15 +2154,25 @@ function PokemonFormDetail({
           if (field.key === "Height" || field.key === "Weight") {
             const hint = field.key === "Height" ? "Value in meters." : "Value in kilograms.";
             const showHint = focusedField === field.key;
+            const draftValue = getDraftValue(field.key, field.value);
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <input
                   className="input"
-                  value={field.value}
+                  value={draftValue}
                   onFocus={() => setFocusedField(field.key)}
-                  onBlur={() => setFocusedField(null)}
-                  onChange={(event) => updateFieldValue(field.key, event.target.value.replace(",", "."))}
+                  onBlur={() => {
+                    setFocusedField(null);
+                    commitDraftValue(field.key, draftValue.replace(",", "."));
+                  }}
+                  onChange={(event) => setDraftValue(field.key, event.target.value.replace(",", "."))}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue.replace(",", "."));
+                    }
+                  }}
                 />
                 {showHint && <span className="field-hint">{hint}</span>}
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
@@ -2129,13 +2241,21 @@ function PokemonFormDetail({
           }
 
           if (field.key === "Category" || field.key === "Pokedex" || field.key === "PokedexForm") {
+            const draftValue = getDraftValue(field.key, field.value);
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <input
                   className="input"
-                  value={field.value}
-                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
+                  value={draftValue}
+                  onChange={(event) => setDraftValue(field.key, event.target.value)}
+                  onBlur={() => commitDraftValue(field.key, draftValue)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue);
+                    }
+                  }}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
@@ -2143,13 +2263,21 @@ function PokemonFormDetail({
           }
 
           if (field.key === "Generation") {
+            const draftValue = getDraftValue(field.key, field.value);
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("Generation")} readOnly tabIndex={-1} />
                 <input
                   className="input"
-                  value={field.value}
-                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
+                  value={draftValue}
+                  onChange={(event) => setDraftValue(field.key, event.target.value)}
+                  onBlur={() => commitDraftValue(field.key, draftValue)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue);
+                    }
+                  }}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
@@ -2170,15 +2298,23 @@ function PokemonFormDetail({
           }
 
           if (field.key === "WildItemCommon" || field.key === "WildItemUncommon" || field.key === "WildItemRare") {
+            const draftValue = getDraftValue(field.key, field.value);
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   list="item-options"
-                  value={field.value}
+                  value={draftValue}
                   placeholder="(none)"
-                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
+                  onChange={(event) => setDraftValue(field.key, event.target.value)}
+                  onBlur={() => commitDraftValue(field.key, draftValue)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue);
+                    }
+                  }}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
@@ -2186,15 +2322,23 @@ function PokemonFormDetail({
           }
 
           if (field.key === "MegaStone") {
+            const draftValue = getDraftValue(field.key, field.value);
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("MegaStone")} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   list="item-options"
-                  value={field.value}
+                  value={draftValue}
                   placeholder="(none)"
-                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
+                  onChange={(event) => setDraftValue(field.key, event.target.value)}
+                  onBlur={() => commitDraftValue(field.key, draftValue)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue);
+                    }
+                  }}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
@@ -2202,15 +2346,23 @@ function PokemonFormDetail({
           }
 
           if (field.key === "MegaMove") {
+            const draftValue = getDraftValue(field.key, field.value);
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("MegaMove")} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   list="move-options"
-                  value={field.value}
+                  value={draftValue}
                   placeholder="(none)"
-                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
+                  onChange={(event) => setDraftValue(field.key, event.target.value)}
+                  onBlur={() => commitDraftValue(field.key, draftValue)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue);
+                    }
+                  }}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
@@ -2218,15 +2370,23 @@ function PokemonFormDetail({
           }
 
           if (field.key === "MegaMessage") {
-            const value = field.value.trim();
+            const draftValue = getDraftValue(field.key, field.value);
+            const value = draftValue.trim();
             const showWarning = value !== "" && Number(value) > 1;
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("MegaMessage")} readOnly tabIndex={-1} />
                 <input
                   className="input"
-                  value={field.value}
-                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
+                  value={draftValue}
+                  onChange={(event) => setDraftValue(field.key, event.target.value)}
+                  onBlur={() => commitDraftValue(field.key, draftValue)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue);
+                    }
+                  }}
                 />
                 {showWarning && (
                   <span className="field-warning">
@@ -2239,15 +2399,23 @@ function PokemonFormDetail({
           }
 
           if (field.key === "UnmegaForm") {
+            const draftValue = getDraftValue(field.key, field.value);
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("UnmegaForm")} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   inputMode="numeric"
-                  value={field.value}
+                  value={draftValue}
                   placeholder="(none)"
-                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
+                  onChange={(event) => setDraftValue(field.key, event.target.value)}
+                  onBlur={() => commitDraftValue(field.key, draftValue)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue);
+                    }
+                  }}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
@@ -2265,11 +2433,23 @@ function PokemonFormDetail({
                   onChange={(event) => updateFieldKey(field.key, event.target.value, field.value)}
                 />
               )}
+              {(() => {
+                const draftValue = getDraftValue(field.key, field.value);
+                return (
               <input
                 className="input"
-                value={field.value}
-                onChange={(event) => updateFieldValue(field.key, event.target.value)}
+                    value={draftValue}
+                    onChange={(event) => setDraftValue(field.key, event.target.value)}
+                    onBlur={() => commitDraftValue(field.key, draftValue)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                        commitDraftValue(field.key, draftValue);
+                  }
+                }}
               />
+                );
+              })()}
               {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
             </div>
           );
@@ -2315,7 +2495,7 @@ type SelectListFieldProps = {
   renderDatalist?: boolean;
 };
 
-function SelectListField({
+const SelectListField = memo(function SelectListField({
   label,
   value,
   options,
@@ -2328,6 +2508,7 @@ function SelectListField({
   const displayLabel = formatKeyLabel(label);
   const items = splitList(value);
   const [draft, setDraft] = useState("");
+  const [drafts, setDrafts] = useState<Record<number, string>>({});
   const canCollapse = items.length > 5;
   const [collapsed, setCollapsed] = useState(canCollapse);
   const resolvedDatalistId = datalistId ?? `${label}-options`;
@@ -2335,6 +2516,9 @@ function SelectListField({
   useEffect(() => {
     if (!canCollapse) setCollapsed(false);
   }, [canCollapse]);
+  useEffect(() => {
+    setDrafts({});
+  }, [value]);
 
   const updateAt = (index: number, next: string) => {
     if (!next) return;
@@ -2346,6 +2530,26 @@ function SelectListField({
     }
     const deduped = nextItems.filter((item, idx) => nextItems.indexOf(item) === idx);
     onChange(deduped.join(","));
+  };
+
+  const commitAt = (index: number) => {
+    const next = (drafts[index] ?? items[index] ?? "").trim();
+    if (!next) {
+      setDrafts((prev) => {
+        if (!(index in prev)) return prev;
+        const updated = { ...prev };
+        delete updated[index];
+        return updated;
+      });
+      return;
+    }
+    updateAt(index, next);
+    setDrafts((prev) => {
+      if (!(index in prev)) return prev;
+      const updated = { ...prev };
+      delete updated[index];
+      return updated;
+    });
   };
 
   const commitDraft = () => {
@@ -2379,8 +2583,17 @@ function SelectListField({
                 <input
                   className="input"
                   list={resolvedDatalistId}
-                  value={item}
-                  onChange={(event) => updateAt(index, event.target.value)}
+                  value={drafts[index] ?? item}
+                  onChange={(event) =>
+                    setDrafts((prev) => ({ ...prev, [index]: event.target.value }))
+                  }
+                  onBlur={() => commitAt(index)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitAt(index);
+                    }
+                  }}
                 />
               ) : (
                 <select
@@ -2441,7 +2654,7 @@ function SelectListField({
       {error && <span className="field-error">{error}</span>}
     </div>
   );
-}
+});
 
 type ListFieldEditorProps = {
   label: string;
@@ -2451,7 +2664,7 @@ type ListFieldEditorProps = {
   error?: string;
 };
 
-function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEditorProps) {
+const ListFieldEditor = memo(function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEditorProps) {
   const displayLabel = formatKeyLabel(label);
   const items = splitList(value);
   const [draft, setDraft] = useState("");
@@ -2541,7 +2754,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
       {error && <span className="field-error">{error}</span>}
     </div>
   );
-}
+});
 
 function splitList(value: string) {
   return value
