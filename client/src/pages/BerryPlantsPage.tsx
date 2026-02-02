@@ -3,6 +3,7 @@ import { BerryPlantsFile, BerryPlantsMultiFile, PBSEntry } from "@pbs/shared";
 import { exportBerryPlants, getBerryPlants } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
+import { useScrollTopButton } from "../hooks/useScrollTopButton";
 
 const emptyFile: BerryPlantsFile = { entries: [] };
 const emptyFiles: string[] = ["berry_plants.txt"];
@@ -19,9 +20,11 @@ export default function BerryPlantsPage() {
   const [filter, setFilter] = useState("");
   const dirty = useDirty();
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [baselineEntries, setBaselineEntries] = useState<PBSEntry[]>([]);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showAddSourceModal, setShowAddSourceModal] = useState(false);
   const [addSourceDraft, setAddSourceDraft] = useState<string>("berry_plants.txt");
+  const showTop = useScrollTopButton();
 
   const ensureBerryPlantDefaults = (entry: PBSEntry, sourceFile: string) => {
     const defaults = buildDefaultBerryPlantEntry(entry.id, entry.order, sourceFile);
@@ -53,6 +56,7 @@ export default function BerryPlantsPage() {
         if (!isMounted) return;
         const normalized = normalizeBerryPlantsMulti(result);
         setData(normalized);
+        setBaselineEntries(normalized.entries);
         const files = result.files?.length ? result.files : ["berry_plants.txt"];
         setSourceFiles(files);
         setActiveId(normalized.entries[0]?.id ?? null);
@@ -204,6 +208,41 @@ export default function BerryPlantsPage() {
     return false;
   }, [data.entries]);
 
+  const isActiveEntryDirty = useMemo(() => {
+    if (!activeEntry) return false;
+    const source = activeEntry.sourceFile ?? "berry_plants.txt";
+    const baseline = baselineEntries.find(
+      (entry) => entry.id === activeEntry.id && (entry.sourceFile ?? "berry_plants.txt") === source
+    );
+    if (!baseline) return true;
+    return serializeEntries([activeEntry]) !== serializeEntries([baseline]);
+  }, [activeEntry, baselineEntries]);
+
+  const handleResetEntry = () => {
+    if (!activeEntry) return;
+    const source = activeEntry.sourceFile ?? "berry_plants.txt";
+    const baseline = baselineEntries.find(
+      (entry) => entry.id === activeEntry.id && (entry.sourceFile ?? "berry_plants.txt") === source
+    );
+    if (!baseline) {
+      setData((prev) => {
+        const nextEntries = prev.entries.filter((entry) => entry.id !== activeEntry.id);
+        const nextActive =
+          nextEntries.find((entry) => entry.order > activeEntry.order)?.id ?? nextEntries[0]?.id ?? null;
+        setActiveId(nextActive);
+        return { ...prev, entries: nextEntries };
+      });
+      setStatus(`Reset removed ${activeEntry.id}.`);
+      return;
+    }
+    const cloned = JSON.parse(JSON.stringify(baseline)) as PBSEntry;
+    setData((prev) => ({
+      ...prev,
+      entries: prev.entries.map((entry) => (entry.id === activeEntry.id ? cloned : entry)),
+    }));
+    setStatus(`Reset ${activeEntry.id}.`);
+  };
+
   useEffect(() => {
     if (!snapshot) return;
     const nextSnap = serializeEntries(data.entries);
@@ -217,6 +256,7 @@ export default function BerryPlantsPage() {
       await exportBerryPlants(data);
       const nextSnap = serializeEntries(data.entries);
       setSnapshot(nextSnap);
+      setBaselineEntries(data.entries);
       dirty.setDirty("berry_plants", false);
       setStatus("Exported berry plant files to PBS_Output/");
     } catch (err) {
@@ -513,6 +553,18 @@ export default function BerryPlantsPage() {
         <div className="export-actions">
           {status && <span className="status">{status}</span>}
           {error && <span className="error">{error}</span>}
+          {showTop && (
+            <button
+              className="ghost top"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              title="Back to top"
+            >
+              ↑
+            </button>
+          )}
+          <button className="ghost reset" onClick={handleResetEntry} disabled={!isActiveEntryDirty}>
+            Reset
+          </button>
           <button className="primary" onClick={handleExport} disabled={Boolean(idError) || hasInvalidEntries}>
             Export berry_plants.txt
           </button>

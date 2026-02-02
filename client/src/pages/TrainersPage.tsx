@@ -14,6 +14,7 @@ import type {
 import { exportTrainers, getAbilities, getItems, getMoves, getPokemon, getTrainers } from "../api";
 import { useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
+import { useScrollTopButton } from "../hooks/useScrollTopButton";
 
 const emptyFile: TrainersFile = { entries: [] };
 const emptyFiles: string[] = ["trainers.txt"];
@@ -83,10 +84,12 @@ export default function TrainersPage() {
   const [idError, setIdError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [baselineEntries, setBaselineEntries] = useState<TrainerEntry[]>([]);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showAddSourceModal, setShowAddSourceModal] = useState(false);
   const [addSourceDraft, setAddSourceDraft] = useState<string>("trainers.txt");
   const dirty = useDirty();
+  const showTop = useScrollTopButton();
 
   useEffect(() => {
     let isMounted = true;
@@ -95,6 +98,7 @@ export default function TrainersPage() {
         if (!isMounted) return;
         const normalized = normalizeTrainersMulti(trainerResult);
         setData(normalized);
+        setBaselineEntries(normalized.entries);
         setPokemon({ entries: pokemonResult.entries });
         setMoves({ entries: movesResult.entries });
         setItems({ entries: (itemsResult as ItemsMultiFile).entries });
@@ -279,6 +283,43 @@ export default function TrainersPage() {
   const warningEntries = validation.filter((entry) => entry.warnings.length > 0);
   const hasInvalidEntries = invalidEntries.length > 0;
 
+  const isActiveEntryDirty = useMemo(() => {
+    if (!activeEntry) return false;
+    const source = activeEntry.sourceFile ?? "trainers.txt";
+    const baseline = baselineEntries.find(
+      (entry) =>
+        entryKey(entry) === entryKey(activeEntry) &&
+        (entry.sourceFile ?? "trainers.txt") === source
+    );
+    if (!baseline) return true;
+    return serializeTrainers([activeEntry]) !== serializeTrainers([baseline]);
+  }, [activeEntry, baselineEntries]);
+
+  const handleResetEntry = () => {
+    if (!activeEntry) return;
+    const source = activeEntry.sourceFile ?? "trainers.txt";
+    const baseline = baselineEntries.find(
+      (entry) =>
+        entryKey(entry) === entryKey(activeEntry) &&
+        (entry.sourceFile ?? "trainers.txt") === source
+    );
+    if (!baseline) {
+      setData((prev) => {
+        const nextEntries = prev.entries.filter((entry) => entryKey(entry) !== entryKey(activeEntry));
+        const nextActive = nextEntries[0] ?? null;
+        setActiveKey(nextActive ? entryKey(nextActive) : null);
+        return { entries: nextEntries };
+      });
+      setStatus(`Reset removed ${activeEntry.id}.`);
+      return;
+    }
+    const cloned = JSON.parse(JSON.stringify(baseline)) as TrainerEntry;
+    setData((prev) => ({
+      entries: prev.entries.map((entry) => (entryKey(entry) === entryKey(activeEntry) ? cloned : entry)),
+    }));
+    setStatus(`Reset ${activeEntry.id}.`);
+  };
+
   const handleAddEntry = (targetFile?: string) => {
     const availableFiles = sourceFiles.length ? sourceFiles : ["trainers.txt"];
     const resolvedTarget = targetFile ?? (activeSource === "ALL" ? availableFiles[0] : activeSource);
@@ -340,6 +381,7 @@ export default function TrainersPage() {
       await exportTrainers(data);
       setStatus("Exported trainer files to PBS_Output/");
       setSnapshot(serializeTrainers(data.entries));
+      setBaselineEntries(data.entries);
       dirty.setDirty("trainers", false);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -556,6 +598,18 @@ export default function TrainersPage() {
         <div className="export-actions">
           {status && <span className="status">{status}</span>}
           {error && <span className="error">{error}</span>}
+          {showTop && (
+            <button
+              className="ghost top"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              title="Back to top"
+            >
+              ↑
+            </button>
+          )}
+          <button className="ghost reset" onClick={handleResetEntry} disabled={!isActiveEntryDirty}>
+            Reset
+          </button>
           <button className="primary" onClick={handleExport} disabled={Boolean(idError) || hasInvalidEntries}>
             Export trainers.txt
           </button>

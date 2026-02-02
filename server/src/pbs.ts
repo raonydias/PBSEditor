@@ -19,6 +19,13 @@ type ParsedSection = {
   fields: { key: string; value: string }[];
 };
 
+const EXPORT_HEADER: string[] = [
+  "# See the documentation on the wiki to learn how to edit this file.",
+  "#-------------------------------",
+];
+
+const buildExportLines = (): string[] => [...EXPORT_HEADER];
+
 export function parseIniLike(text: string): ParsedSection[] {
   const lines = text.split(/\r?\n/);
   const sections: ParsedSection[] = [];
@@ -207,7 +214,7 @@ export function parseEncountersFile(text: string): EncountersFile {
 
 export function exportTypesFile(data: TypesFile): string {
   const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-  const lines: string[] = [];
+  const lines = buildExportLines();
 
   for (const entry of sorted) {
     lines.push(`[${entry.id}]`);
@@ -223,7 +230,7 @@ export function exportTypesFile(data: TypesFile): string {
 
 export function exportAbilitiesFile(data: AbilitiesFile): string {
   const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-  const lines: string[] = [];
+  const lines = buildExportLines();
 
   for (const entry of sorted) {
     lines.push(`[${entry.id}]`);
@@ -239,7 +246,7 @@ export function exportAbilitiesFile(data: AbilitiesFile): string {
 
 export function exportBerryPlantsFile(data: BerryPlantsFile): string {
   const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-  const lines: string[] = [];
+  const lines = buildExportLines();
 
   for (const entry of sorted) {
     lines.push(`[${entry.id}]`);
@@ -255,7 +262,7 @@ export function exportBerryPlantsFile(data: BerryPlantsFile): string {
 
 export function exportRibbonsFile(data: RibbonsFile): string {
   const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-  const lines: string[] = [];
+  const lines = buildExportLines();
 
   for (const entry of sorted) {
     lines.push(`[${entry.id}]`);
@@ -271,7 +278,7 @@ export function exportRibbonsFile(data: RibbonsFile): string {
 
 export function exportMovesFile(data: MovesFile): string {
   const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-  const lines: string[] = [];
+  const lines = buildExportLines();
 
   for (const entry of sorted) {
     const category = entry.fields.find((field) => field.key === "Category")?.value?.trim() ?? "";
@@ -302,7 +309,7 @@ export function exportMovesFile(data: MovesFile): string {
 
 export function exportItemsFile(data: ItemsFile): string {
   const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-  const lines: string[] = [];
+  const lines = buildExportLines();
 
   for (const entry of sorted) {
     lines.push(`[${entry.id}]`);
@@ -318,7 +325,7 @@ export function exportItemsFile(data: ItemsFile): string {
 
 export function exportTrainerTypesFile(data: TrainerTypesFile): string {
   const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-  const lines: string[] = [];
+  const lines = buildExportLines();
 
   for (const entry of sorted) {
     lines.push(`[${entry.id}]`);
@@ -334,7 +341,7 @@ export function exportTrainerTypesFile(data: TrainerTypesFile): string {
 
 export function exportEncountersFile(data: EncountersFile): string {
   const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-  const lines: string[] = [];
+  const lines = buildExportLines();
 
   for (const entry of sorted) {
     const idPart = entry.version > 0 ? `${entry.id},${entry.version}` : entry.id;
@@ -532,7 +539,7 @@ export function parseTrainersFile(text: string): TrainersFile {
 
 export function exportTrainersFile(data: TrainersFile): string {
   const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-  const lines: string[] = [];
+  const lines = buildExportLines();
 
   for (const entry of sorted) {
     const headerParts = [entry.id, entry.name].filter(Boolean);
@@ -604,7 +611,7 @@ export function exportTrainersFile(data: TrainersFile): string {
 
 export function exportPokemonFile(data: PokemonFile): string {
   const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-  const lines: string[] = [];
+  const lines = buildExportLines();
   const order = [
     "Name",
     "FormName",
@@ -664,7 +671,7 @@ export function exportPokemonFile(data: PokemonFile): string {
 
 export function exportPokemonFormsFile(data: PokemonFormsFile): string {
   const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-  const lines: string[] = [];
+  const lines = buildExportLines();
   const order = [
     "FormName",
     "Types",

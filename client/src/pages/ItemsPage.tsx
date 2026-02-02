@@ -4,6 +4,7 @@ import { ItemsFile, ItemsMultiFile, MovesFile, PBSEntry } from "@pbs/shared";
 import { exportItems, getItems, getMoves } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
+import { useScrollTopButton } from "../hooks/useScrollTopButton";
 
 const emptyFile: ItemsFile = { entries: [] };
 const emptyMoves: MovesFile = { entries: [] };
@@ -48,6 +49,7 @@ export default function ItemsPage() {
   const [idError, setIdError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [baselineEntries, setBaselineEntries] = useState<PBSEntry[]>([]);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [manualNamePlural, setManualNamePlural] = useState<Set<string>>(new Set());
   const [manualSellPrice, setManualSellPrice] = useState<Set<string>>(new Set());
@@ -56,6 +58,7 @@ export default function ItemsPage() {
   const [showAddSourceModal, setShowAddSourceModal] = useState(false);
   const [addSourceDraft, setAddSourceDraft] = useState<string>("");
   const dirty = useDirty();
+  const showTop = useScrollTopButton();
 
   const toTitleCase = (value: string) => {
     const lower = value.toLowerCase();
@@ -105,6 +108,7 @@ export default function ItemsPage() {
         if (!isMounted) return;
         const normalized = normalizeItemsMulti(itemsResult);
         setData(normalized);
+        setBaselineEntries(normalized.entries);
         setMoves({ entries: movesResult.entries });
         const files = itemsResult.files?.length ? itemsResult.files : ["items.txt"];
         setSourceFiles(files);
@@ -345,6 +349,99 @@ export default function ItemsPage() {
     return false;
   }, [data.entries, moveOptions]);
 
+  const isActiveEntryDirty = useMemo(() => {
+    if (!activeEntry) return false;
+    const source = activeEntry.sourceFile ?? "items.txt";
+    const baseline = baselineEntries.find(
+      (entry) => entry.id === activeEntry.id && (entry.sourceFile ?? "items.txt") === source
+    );
+    if (!baseline) return true;
+    return serializeEntries([activeEntry]) !== serializeEntries([baseline]);
+  }, [activeEntry, baselineEntries]);
+
+  const handleResetEntry = () => {
+    if (!activeEntry) return;
+    const source = activeEntry.sourceFile ?? "items.txt";
+    const baseline = baselineEntries.find(
+      (entry) => entry.id === activeEntry.id && (entry.sourceFile ?? "items.txt") === source
+    );
+    if (!baseline) {
+      setManualNamePlural((prev) => {
+        const next = new Set(prev);
+        next.delete(activeEntry.id);
+        return next;
+      });
+      setManualSellPrice((prev) => {
+        const next = new Set(prev);
+        next.delete(activeEntry.id);
+        return next;
+      });
+      setManualConsumable((prev) => {
+        const next = new Set(prev);
+        next.delete(activeEntry.id);
+        return next;
+      });
+      setManualShowQuantity((prev) => {
+        const next = new Set(prev);
+        next.delete(activeEntry.id);
+        return next;
+      });
+      setData((prev) => {
+        const nextEntries = prev.entries.filter((entry) => entry.id !== activeEntry.id);
+        const nextActive =
+          nextEntries.find((entry) => entry.order > activeEntry.order)?.id ?? nextEntries[0]?.id ?? null;
+        setActiveId(nextActive);
+        return { ...prev, entries: nextEntries };
+      });
+      setStatus(`Reset removed ${activeEntry.id}.`);
+      return;
+    }
+    const cloned = JSON.parse(JSON.stringify(baseline)) as PBSEntry;
+    setData((prev) => ({
+      ...prev,
+      entries: prev.entries.map((entry) => (entry.id === activeEntry.id ? cloned : entry)),
+    }));
+    const name = getFieldValue(cloned, "Name");
+    const namePlural = getFieldValue(cloned, "NamePlural");
+    setManualNamePlural((prev) => {
+      const next = new Set(prev);
+      if (namePlural && namePlural !== `${name}s`) {
+        next.add(cloned.id);
+      } else {
+        next.delete(cloned.id);
+      }
+      return next;
+    });
+    setManualSellPrice((prev) => {
+      const next = new Set(prev);
+      if (getFieldValue(cloned, "SellPrice")) {
+        next.add(cloned.id);
+      } else {
+        next.delete(cloned.id);
+      }
+      return next;
+    });
+    setManualConsumable((prev) => {
+      const next = new Set(prev);
+      if (getFieldValue(cloned, "Consumable")) {
+        next.add(cloned.id);
+      } else {
+        next.delete(cloned.id);
+      }
+      return next;
+    });
+    setManualShowQuantity((prev) => {
+      const next = new Set(prev);
+      if (getFieldValue(cloned, "ShowQuantity")) {
+        next.add(cloned.id);
+      } else {
+        next.delete(cloned.id);
+      }
+      return next;
+    });
+    setStatus(`Reset ${activeEntry.id}.`);
+  };
+
   useEffect(() => {
     if (!snapshot) return;
     const nextSnap = serializeEntries(data.entries);
@@ -359,6 +456,7 @@ export default function ItemsPage() {
       await exportItems(exportData);
       const nextSnap = serializeEntries(data.entries);
       setSnapshot(nextSnap);
+      setBaselineEntries(data.entries);
       dirty.setDirty("items", false);
       setStatus("Exported item files to PBS_Output/");
     } catch (err) {
@@ -753,6 +851,18 @@ export default function ItemsPage() {
         <div className="export-actions">
           {status && <span className="status">{status}</span>}
           {error && <span className="error">{error}</span>}
+          {showTop && (
+            <button
+              className="ghost top"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              title="Back to top"
+            >
+              ↑
+            </button>
+          )}
+          <button className="ghost reset" onClick={handleResetEntry} disabled={!isActiveEntryDirty}>
+            Reset
+          </button>
           <button className="primary" onClick={handleExport} disabled={Boolean(idError) || hasInvalidEntries}>
             Export items.txt
           </button>

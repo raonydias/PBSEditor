@@ -14,6 +14,7 @@ import {
 import { exportPokemonForms, getAbilities, getItems, getMoves, getPokemon, getPokemonForms, getTypes } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
+import { useScrollTopButton } from "../hooks/useScrollTopButton";
 
 const emptyForms: PokemonFormsFile = { entries: [] };
 const emptyPokemon: PokemonFile = { entries: [] };
@@ -351,10 +352,12 @@ export default function PokemonFormsPage() {
   const [idError, setIdError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [baselineEntries, setBaselineEntries] = useState<PBSEntry[]>([]);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showAddSourceModal, setShowAddSourceModal] = useState(false);
   const [addSourceDraft, setAddSourceDraft] = useState<string>("pokemon_forms.txt");
   const dirty = useDirty();
+  const showTop = useScrollTopButton();
 
   const ensurePokemonDefaults = (entry: PBSEntry, sourceFile: string) => {
     const defaults = buildDefaultPokemonEntry(entry.id, entry.order, sourceFile);
@@ -391,6 +394,7 @@ export default function PokemonFormsPage() {
         const normalizedPokemon = { entries: pokemonResult.entries.map((entry) => ensurePokemonDefaults(entry, "pokemon.txt")) };
         const normalizedForms = normalizeFormEntries(normalizeFormsMulti(formsResult).entries, normalizedPokemon.entries);
         setData({ entries: normalizedForms });
+        setBaselineEntries(normalizedForms);
         setPokemon(normalizedPokemon);
         setTypes({ entries: typesResult.entries });
         setAbilities({ entries: abilitiesResult.entries });
@@ -832,6 +836,40 @@ export default function PokemonFormsPage() {
     return false;
   }, [data.entries, typeOptions, abilityOptions, moveOptions, itemOptions, pokemonOptions]);
 
+  const isActiveEntryDirty = useMemo(() => {
+    if (!activeEntry) return false;
+    const source = activeEntry.sourceFile ?? "pokemon_forms.txt";
+    const baseline = baselineEntries.find(
+      (entry) => entry.id === activeEntry.id && (entry.sourceFile ?? "pokemon_forms.txt") === source
+    );
+    if (!baseline) return true;
+    return serializeEntries([activeEntry]) !== serializeEntries([baseline]);
+  }, [activeEntry, baselineEntries]);
+
+  const handleResetEntry = () => {
+    if (!activeEntry) return;
+    const source = activeEntry.sourceFile ?? "pokemon_forms.txt";
+    const baseline = baselineEntries.find(
+      (entry) => entry.id === activeEntry.id && (entry.sourceFile ?? "pokemon_forms.txt") === source
+    );
+    if (!baseline) {
+      setData((prev) => {
+        const nextEntries = prev.entries.filter((entry) => entry.id !== activeEntry.id);
+        const nextActive =
+          nextEntries.find((entry) => entry.order > activeEntry.order)?.id ?? nextEntries[0]?.id ?? null;
+        setActiveId(nextActive);
+        return { entries: nextEntries };
+      });
+      setStatus(`Reset removed ${activeEntry.id}.`);
+      return;
+    }
+    const cloned = JSON.parse(JSON.stringify(baseline)) as PBSEntry;
+    setData((prev) => ({
+      entries: prev.entries.map((entry) => (entry.id === activeEntry.id ? cloned : entry)),
+    }));
+    setStatus(`Reset ${activeEntry.id}.`);
+  };
+
   useEffect(() => {
     if (!snapshot) return;
     const nextSnap = serializeEntries(data.entries);
@@ -846,6 +884,7 @@ export default function PokemonFormsPage() {
       await exportPokemonForms(payload);
       const nextSnap = serializeEntries(data.entries);
       setSnapshot(nextSnap);
+      setBaselineEntries(data.entries);
       dirty.setDirty("pokemon_forms", false);
       setStatus("Exported Pokemon form files to PBS_Output/");
     } catch (err) {
@@ -1243,6 +1282,18 @@ export default function PokemonFormsPage() {
         <div className="export-actions">
           {status && <span className="status">{status}</span>}
           {error && <span className="error">{error}</span>}
+          {showTop && (
+            <button
+              className="ghost top"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              title="Back to top"
+            >
+              ↑
+            </button>
+          )}
+          <button className="ghost reset" onClick={handleResetEntry} disabled={!isActiveEntryDirty}>
+            Reset
+          </button>
           <button className="primary" onClick={handleExport} disabled={Boolean(idError) || hasInvalidEntries}>
             Export pokemon_forms.txt
           </button>

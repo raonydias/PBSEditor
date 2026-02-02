@@ -3,6 +3,7 @@ import { PBSEntry, TypesFile, TypesMultiFile } from "@pbs/shared";
 import { exportTypes, getTypes } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
+import { useScrollTopButton } from "../hooks/useScrollTopButton";
 
 const emptyFile: TypesFile = { entries: [] };
 const emptyFiles: string[] = ["types.txt"];
@@ -17,12 +18,14 @@ export default function TypesPage() {
   const [filter, setFilter] = useState("");
   const dirty = useDirty();
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [baselineEntries, setBaselineEntries] = useState<PBSEntry[]>([]);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [typesSpriteHeight, setTypesSpriteHeight] = useState<number | null>(null);
   const [sourceFiles, setSourceFiles] = useState<string[]>(emptyFiles);
   const [activeSource, setActiveSource] = useState<string>("ALL");
   const [showAddSourceModal, setShowAddSourceModal] = useState(false);
   const [addSourceDraft, setAddSourceDraft] = useState<string>("types.txt");
+  const showTop = useScrollTopButton();
 
   const ensureTypeDefaults = (entry: PBSEntry, sourceFile: string) => {
     const defaults = buildDefaultTypeEntry(entry.id, entry.order, sourceFile);
@@ -54,6 +57,7 @@ export default function TypesPage() {
         if (!isMounted) return;
         const normalized = normalizeTypesMulti(result);
         setData(normalized);
+        setBaselineEntries(normalized.entries);
         setActiveId(normalized.entries[0]?.id ?? null);
         const files = result.files?.length ? result.files : ["types.txt"];
         setSourceFiles(files);
@@ -239,6 +243,41 @@ export default function TypesPage() {
     return false;
   }, [data.entries]);
 
+  const isActiveEntryDirty = useMemo(() => {
+    if (!activeEntry) return false;
+    const source = activeEntry.sourceFile ?? "types.txt";
+    const baseline = baselineEntries.find(
+      (entry) => entry.id === activeEntry.id && (entry.sourceFile ?? "types.txt") === source
+    );
+    if (!baseline) return true;
+    return serializeEntries([activeEntry]) !== serializeEntries([baseline]);
+  }, [activeEntry, baselineEntries]);
+
+  const handleResetEntry = () => {
+    if (!activeEntry) return;
+    const source = activeEntry.sourceFile ?? "types.txt";
+    const baseline = baselineEntries.find(
+      (entry) => entry.id === activeEntry.id && (entry.sourceFile ?? "types.txt") === source
+    );
+    if (!baseline) {
+      setData((prev) => {
+        const nextEntries = prev.entries.filter((entry) => entry.id !== activeEntry.id);
+        const nextActive =
+          nextEntries.find((entry) => entry.order > activeEntry.order)?.id ?? nextEntries[0]?.id ?? null;
+        setActiveId(nextActive);
+        return { ...prev, entries: nextEntries };
+      });
+      setStatus(`Reset removed ${activeEntry.id}.`);
+      return;
+    }
+    const cloned = JSON.parse(JSON.stringify(baseline)) as PBSEntry;
+    setData((prev) => ({
+      ...prev,
+      entries: prev.entries.map((entry) => (entry.id === activeEntry.id ? cloned : entry)),
+    }));
+    setStatus(`Reset ${activeEntry.id}.`);
+  };
+
   useEffect(() => {
     if (!snapshot) return;
     const nextSnap = serializeEntries(data.entries);
@@ -252,6 +291,7 @@ export default function TypesPage() {
       await exportTypes(data);
       const nextSnap = serializeEntries(data.entries);
       setSnapshot(nextSnap);
+      setBaselineEntries(data.entries);
       dirty.setDirty("types", false);
       setStatus("Exported type files to PBS_Output/");
     } catch (err) {
@@ -557,6 +597,18 @@ export default function TypesPage() {
         <div className="export-actions">
           {status && <span className="status">{status}</span>}
           {error && <span className="error">{error}</span>}
+          {showTop && (
+            <button
+              className="ghost top"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              title="Back to top"
+            >
+              ↑
+            </button>
+          )}
+          <button className="ghost reset" onClick={handleResetEntry} disabled={!isActiveEntryDirty}>
+            Reset
+          </button>
           <button className="primary" onClick={handleExport} disabled={Boolean(idError) || hasInvalidEntries}>
             Export types.txt
           </button>

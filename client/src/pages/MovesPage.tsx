@@ -3,6 +3,7 @@ import { MovesFile, MovesMultiFile, PBSEntry, TypesFile } from "@pbs/shared";
 import { exportMoves, getMoves, getTypes } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
+import { useScrollTopButton } from "../hooks/useScrollTopButton";
 
 const emptyFile: MovesFile = { entries: [] };
 const emptyFiles: string[] = ["moves.txt"];
@@ -60,9 +61,11 @@ export default function MovesPage() {
   const [filter, setFilter] = useState("");
   const dirty = useDirty();
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [baselineEntries, setBaselineEntries] = useState<PBSEntry[]>([]);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showAddSourceModal, setShowAddSourceModal] = useState(false);
   const [addSourceDraft, setAddSourceDraft] = useState<string>("moves.txt");
+  const showTop = useScrollTopButton();
 
   const toTitleCase = (value: string) => {
     const lower = value.toLowerCase();
@@ -99,6 +102,7 @@ export default function MovesPage() {
         if (!isMounted) return;
         const normalized = normalizeMovesMulti(movesResult);
         setData(normalized);
+        setBaselineEntries(normalized.entries);
         setTypes({ entries: typesResult.entries });
         const files = movesResult.files?.length ? movesResult.files : ["moves.txt"];
         setSourceFiles(files);
@@ -313,6 +317,41 @@ export default function MovesPage() {
     return false;
   }, [data.entries, typeOptions]);
 
+  const isActiveEntryDirty = useMemo(() => {
+    if (!activeEntry) return false;
+    const source = activeEntry.sourceFile ?? "moves.txt";
+    const baseline = baselineEntries.find(
+      (entry) => entry.id === activeEntry.id && (entry.sourceFile ?? "moves.txt") === source
+    );
+    if (!baseline) return true;
+    return serializeEntries([activeEntry]) !== serializeEntries([baseline]);
+  }, [activeEntry, baselineEntries]);
+
+  const handleResetEntry = () => {
+    if (!activeEntry) return;
+    const source = activeEntry.sourceFile ?? "moves.txt";
+    const baseline = baselineEntries.find(
+      (entry) => entry.id === activeEntry.id && (entry.sourceFile ?? "moves.txt") === source
+    );
+    if (!baseline) {
+      setData((prev) => {
+        const nextEntries = prev.entries.filter((entry) => entry.id !== activeEntry.id);
+        const nextActive =
+          nextEntries.find((entry) => entry.order > activeEntry.order)?.id ?? nextEntries[0]?.id ?? null;
+        setActiveId(nextActive);
+        return { ...prev, entries: nextEntries };
+      });
+      setStatus(`Reset removed ${activeEntry.id}.`);
+      return;
+    }
+    const cloned = JSON.parse(JSON.stringify(baseline)) as PBSEntry;
+    setData((prev) => ({
+      ...prev,
+      entries: prev.entries.map((entry) => (entry.id === activeEntry.id ? cloned : entry)),
+    }));
+    setStatus(`Reset ${activeEntry.id}.`);
+  };
+
   useEffect(() => {
     if (!snapshot) return;
     const nextSnap = serializeEntries(data.entries);
@@ -326,6 +365,7 @@ export default function MovesPage() {
       await exportMoves(data);
       const nextSnap = serializeEntries(data.entries);
       setSnapshot(nextSnap);
+      setBaselineEntries(data.entries);
       dirty.setDirty("moves", false);
       setStatus("Exported move files to PBS_Output/");
     } catch (err) {
@@ -631,6 +671,18 @@ export default function MovesPage() {
         <div className="export-actions">
           {status && <span className="status">{status}</span>}
           {error && <span className="error">{error}</span>}
+          {showTop && (
+            <button
+              className="ghost top"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              title="Back to top"
+            >
+              ↑
+            </button>
+          )}
+          <button className="ghost reset" onClick={handleResetEntry} disabled={!isActiveEntryDirty}>
+            Reset
+          </button>
           <button className="primary" onClick={handleExport} disabled={Boolean(idError) || hasInvalidEntries}>
             Export moves.txt
           </button>

@@ -54,7 +54,7 @@ import {
 } from "./pbs.js";
 
 const app = express();
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "50mb" }));
 app.use("/assets/graphics", express.static(path.join(projectRoot(), "Graphics")));
 
 const PORT = process.env.PORT ? Number(process.env.PORT) : 5174;

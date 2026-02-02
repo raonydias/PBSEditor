@@ -23,6 +23,11 @@ exports.parseTrainersFile = parseTrainersFile;
 exports.exportTrainersFile = exportTrainersFile;
 exports.exportPokemonFile = exportPokemonFile;
 exports.exportPokemonFormsFile = exportPokemonFormsFile;
+const EXPORT_HEADER = [
+    "# See the documentation on the wiki to learn how to edit this file.",
+    "#-------------------------------",
+];
+const buildExportLines = () => [...EXPORT_HEADER];
 function parseIniLike(text) {
     const lines = text.split(/\r?\n/);
     const sections = [];
@@ -202,7 +207,7 @@ function parseEncountersFile(text) {
 }
 function exportTypesFile(data) {
     const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-    const lines = [];
+    const lines = buildExportLines();
     for (const entry of sorted) {
         lines.push(`[${entry.id}]`);
         for (const field of entry.fields) {
@@ -216,7 +221,7 @@ function exportTypesFile(data) {
 }
 function exportAbilitiesFile(data) {
     const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-    const lines = [];
+    const lines = buildExportLines();
     for (const entry of sorted) {
         lines.push(`[${entry.id}]`);
         for (const field of entry.fields) {
@@ -230,7 +235,7 @@ function exportAbilitiesFile(data) {
 }
 function exportBerryPlantsFile(data) {
     const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-    const lines = [];
+    const lines = buildExportLines();
     for (const entry of sorted) {
         lines.push(`[${entry.id}]`);
         for (const field of entry.fields) {
@@ -244,7 +249,7 @@ function exportBerryPlantsFile(data) {
 }
 function exportRibbonsFile(data) {
     const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-    const lines = [];
+    const lines = buildExportLines();
     for (const entry of sorted) {
         lines.push(`[${entry.id}]`);
         for (const field of entry.fields) {
@@ -258,7 +263,7 @@ function exportRibbonsFile(data) {
 }
 function exportMovesFile(data) {
     const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-    const lines = [];
+    const lines = buildExportLines();
     for (const entry of sorted) {
         const category = entry.fields.find((field) => field.key === "Category")?.value?.trim() ?? "";
         const isStatus = category.toLowerCase() === "status";
@@ -288,7 +293,7 @@ function exportMovesFile(data) {
 }
 function exportItemsFile(data) {
     const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-    const lines = [];
+    const lines = buildExportLines();
     for (const entry of sorted) {
         lines.push(`[${entry.id}]`);
         for (const field of entry.fields) {
@@ -302,7 +307,7 @@ function exportItemsFile(data) {
 }
 function exportTrainerTypesFile(data) {
     const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-    const lines = [];
+    const lines = buildExportLines();
     for (const entry of sorted) {
         lines.push(`[${entry.id}]`);
         for (const field of entry.fields) {
@@ -316,7 +321,7 @@ function exportTrainerTypesFile(data) {
 }
 function exportEncountersFile(data) {
     const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-    const lines = [];
+    const lines = buildExportLines();
     for (const entry of sorted) {
         const idPart = entry.version > 0 ? `${entry.id},${entry.version}` : entry.id;
         const namePart = entry.name?.trim() ? ` # ${entry.name.trim()}` : "";
@@ -504,7 +509,7 @@ function parseTrainersFile(text) {
 }
 function exportTrainersFile(data) {
     const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-    const lines = [];
+    const lines = buildExportLines();
     for (const entry of sorted) {
         const headerParts = [entry.id, entry.name].filter(Boolean);
         if (entry.version > 0)
@@ -574,7 +579,7 @@ function exportTrainersFile(data) {
 }
 function exportPokemonFile(data) {
     const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-    const lines = [];
+    const lines = buildExportLines();
     const order = [
         "Name",
         "FormName",
@@ -635,7 +640,7 @@ function exportPokemonFile(data) {
 }
 function exportPokemonFormsFile(data) {
     const sorted = [...data.entries].sort((a, b) => a.order - b.order);
-    const lines = [];
+    const lines = buildExportLines();
     const order = [
         "FormName",
         "Types",

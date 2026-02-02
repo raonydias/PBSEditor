@@ -90,7 +90,7 @@ body {
 }
 
 .main {
-    padding: 24px 28px 80px;
+    padding: 24px 28px 140px;
 }
 
 .editor-layout {
@@ -179,7 +179,7 @@ body {
     object-fit: none;
     object-position: 0 0;
     image-rendering: pixelated;
-  animation: icon-bounce 0.45s ease-in-out infinite;
+    animation: icon-bounce 0.45s ease-in-out infinite;
 }
 
 .encounter-type-row {
@@ -390,6 +390,18 @@ body {
     cursor: pointer;
 }
 
+.ghost.reset {
+    background: #2b3245;
+    border-color: #2b3245;
+    color: var(--text);
+}
+
+.ghost.top {
+    width: 38px;
+    text-align: center;
+    padding: 8px 0;
+}
+
 .ghost.disabled,
 .ghost:disabled {
     opacity: 0.5;
@@ -426,6 +438,10 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-top: 12px;
+    position: sticky;
+    bottom: 16px;
+    z-index: 50;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
 }
 
 .export-warning {

@@ -4,6 +4,7 @@ import { PBSEntry, TrainerTypesFile, TrainerTypesMultiFile } from "@pbs/shared";
 import { exportTrainerTypes, getBgmFiles, getTrainerTypes } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
+import { useScrollTopButton } from "../hooks/useScrollTopButton";
 
 const emptyFile: TrainerTypesFile = { entries: [] };
 const emptyFiles: string[] = ["trainer_types.txt"];
@@ -23,11 +24,13 @@ export default function TrainerTypesPage() {
   const [idError, setIdError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [baselineEntries, setBaselineEntries] = useState<PBSEntry[]>([]);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showAddSourceModal, setShowAddSourceModal] = useState(false);
   const [addSourceDraft, setAddSourceDraft] = useState<string>("trainer_types.txt");
   const [manualSkillLevel, setManualSkillLevel] = useState<Set<string>>(new Set());
   const dirty = useDirty();
+  const showTop = useScrollTopButton();
   const bgmOptions = useMemo(() => {
     const seen = new Set<string>();
     return bgmFiles.reduce<{ value: string; label: string }[]>((acc, file) => {
@@ -69,6 +72,7 @@ export default function TrainerTypesPage() {
         if (!isMounted) return;
         const normalized = normalizeTrainerTypesMulti(trainerResult);
         setData(normalized);
+        setBaselineEntries(normalized.entries);
         setBgmFiles(bgmResult);
         const files = trainerResult.files?.length ? trainerResult.files : ["trainer_types.txt"];
         setSourceFiles(files);
@@ -254,6 +258,57 @@ export default function TrainerTypesPage() {
     return false;
   }, [data.entries, bgmOptions]);
 
+  const isActiveEntryDirty = useMemo(() => {
+    if (!activeEntry) return false;
+    const source = activeEntry.sourceFile ?? "trainer_types.txt";
+    const baseline = baselineEntries.find(
+      (entry) => entry.id === activeEntry.id && (entry.sourceFile ?? "trainer_types.txt") === source
+    );
+    if (!baseline) return true;
+    return serializeEntries([activeEntry]) !== serializeEntries([baseline]);
+  }, [activeEntry, baselineEntries]);
+
+  const handleResetEntry = () => {
+    if (!activeEntry) return;
+    const source = activeEntry.sourceFile ?? "trainer_types.txt";
+    const baseline = baselineEntries.find(
+      (entry) => entry.id === activeEntry.id && (entry.sourceFile ?? "trainer_types.txt") === source
+    );
+    if (!baseline) {
+      setManualSkillLevel((prev) => {
+        const next = new Set(prev);
+        next.delete(activeEntry.id);
+        return next;
+      });
+      setData((prev) => {
+        const nextEntries = prev.entries.filter((entry) => entry.id !== activeEntry.id);
+        const nextActive =
+          nextEntries.find((entry) => entry.order > activeEntry.order)?.id ?? nextEntries[0]?.id ?? null;
+        setActiveId(nextActive);
+        return { ...prev, entries: nextEntries };
+      });
+      setStatus(`Reset removed ${activeEntry.id}.`);
+      return;
+    }
+    const cloned = JSON.parse(JSON.stringify(baseline)) as PBSEntry;
+    setData((prev) => ({
+      ...prev,
+      entries: prev.entries.map((entry) => (entry.id === activeEntry.id ? cloned : entry)),
+    }));
+    const baseMoney = getFieldValue(cloned, "BaseMoney");
+    const skillLevel = getFieldValue(cloned, "SkillLevel");
+    setManualSkillLevel((prev) => {
+      const next = new Set(prev);
+      if (skillLevel && skillLevel !== baseMoney) {
+        next.add(cloned.id);
+      } else {
+        next.delete(cloned.id);
+      }
+      return next;
+    });
+    setStatus(`Reset ${activeEntry.id}.`);
+  };
+
   useEffect(() => {
     if (!snapshot) return;
     const nextSnap = serializeEntries(data.entries);
@@ -267,6 +322,7 @@ export default function TrainerTypesPage() {
       await exportTrainerTypes(data);
       const nextSnap = serializeEntries(data.entries);
       setSnapshot(nextSnap);
+      setBaselineEntries(data.entries);
       dirty.setDirty("trainer_types", false);
       setStatus("Exported trainer type files to PBS_Output/");
     } catch (err) {
@@ -584,6 +640,18 @@ export default function TrainerTypesPage() {
         <div className="export-actions">
           {status && <span className="status">{status}</span>}
           {error && <span className="error">{error}</span>}
+          {showTop && (
+            <button
+              className="ghost top"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              title="Back to top"
+            >
+              ↑
+            </button>
+          )}
+          <button className="ghost reset" onClick={handleResetEntry} disabled={!isActiveEntryDirty}>
+            Reset
+          </button>
           <button className="primary" onClick={handleExport} disabled={Boolean(idError) || hasInvalidEntries}>
             Export trainer_types.txt
           </button>

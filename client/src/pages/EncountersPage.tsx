@@ -10,6 +10,7 @@ import type {
 import { exportEncounters, getEncounters, getPokemon } from "../api";
 import { useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
+import { useScrollTopButton } from "../hooks/useScrollTopButton";
 
 const emptyEncounters: EncountersFile = { entries: [] };
 const emptyFiles: string[] = ["encounters.txt"];
@@ -99,10 +100,12 @@ export default function EncountersPage() {
   const [idError, setIdError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
   const [snapshot, setSnapshot] = useState<string | null>(null);
+  const [baselineEntries, setBaselineEntries] = useState<EncounterEntry[]>([]);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showAddSourceModal, setShowAddSourceModal] = useState(false);
   const [addSourceDraft, setAddSourceDraft] = useState<string>("encounters.txt");
   const dirty = useDirty();
+  const showTop = useScrollTopButton();
 
   useEffect(() => {
     let isMounted = true;
@@ -111,6 +114,7 @@ export default function EncountersPage() {
         if (!isMounted) return;
         const normalized = normalizeEncountersMulti(encountersResult);
         setData(normalized);
+        setBaselineEntries(normalized.entries);
         setPokemon({ entries: pokemonResult.entries });
         setActiveKey(normalized.entries[0] ? entryKey(normalized.entries[0]) : null);
         const files = encountersResult.files?.length ? encountersResult.files : ["encounters.txt"];
@@ -286,6 +290,43 @@ export default function EncountersPage() {
 
   const hasInvalidEntries = invalidEntries.length > 0;
 
+  const isActiveEntryDirty = useMemo(() => {
+    if (!activeEntry) return false;
+    const source = activeEntry.sourceFile ?? "encounters.txt";
+    const baseline = baselineEntries.find(
+      (entry) =>
+        entryKey(entry) === entryKey(activeEntry) &&
+        (entry.sourceFile ?? "encounters.txt") === source
+    );
+    if (!baseline) return true;
+    return serializeEncounters([activeEntry]) !== serializeEncounters([baseline]);
+  }, [activeEntry, baselineEntries]);
+
+  const handleResetEntry = () => {
+    if (!activeEntry) return;
+    const source = activeEntry.sourceFile ?? "encounters.txt";
+    const baseline = baselineEntries.find(
+      (entry) =>
+        entryKey(entry) === entryKey(activeEntry) &&
+        (entry.sourceFile ?? "encounters.txt") === source
+    );
+    if (!baseline) {
+      setData((prev) => {
+        const nextEntries = prev.entries.filter((entry) => entryKey(entry) !== entryKey(activeEntry));
+        const nextActive = nextEntries[0] ?? null;
+        setActiveKey(nextActive ? entryKey(nextActive) : null);
+        return { entries: nextEntries };
+      });
+      setStatus(`Reset removed ${activeEntry.id}.`);
+      return;
+    }
+    const cloned = JSON.parse(JSON.stringify(baseline)) as EncounterEntry;
+    setData((prev) => ({
+      entries: prev.entries.map((entry) => (entryKey(entry) === entryKey(activeEntry) ? cloned : entry)),
+    }));
+    setStatus(`Reset ${activeEntry.id}.`);
+  };
+
   const handleAddEntry = (targetFile?: string) => {
     const availableFiles = sourceFiles.length ? sourceFiles : ["encounters.txt"];
     const resolvedTarget = targetFile ?? (activeSource === "ALL" ? availableFiles[0] : activeSource);
@@ -347,6 +388,7 @@ export default function EncountersPage() {
       await exportEncounters({ entries: normalized });
       setStatus("Exported encounter files to PBS_Output/");
       setData({ entries: normalized });
+      setBaselineEntries(normalized);
       const snap = serializeEncounters(normalized);
       setSnapshot(snap);
       dirty.setDirty("encounters", false);
@@ -568,6 +610,18 @@ export default function EncountersPage() {
         <div className="export-actions">
           {status && <span className="status">{status}</span>}
           {error && <span className="error">{error}</span>}
+          {showTop && (
+            <button
+              className="ghost top"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+              title="Back to top"
+            >
+              ↑
+            </button>
+          )}
+          <button className="ghost reset" onClick={handleResetEntry} disabled={!isActiveEntryDirty}>
+            Reset
+          </button>
           <button className="primary" onClick={handleExport} disabled={Boolean(idError) || hasInvalidEntries}>
             Export encounters.txt
           </button>
