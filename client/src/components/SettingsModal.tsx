@@ -122,6 +122,29 @@ export default function SettingsModal() {
               </div>
             </div>
           )}
+
+          {settings.exportMode === "PBS" && settings.createBackup && (
+            <>
+              <div className="field-row">
+                <input className="input" value="Backup limit" readOnly />
+                <input
+                  className="input"
+                  type="number"
+                  min={0}
+                  value={settings.backupLimit}
+                  onChange={(event) => {
+                    const next = Math.max(0, Number(event.target.value || 0));
+                    setSettings({ ...settings, backupLimit: Number.isFinite(next) ? Math.floor(next) : 0 });
+                  }}
+                />
+              </div>
+              <div className="field-row single">
+                <div className="muted">
+                  0 means unlimited backups. Limits are tracked per PBS file (e.g. 5 backups for pokemon.txt).
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

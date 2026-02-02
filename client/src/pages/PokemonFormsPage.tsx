@@ -359,7 +359,7 @@ export default function PokemonFormsPage() {
   const [addSourceDraft, setAddSourceDraft] = useState<string>("pokemon_forms.txt");
   const dirty = useDirty();
   const showTop = useScrollTopButton();
-  const { openSettings } = useSettings();
+  const { openSettings, settings } = useSettings();
 
   const ensurePokemonDefaults = (entry: PBSEntry, sourceFile: string) => {
     const defaults = buildDefaultPokemonEntry(entry.id, entry.order, sourceFile);
@@ -883,7 +883,7 @@ export default function PokemonFormsPage() {
     setError(null);
     try {
       const payload = buildExportPayload(data.entries, pokemon.entries);
-      await exportPokemonForms(payload);
+      await exportPokemonForms(payload, settings);
       const nextSnap = serializeEntries(data.entries);
       setSnapshot(nextSnap);
       setBaselineEntries(data.entries);
@@ -912,7 +912,7 @@ export default function PokemonFormsPage() {
     }));
     try {
       const payload = buildExportPayload(nextEntries, pokemon.entries);
-      await exportPokemonForms(payload);
+      await exportPokemonForms(payload, settings);
       const nextSnap = serializeEntries(nextEntries);
       setSnapshot(nextSnap);
       dirty.setDirty("pokemon_forms", false);
@@ -1283,6 +1283,11 @@ export default function PokemonFormsPage() {
               <path d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z"/>
             </svg>
           </button>
+          <span className="export-mode">
+            {settings.exportMode === "PBS"
+              ? `PBS${settings.createBackup ? ` (backup${settings.backupLimit > 0 ? `: ${settings.backupLimit}` : ""})` : ""}`
+              : "PBS_Output"}
+          </span>
         </div>
         <div className="export-actions">
           {status && <span className="status">{status}</span>}

@@ -131,6 +131,56 @@ function pbsOutputDir(): string {
   return path.join(projectRoot(), "PBS_Output");
 }
 
+function pbsBackupDir(): string {
+  return path.join(projectRoot(), "PBS_Backup");
+}
+
+async function ensurePbsDir(): Promise<void> {
+  const dir = pbsDir();
+  if (!(await fileExists(dir))) {
+    throw new Error(`PBS folder not found: ${dir}`);
+  }
+}
+
+async function ensurePbsBackupDir(): Promise<void> {
+  const dir = pbsBackupDir();
+  if (!(await fileExists(dir))) {
+    await fs.mkdir(dir, { recursive: true });
+  }
+}
+
+const timestampLabel = () => {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(
+    now.getMinutes()
+  )}${pad(now.getSeconds())}`;
+};
+
+async function backupFileIfNeeded(filePath: string, enabled: boolean, limit: number): Promise<void> {
+  if (!enabled) return;
+  if (!(await fileExists(filePath))) return;
+  await ensurePbsBackupDir();
+  const baseName = path.basename(filePath);
+  const prefix = `${baseName}__bak__`;
+  if (limit > 0) {
+    const entries = await fs.readdir(pbsBackupDir(), { withFileTypes: true });
+    const matches = entries
+      .filter((entry) => entry.isFile() && entry.name.startsWith(prefix))
+      .map((entry) => entry.name)
+      .sort();
+    while (matches.length >= limit) {
+      const oldest = matches.shift();
+      if (oldest) {
+        await fs.unlink(path.join(pbsBackupDir(), oldest));
+      }
+    }
+  }
+  const backupName = `${prefix}${timestampLabel()}`;
+  const backupPath = path.join(pbsBackupDir(), backupName);
+  await fs.copyFile(filePath, backupPath);
+}
+
 function audioBgmDir(): string {
   return path.join(projectRoot(), "Audio", "BGM");
 }
@@ -665,7 +715,17 @@ app.post("/api/pbs/:file/export", async (req, res) => {
   }
 
   try {
-    await ensurePbsOutput();
+    const exportMode = req.body?.exportMode === "PBS" ? "PBS" : "PBS_Output";
+    const createBackup = exportMode === "PBS" ? req.body?.createBackup !== false : false;
+    const backupLimit =
+      exportMode === "PBS" && Number.isFinite(Number(req.body?.backupLimit))
+        ? Math.max(0, Math.floor(Number(req.body?.backupLimit)))
+        : 0;
+    if (exportMode === "PBS_Output") {
+      await ensurePbsOutput();
+    } else {
+      await ensurePbsDir();
+    }
     const payload = parseResult.data as
       | TypesFile
       | AbilitiesFile
@@ -691,7 +751,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
       for (const [source, groupEntries] of grouped.entries()) {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportItemsFile({ entries: sorted });
-        const outputPath = path.join(pbsOutputDir(), source);
+        const outputPath = path.join(exportMode === "PBS" ? pbsDir() : pbsOutputDir(), source);
+        await backupFileIfNeeded(outputPath, createBackup, backupLimit);
         await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
@@ -711,7 +772,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
       for (const [source, groupEntries] of grouped.entries()) {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportAbilitiesFile({ entries: sorted });
-        const outputPath = path.join(pbsOutputDir(), source);
+        const outputPath = path.join(exportMode === "PBS" ? pbsDir() : pbsOutputDir(), source);
+        await backupFileIfNeeded(outputPath, createBackup, backupLimit);
         await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
@@ -731,7 +793,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
       for (const [source, groupEntries] of grouped.entries()) {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportTypesFile({ entries: sorted });
-        const outputPath = path.join(pbsOutputDir(), source);
+        const outputPath = path.join(exportMode === "PBS" ? pbsDir() : pbsOutputDir(), source);
+        await backupFileIfNeeded(outputPath, createBackup, backupLimit);
         await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
@@ -751,7 +814,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
       for (const [source, groupEntries] of grouped.entries()) {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportMovesFile({ entries: sorted });
-        const outputPath = path.join(pbsOutputDir(), source);
+        const outputPath = path.join(exportMode === "PBS" ? pbsDir() : pbsOutputDir(), source);
+        await backupFileIfNeeded(outputPath, createBackup, backupLimit);
         await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
@@ -771,7 +835,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
       for (const [source, groupEntries] of grouped.entries()) {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportRibbonsFile({ entries: sorted });
-        const outputPath = path.join(pbsOutputDir(), source);
+        const outputPath = path.join(exportMode === "PBS" ? pbsDir() : pbsOutputDir(), source);
+        await backupFileIfNeeded(outputPath, createBackup, backupLimit);
         await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
@@ -791,7 +856,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
       for (const [source, groupEntries] of grouped.entries()) {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportBerryPlantsFile({ entries: sorted });
-        const outputPath = path.join(pbsOutputDir(), source);
+        const outputPath = path.join(exportMode === "PBS" ? pbsDir() : pbsOutputDir(), source);
+        await backupFileIfNeeded(outputPath, createBackup, backupLimit);
         await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
@@ -811,7 +877,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
       for (const [source, groupEntries] of grouped.entries()) {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportTrainerTypesFile({ entries: sorted });
-        const outputPath = path.join(pbsOutputDir(), source);
+        const outputPath = path.join(exportMode === "PBS" ? pbsDir() : pbsOutputDir(), source);
+        await backupFileIfNeeded(outputPath, createBackup, backupLimit);
         await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
@@ -831,7 +898,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
       for (const [source, groupEntries] of grouped.entries()) {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportEncountersFile({ entries: sorted });
-        const outputPath = path.join(pbsOutputDir(), source);
+        const outputPath = path.join(exportMode === "PBS" ? pbsDir() : pbsOutputDir(), source);
+        await backupFileIfNeeded(outputPath, createBackup, backupLimit);
         await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
@@ -851,7 +919,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
       for (const [source, groupEntries] of grouped.entries()) {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportTrainersFile({ entries: sorted });
-        const outputPath = path.join(pbsOutputDir(), source);
+        const outputPath = path.join(exportMode === "PBS" ? pbsDir() : pbsOutputDir(), source);
+        await backupFileIfNeeded(outputPath, createBackup, backupLimit);
         await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
@@ -871,7 +940,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
       for (const [source, groupEntries] of grouped.entries()) {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportPokemonFile({ entries: sorted });
-        const outputPath = path.join(pbsOutputDir(), source);
+        const outputPath = path.join(exportMode === "PBS" ? pbsDir() : pbsOutputDir(), source);
+        await backupFileIfNeeded(outputPath, createBackup, backupLimit);
         await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
@@ -891,7 +961,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
       for (const [source, groupEntries] of grouped.entries()) {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportPokemonFormsFile({ entries: sorted });
-        const outputPath = path.join(pbsOutputDir(), source);
+        const outputPath = path.join(exportMode === "PBS" ? pbsDir() : pbsOutputDir(), source);
+        await backupFileIfNeeded(outputPath, createBackup, backupLimit);
         await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
@@ -919,7 +990,8 @@ app.post("/api/pbs/:file/export", async (req, res) => {
         : file === "trainers.txt"
         ? exportTrainersFile(payload as TrainersFile)
         : exportTypesFile(payload as TypesFile);
-    const outputPath = path.join(pbsOutputDir(), file);
+    const outputPath = path.join(exportMode === "PBS" ? pbsDir() : pbsOutputDir(), file);
+    await backupFileIfNeeded(outputPath, createBackup, backupLimit);
     await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
     res.json({ ok: true, path: outputPath });
   } catch (error) {

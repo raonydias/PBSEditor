@@ -8,6 +8,7 @@ export type AppSettings = {
   animations: boolean;
   exportMode: ExportMode;
   createBackup: boolean;
+  backupLimit: number;
 };
 
 type SettingsContextValue = {
@@ -25,6 +26,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   animations: true,
   exportMode: "PBS_Output",
   createBackup: true,
+  backupLimit: 0,
 };
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -40,6 +42,10 @@ const readSettings = (): AppSettings => {
       animations: parsed.animations ?? DEFAULT_SETTINGS.animations,
       exportMode: parsed.exportMode ?? DEFAULT_SETTINGS.exportMode,
       createBackup: parsed.createBackup ?? DEFAULT_SETTINGS.createBackup,
+      backupLimit:
+        typeof parsed.backupLimit === "number" && parsed.backupLimit >= 0
+          ? Math.floor(parsed.backupLimit)
+          : DEFAULT_SETTINGS.backupLimit,
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -47,19 +53,21 @@ const readSettings = (): AppSettings => {
 };
 
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
-  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<AppSettings>(() => readSettings());
+  const [loaded, setLoaded] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
-    setSettings(readSettings());
+    setLoaded(true);
   }, []);
 
   useEffect(() => {
+    if (!loaded) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
     document.body.dataset.theme = settings.theme;
     document.body.classList.toggle("hide-images", !settings.images);
     document.body.classList.toggle("disable-animations", !settings.animations);
-  }, [settings]);
+  }, [settings, loaded]);
 
   const value = useMemo(
     () => ({

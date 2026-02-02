@@ -24,6 +24,25 @@ import {
   TypesMultiFile,
 } from "@pbs/shared";
 
+export type ExportOptions = {
+  exportMode?: "PBS_Output" | "PBS";
+  createBackup?: boolean;
+  backupLimit?: number;
+};
+
+async function exportWithOptions(url: string, data: unknown, options?: ExportOptions): Promise<void> {
+  const payload = options ? { ...data, ...options } : data;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Export failed: ${body}`);
+  }
+}
+
 export async function getProjectStatus(): Promise<ProjectStatus> {
   const res = await fetch("/api/project/status");
   if (!res.ok) {
@@ -41,16 +60,8 @@ export async function getTypes(): Promise<TypesMultiFile> {
   return res.json();
 }
 
-export async function exportTypes(data: TypesFile): Promise<void> {
-  const res = await fetch("/api/pbs/types.txt/export", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Export failed: ${body}`);
-  }
+export async function exportTypes(data: TypesFile, options?: ExportOptions): Promise<void> {
+  await exportWithOptions("/api/pbs/types.txt/export", data, options);
 }
 
 export async function getAbilities(): Promise<AbilitiesMultiFile> {
@@ -62,16 +73,8 @@ export async function getAbilities(): Promise<AbilitiesMultiFile> {
   return res.json();
 }
 
-export async function exportAbilities(data: AbilitiesFile): Promise<void> {
-  const res = await fetch("/api/pbs/abilities.txt/export", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Export failed: ${body}`);
-  }
+export async function exportAbilities(data: AbilitiesFile, options?: ExportOptions): Promise<void> {
+  await exportWithOptions("/api/pbs/abilities.txt/export", data, options);
 }
 
 export async function getBerryPlants(): Promise<BerryPlantsMultiFile> {
@@ -83,16 +86,8 @@ export async function getBerryPlants(): Promise<BerryPlantsMultiFile> {
   return res.json();
 }
 
-export async function exportBerryPlants(data: BerryPlantsFile): Promise<void> {
-  const res = await fetch("/api/pbs/berry_plants.txt/export", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Export failed: ${body}`);
-  }
+export async function exportBerryPlants(data: BerryPlantsFile, options?: ExportOptions): Promise<void> {
+  await exportWithOptions("/api/pbs/berry_plants.txt/export", data, options);
 }
 
 export async function getRibbons(): Promise<RibbonsMultiFile> {
@@ -104,16 +99,8 @@ export async function getRibbons(): Promise<RibbonsMultiFile> {
   return res.json();
 }
 
-export async function exportRibbons(data: RibbonsFile): Promise<void> {
-  const res = await fetch("/api/pbs/ribbons.txt/export", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Export failed: ${body}`);
-  }
+export async function exportRibbons(data: RibbonsFile, options?: ExportOptions): Promise<void> {
+  await exportWithOptions("/api/pbs/ribbons.txt/export", data, options);
 }
 
 export async function getMoves(): Promise<MovesMultiFile> {
@@ -125,16 +112,8 @@ export async function getMoves(): Promise<MovesMultiFile> {
   return res.json();
 }
 
-export async function exportMoves(data: MovesFile): Promise<void> {
-  const res = await fetch("/api/pbs/moves.txt/export", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Export failed: ${body}`);
-  }
+export async function exportMoves(data: MovesFile, options?: ExportOptions): Promise<void> {
+  await exportWithOptions("/api/pbs/moves.txt/export", data, options);
 }
 
 export async function getItems(): Promise<ItemsMultiFile> {
@@ -146,16 +125,8 @@ export async function getItems(): Promise<ItemsMultiFile> {
   return res.json();
 }
 
-export async function exportItems(data: ItemsFile): Promise<void> {
-  const res = await fetch("/api/pbs/items.txt/export", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Export failed: ${body}`);
-  }
+export async function exportItems(data: ItemsFile, options?: ExportOptions): Promise<void> {
+  await exportWithOptions("/api/pbs/items.txt/export", data, options);
 }
 
 export async function getPokemon(): Promise<PokemonMultiFile> {
@@ -167,16 +138,8 @@ export async function getPokemon(): Promise<PokemonMultiFile> {
   return res.json();
 }
 
-export async function exportPokemon(data: PokemonFile): Promise<void> {
-  const res = await fetch("/api/pbs/pokemon.txt/export", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Export failed: ${body}`);
-  }
+export async function exportPokemon(data: PokemonFile, options?: ExportOptions): Promise<void> {
+  await exportWithOptions("/api/pbs/pokemon.txt/export", data, options);
 }
 
 export async function getPokemonForms(): Promise<PokemonFormsMultiFile> {
@@ -188,16 +151,8 @@ export async function getPokemonForms(): Promise<PokemonFormsMultiFile> {
   return res.json();
 }
 
-export async function exportPokemonForms(data: PokemonFormsFile): Promise<void> {
-  const res = await fetch("/api/pbs/pokemon_forms.txt/export", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Export failed: ${body}`);
-  }
+export async function exportPokemonForms(data: PokemonFormsFile, options?: ExportOptions): Promise<void> {
+  await exportWithOptions("/api/pbs/pokemon_forms.txt/export", data, options);
 }
 
 export async function getTrainerTypes(): Promise<TrainerTypesMultiFile> {
@@ -209,16 +164,8 @@ export async function getTrainerTypes(): Promise<TrainerTypesMultiFile> {
   return res.json();
 }
 
-export async function exportTrainerTypes(data: TrainerTypesFile): Promise<void> {
-  const res = await fetch("/api/pbs/trainer_types.txt/export", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Export failed: ${body}`);
-  }
+export async function exportTrainerTypes(data: TrainerTypesFile, options?: ExportOptions): Promise<void> {
+  await exportWithOptions("/api/pbs/trainer_types.txt/export", data, options);
 }
 
 export async function getEncounters(): Promise<EncountersMultiFile> {
@@ -230,16 +177,8 @@ export async function getEncounters(): Promise<EncountersMultiFile> {
   return res.json();
 }
 
-export async function exportEncounters(data: EncountersFile): Promise<void> {
-  const res = await fetch("/api/pbs/encounters.txt/export", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Export failed: ${body}`);
-  }
+export async function exportEncounters(data: EncountersFile, options?: ExportOptions): Promise<void> {
+  await exportWithOptions("/api/pbs/encounters.txt/export", data, options);
 }
 
 export async function getTrainers(): Promise<TrainersMultiFile> {
@@ -251,16 +190,8 @@ export async function getTrainers(): Promise<TrainersMultiFile> {
   return res.json();
 }
 
-export async function exportTrainers(data: TrainersFile): Promise<void> {
-  const res = await fetch("/api/pbs/trainers.txt/export", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Export failed: ${body}`);
-  }
+export async function exportTrainers(data: TrainersFile, options?: ExportOptions): Promise<void> {
+  await exportWithOptions("/api/pbs/trainers.txt/export", data, options);
 }
 
 export async function getBgmFiles(): Promise<string[]> {

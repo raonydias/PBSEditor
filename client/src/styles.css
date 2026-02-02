@@ -456,6 +456,12 @@ body {
     gap: 10px;
 }
 
+.export-mode {
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+}
+
 .export-actions {
     display: flex;
     align-items: center;
