@@ -249,7 +249,9 @@ export default function AbilitiesPage() {
       setSnapshot(nextSnap);
       setBaselineEntries(data.entries);
       dirty.setDirty("abilities", false);
-      setStatus("Exported ability files to PBS_Output/");
+      const target = settings.exportMode === "PBS" ? "PBS/" : "PBS_Output/";
+
+      setStatus(`Exported ability files to ${target}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
@@ -645,7 +647,7 @@ function AbilityDetail({
           <button className="ghost" onClick={addField}>
             Add Field
           </button>
-          <button className="danger" onClick={() => onDelete(entry)}>
+          <button className="danger" tabIndex={-1} onClick={() => onDelete(entry)}>
             Delete
           </button>
         </div>
@@ -690,6 +692,7 @@ function AbilityDetail({
                 className={isStandard ? "input key-label" : "input"}
                 value={formatKeyLabelIfKnown(field.key)}
                 readOnly={isStandard}
+                tabIndex={isStandard ? -1 : undefined}
                 onChange={(event) => updateField(index, event.target.value, field.value)}
               />
               <input
@@ -752,7 +755,7 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
       <div className="list-field-header">
         <div className="list-field-label">{displayLabel}</div>
         {canCollapse && (
-          <button className="ghost" onClick={() => setCollapsed((prev) => !prev)}>
+          <button className="ghost" onClick={() => setCollapsed((prev) => !prev)} tabIndex={-1}>
             {collapsed ? `Show (${items.length}) ▾` : "Hide ▴"}
           </button>
         )}
@@ -766,7 +769,7 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
               value={item}
               onChange={(event) => handleChange(index, event.target.value)}
             />
-            <button className="danger" onClick={() => handleChange(index, "")}>
+            <button className="danger" tabIndex={-1} onClick={() => handleChange(index, "")}>
               Remove
             </button>
           </div>

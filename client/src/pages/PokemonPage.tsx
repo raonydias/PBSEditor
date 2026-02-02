@@ -844,7 +844,8 @@ export default function PokemonPage() {
       setSnapshot(nextSnap);
       setBaselineEntries(data.entries);
       dirty.setDirty("pokemon", false);
-      setStatus("Exported Pokemon files to PBS_Output/");
+      const target = settings.exportMode === "PBS" ? "PBS/" : "PBS_Output/";
+      setStatus(`Exported Pokemon files to ${target}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
@@ -1344,9 +1345,20 @@ function PokemonDetail({
     }, 0);
   };
 
-  const updateField = (index: number, key: string, value: string) => {
+  const updateFieldValue = (key: string, value: string) => {
+    const index = entry.fields.findIndex((field) => field.key === key);
+    if (index < 0) return;
     const nextFields = entry.fields.map((field, idx) =>
-      idx === index ? { key, value } : field
+      idx == index ? { ...field, value } : field
+    );
+    onChange({ ...entry, fields: nextFields });
+  };
+
+  const updateFieldKey = (oldKey: string, nextKey: string, value: string) => {
+    const index = entry.fields.findIndex((field) => field.key === oldKey);
+    if (index < 0) return;
+    const nextFields = entry.fields.map((field, idx) =>
+      idx == index ? { key: nextKey, value } : field
     );
     onChange({ ...entry, fields: nextFields });
   };
@@ -1362,7 +1374,7 @@ function PokemonDetail({
   const setFieldValue = (key: string, value: string) => {
     const index = entry.fields.findIndex((field) => field.key === key);
     if (index === -1) return;
-    updateField(index, key, value);
+    updateFieldValue(key, value);
   };
 
   const typesValue = getFieldValue("Types");
@@ -1376,6 +1388,8 @@ function PokemonDetail({
   const ability2 = abilityParts[1] ?? "";
   const baseStats = parseBaseStats(getFieldValue("BaseStats"));
   const evMap = parseEVMap(getFieldValue("EVs"));
+  const statInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const evInputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   const updateTypes = (primary: string, secondary: string) => {
     if (!primary) {
@@ -1434,7 +1448,7 @@ function PokemonDetail({
           <button className="ghost" onClick={addField}>
             Add Field
           </button>
-          <button className="danger" onClick={() => onDelete(entry)}>
+          <button className="danger" tabIndex={-1} onClick={() => onDelete(entry)}>
             Delete
           </button>
         </div>
@@ -1484,11 +1498,11 @@ function PokemonDetail({
           if (field.key === "Name") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("Name")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("Name")} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   value={field.value}
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
@@ -1498,11 +1512,11 @@ function PokemonDetail({
           if (field.key === "FormName") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("FormName")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("FormName")} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   value={field.value}
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
                 />
               </div>
             );
@@ -1511,7 +1525,7 @@ function PokemonDetail({
           if (field.key === "Types") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("PrimaryType")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("PrimaryType")} readOnly tabIndex={-1} />
                 <select
                   className="input"
                   value={primaryType || ""}
@@ -1526,7 +1540,7 @@ function PokemonDetail({
                 {fieldErrors.Types && <span className="field-error">{fieldErrors.Types}</span>}
                 {primaryType && (
                   <>
-                    <input className="input key-label" value={formatKeyLabel("SecondaryType")} readOnly />
+                    <input className="input key-label" value={formatKeyLabel("SecondaryType")} readOnly tabIndex={-1} />
                     <select
                       className="input"
                       value={secondaryType || "NONE"}
@@ -1548,11 +1562,11 @@ function PokemonDetail({
           if (field.key === "GenderRatio") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("GenderRatio")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("GenderRatio")} readOnly tabIndex={-1} />
                 <select
                   className="input"
                   value={field.value}
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
                 >
                   {GENDER_OPTIONS.map((option) => (
                     <option key={option} value={option}>
@@ -1568,11 +1582,11 @@ function PokemonDetail({
           if (field.key === "GrowthRate") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("GrowthRate")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("GrowthRate")} readOnly tabIndex={-1} />
                 <select
                   className="input"
                   value={field.value}
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
                 >
                   {GROWTH_OPTIONS.map((option) => (
                     <option key={option} value={option}>
@@ -1594,11 +1608,11 @@ function PokemonDetail({
               (field.key === "CatchRate" || field.key === "Happiness") && Number(field.value || 0) > 255;
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
+                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   value={field.value}
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
                 />
                 {warn && <span className="field-warning">Values above 255 have no effect.</span>}
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
@@ -1611,12 +1625,33 @@ function PokemonDetail({
               <div key={`${field.key}-${index}`} className="list-field">
                 <div className="list-field-label">BASE STATS</div>
                 <div className="stats-grid">
-                  {STAT_DISPLAY.map((stat) => (
+                  {STAT_DISPLAY.map((stat, displayIndex) => (
                     <div key={stat.key} className="stats-row">
                       <div className="stats-label">{stat.label}</div>
                       <input
                         className="input"
                         value={baseStats[stat.fileIndex] ?? "1"}
+                        ref={(el) => {
+                          statInputRefs.current[displayIndex] = el;
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key !== "Tab") return;
+                          const currentIndex = displayIndex;
+                          if (event.shiftKey) {
+                            if (currentIndex > 0) {
+                              event.preventDefault();
+                              statInputRefs.current[currentIndex - 1]?.focus();
+                            }
+                            return;
+                          }
+                          if (currentIndex < STAT_DISPLAY.length - 1) {
+                            event.preventDefault();
+                            statInputRefs.current[currentIndex + 1]?.focus();
+                          } else {
+                            event.preventDefault();
+                            evInputRefs.current[0]?.focus();
+                          }
+                        }}
                         onChange={(event) => {
                           const next = event.target.value;
                           const nextStats = [...baseStats];
@@ -1628,6 +1663,27 @@ function PokemonDetail({
                       <input
                         className="input stats-ev-input"
                         value={evMap.get(stat.key) ?? "0"}
+                        ref={(el) => {
+                          evInputRefs.current[displayIndex] = el;
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key !== "Tab") return;
+                          const currentIndex = displayIndex;
+                          if (event.shiftKey) {
+                            if (currentIndex === 0) {
+                              event.preventDefault();
+                              statInputRefs.current[STAT_DISPLAY.length - 1]?.focus();
+                            } else {
+                              event.preventDefault();
+                              evInputRefs.current[currentIndex - 1]?.focus();
+                            }
+                            return;
+                          }
+                          if (currentIndex < STAT_DISPLAY.length - 1) {
+                            event.preventDefault();
+                            evInputRefs.current[currentIndex + 1]?.focus();
+                          }
+                        }}
                         onChange={(event) => {
                           const next = event.target.value.trim();
                           const nextMap = new Map(evMap);
@@ -1655,7 +1711,7 @@ function PokemonDetail({
           if (field.key === "Abilities") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("Ability1")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("Ability1")} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   list="ability-options"
@@ -1672,7 +1728,7 @@ function PokemonDetail({
                 />
                 {ability1 && (
                   <>
-                    <input className="input key-label" value={formatKeyLabel("Ability2")} readOnly />
+                    <input className="input key-label" value={formatKeyLabel("Ability2")} readOnly tabIndex={-1} />
                     <input
                       className="input"
                       list="ability-options"
@@ -1733,7 +1789,7 @@ function PokemonDetail({
                         }}
                       />
                       <button
-                        className="danger"
+                        className="danger" tabIndex={-1}
                         onClick={() => {
                           const nextPairs = pairs.filter((_, idx) => idx !== pairIndex);
                           setFieldValue("Moves", buildMovesString(nextPairs));
@@ -1859,7 +1915,7 @@ function PokemonDetail({
                           />
                         )}
                         <button
-                          className="danger"
+                          className="danger" tabIndex={-1}
                           onClick={() => {
                             const nextList = evolutions.filter((_, idx) => idx !== evoIndex);
                             setFieldValue("Evolutions", buildEvolutionString(nextList));
@@ -1883,7 +1939,7 @@ function PokemonDetail({
                 label="HiddenAbilities"
                 value={field.value}
                 options={abilityOptions}
-                onChange={(nextValue) => updateField(index, field.key, nextValue)}
+                onChange={(nextValue) => updateFieldValue(field.key, nextValue)}
                 error={fieldErrors[field.key]}
                 inputMode="datalist"
                 datalistId="ability-options"
@@ -1899,7 +1955,7 @@ function PokemonDetail({
                 label="TutorMoves"
                 value={field.value}
                 options={moveOptions}
-                onChange={(nextValue) => updateField(index, field.key, nextValue)}
+                onChange={(nextValue) => updateFieldValue(field.key, nextValue.toUpperCase())}
                 error={fieldErrors[field.key]}
                 inputMode="datalist"
                 datalistId="move-options"
@@ -1915,7 +1971,7 @@ function PokemonDetail({
                 label="EggMoves"
                 value={field.value}
                 options={moveOptions}
-                onChange={(nextValue) => updateField(index, field.key, nextValue)}
+                onChange={(nextValue) => updateFieldValue(field.key, nextValue.toUpperCase())}
                 error={fieldErrors[field.key]}
                 inputMode="datalist"
                 datalistId="move-options"
@@ -1931,7 +1987,7 @@ function PokemonDetail({
                 label="EggGroups"
                 value={field.value}
                 options={EGG_GROUP_OPTIONS}
-                onChange={(nextValue) => updateField(index, field.key, nextValue)}
+                onChange={(nextValue) => updateFieldValue(field.key, nextValue)}
                 error={fieldErrors[field.key]}
                 inputMode="datalist"
               />
@@ -1941,12 +1997,17 @@ function PokemonDetail({
           if (field.key === "HatchSteps") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("HatchSteps")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("HatchSteps")} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   value={field.value}
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                  onFocus={() => setFocusedField(field.key)}
+                  onBlur={() => setFocusedField(null)}
+                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
                 />
+                {focusedField === field.key && (
+                  <span className="field-hint">As of Scarlet &amp; Violet 1 cycle = 128 steps.</span>
+                )}
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
             );
@@ -1955,13 +2016,13 @@ function PokemonDetail({
           if (field.key === "Incense") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("Incense")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("Incense")} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   list="item-options"
                   value={field.value}
                   placeholder="(none)"
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
@@ -1975,7 +2036,7 @@ function PokemonDetail({
                 label="Offspring"
                 value={field.value}
                 options={pokemonOptions}
-                onChange={(nextValue) => updateField(index, field.key, nextValue)}
+                onChange={(nextValue) => updateFieldValue(field.key, nextValue)}
                 error={fieldErrors[field.key]}
                 inputMode="datalist"
                 datalistId="pokemon-options"
@@ -1989,13 +2050,13 @@ function PokemonDetail({
             const showHint = focusedField === field.key;
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
+                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   value={field.value}
                   onFocus={() => setFocusedField(field.key)}
                   onBlur={() => setFocusedField(null)}
-                  onChange={(event) => updateField(index, field.key, event.target.value.replace(",", "."))}
+                  onChange={(event) => updateFieldValue(field.key, event.target.value.replace(",", "."))}
                 />
                 {showHint && <span className="field-hint">{hint}</span>}
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
@@ -2006,11 +2067,11 @@ function PokemonDetail({
           if (field.key === "Color") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("Color")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("Color")} readOnly tabIndex={-1} />
                 <select
                   className="input"
                   value={field.value}
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
                 >
                   {COLOR_OPTIONS.map((option) => (
                     <option key={option} value={option}>
@@ -2026,11 +2087,11 @@ function PokemonDetail({
           if (field.key === "Shape") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("Shape")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("Shape")} readOnly tabIndex={-1} />
                 <select
                   className="input"
                   value={field.value}
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
                 >
                   {SHAPE_OPTIONS.map((option) => (
                     <option key={option} value={option}>
@@ -2046,11 +2107,11 @@ function PokemonDetail({
           if (field.key === "Habitat") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("Habitat")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("Habitat")} readOnly tabIndex={-1} />
                 <select
                   className="input"
                   value={field.value}
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
                 >
                   {HABITAT_OPTIONS.map((option) => (
                     <option key={option} value={option}>
@@ -2066,11 +2127,11 @@ function PokemonDetail({
           if (field.key === "Category" || field.key === "Pokedex") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
+                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   value={field.value}
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
@@ -2080,11 +2141,11 @@ function PokemonDetail({
           if (field.key === "Generation") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("Generation")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("Generation")} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   value={field.value}
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
@@ -2098,7 +2159,7 @@ function PokemonDetail({
                 label="Flags"
                 value={field.value}
                 options={FLAG_OPTIONS}
-                onChange={(nextValue) => updateField(index, field.key, nextValue)}
+                onChange={(nextValue) => updateFieldValue(field.key, nextValue)}
                 error={fieldErrors[field.key]}
               />
             );
@@ -2107,13 +2168,13 @@ function PokemonDetail({
           if (field.key === "WildItemCommon" || field.key === "WildItemUncommon" || field.key === "WildItemRare") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
+                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   list="item-options"
                   value={field.value}
                   placeholder="(none)"
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
@@ -2122,11 +2183,19 @@ function PokemonDetail({
 
           return (
             <div key={`${field.key}-${index}`} className="field-row">
-              <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
+              {formatKeyLabelIfKnown(field.key) !== field.key ? (
+                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
+              ) : (
+                <input
+                  className="input"
+                  value={field.key}
+                  onChange={(event) => updateFieldKey(field.key, event.target.value, field.value)}
+                />
+              )}
               <input
                 className="input"
                 value={field.value}
-                onChange={(event) => updateField(index, field.key, event.target.value)}
+                onChange={(event) => updateFieldValue(field.key, event.target.value)}
               />
               {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
             </div>
@@ -2185,6 +2254,7 @@ function SelectListField({
 }: SelectListFieldProps) {
   const displayLabel = formatKeyLabel(label);
   const items = splitList(value);
+  const [draft, setDraft] = useState("");
   const canCollapse = items.length > 5;
   const [collapsed, setCollapsed] = useState(canCollapse);
   const resolvedDatalistId = datalistId ?? `${label}-options`;
@@ -2205,6 +2275,13 @@ function SelectListField({
     onChange(deduped.join(","));
   };
 
+  const commitDraft = () => {
+    const next = draft.trim();
+    if (!next) return;
+    updateAt(items.length, next);
+    setDraft("");
+  };
+
   const removeAt = (index: number) => {
     const nextItems = [...items];
     nextItems.splice(index, 1);
@@ -2216,7 +2293,7 @@ function SelectListField({
       <div className="list-field-header">
         <div className="list-field-label">{displayLabel}</div>
         {canCollapse && (
-          <button className="ghost" onClick={() => setCollapsed((prev) => !prev)}>
+          <button className="ghost" onClick={() => setCollapsed((prev) => !prev)} tabIndex={-1}>
             {collapsed ? `Show (${items.length}) ▾` : "Hide ▴"}
           </button>
         )}
@@ -2245,7 +2322,7 @@ function SelectListField({
                   ))}
                 </select>
               )}
-              <button className="danger" onClick={() => removeAt(index)}>
+              <button className="danger" tabIndex={-1} onClick={() => removeAt(index)}>
                 Remove
               </button>
             </div>
@@ -2255,9 +2332,16 @@ function SelectListField({
               <input
                 className="input"
                 list={resolvedDatalistId}
-                value=""
+                value={draft}
                 placeholder={`Add ${displayLabel}...`}
-                onChange={(event) => updateAt(items.length, event.target.value)}
+                onChange={(event) => setDraft(event.target.value)}
+                onBlur={commitDraft}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    commitDraft();
+                  }
+                }}
               />
             ) : (
               <select className="input" value="" onChange={(event) => updateAt(items.length, event.target.value)}>
@@ -2331,7 +2415,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
       <div className="list-field-header">
         <div className="list-field-label">{displayLabel}</div>
         {canCollapse && (
-          <button className="ghost" onClick={() => setCollapsed((prev) => !prev)}>
+          <button className="ghost" onClick={() => setCollapsed((prev) => !prev)} tabIndex={-1}>
             {collapsed ? `Show (${items.length}) ▾` : "Hide ▴"}
           </button>
         )}
@@ -2351,7 +2435,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
                 <option key={option} value={option} />
               ))}
             </datalist>
-            <button className="danger" onClick={() => handleSelectChange(index, "")}>
+            <button className="danger" tabIndex={-1} onClick={() => handleSelectChange(index, "")}>
               Remove
             </button>
           </div>
@@ -2484,10 +2568,17 @@ function updateMovePair(
 ) {
   const next = pairs.map((pair, idx) => (idx === index ? { level, move } : pair));
   if (!sortNow) return next;
-  const withData = next.filter((pair) => pair.level.trim() !== "");
-  const withoutLevel = next.filter((pair) => pair.level.trim() === "");
+  const updated = next[index];
+  if (!updated || !updated.level.trim() || !updated.move.trim()) return next;
+  const withData = next.filter((pair) => pair.level.trim() !== "" && pair.move.trim() !== "");
+  const withoutLevel = next.filter((pair) => pair.level.trim() === "" && pair.move.trim() === "");
+  const incomplete = next.filter(
+    (pair) =>
+      !(pair.level.trim() !== "" && pair.move.trim() !== "") &&
+      !(pair.level.trim() === "" && pair.move.trim() === "")
+  );
   withData.sort((a, b) => Number(a.level) - Number(b.level));
-  return [...withData, ...withoutLevel];
+  return [...withData, ...incomplete, ...withoutLevel];
 }
 
 function buildMovesString(pairs: { level: string; move: string }[]) {

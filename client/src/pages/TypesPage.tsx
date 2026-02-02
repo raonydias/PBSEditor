@@ -296,7 +296,9 @@ export default function TypesPage() {
       setSnapshot(nextSnap);
       setBaselineEntries(data.entries);
       dirty.setDirty("types", false);
-      setStatus("Exported type files to PBS_Output/");
+      const target = settings.exportMode === "PBS" ? "PBS/" : "PBS_Output/";
+
+      setStatus(`Exported type files to ${target}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
@@ -708,7 +710,7 @@ function TypeDetail({
           <button className="ghost" onClick={addField}>
             Add Field
           </button>
-          <button className="danger" onClick={() => onDelete(entry)}>
+          <button className="danger" tabIndex={-1} onClick={() => onDelete(entry)}>
             Delete
           </button>
         </div>
@@ -784,7 +786,7 @@ function TypeDetail({
                       ? "Is Pseudo Type?"
                       : formatKeyLabelIfKnown(field.key)
                   }
-                  readOnly
+                  readOnly tabIndex={-1}
                 />
               ) : (
                 <input
@@ -856,7 +858,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
       <div className="list-field-header">
         <div className="list-field-label">{displayLabel}</div>
         {canCollapse && (
-          <button className="ghost" onClick={() => setCollapsed((prev) => !prev)}>
+          <button className="ghost" onClick={() => setCollapsed((prev) => !prev)} tabIndex={-1}>
             {collapsed ? `Show (${items.length}) ▾` : "Hide ▴"}
           </button>
         )}
@@ -871,7 +873,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
               value={item}
               onChange={(event) => handleSelectChange(index, event.target.value)}
             />
-            <button className="danger" onClick={() => handleSelectChange(index, "")}>
+            <button className="danger" tabIndex={-1} onClick={() => handleSelectChange(index, "")}>
               Remove
             </button>
           </div>
@@ -952,7 +954,7 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
       <div className="list-field-header">
         <div className="list-field-label">{displayLabel}</div>
         {canCollapse && (
-          <button className="ghost" onClick={() => setCollapsed((prev) => !prev)}>
+          <button className="ghost" onClick={() => setCollapsed((prev) => !prev)} tabIndex={-1}>
             {collapsed ? `Show (${items.length}) ▾` : "Hide ▴"}
           </button>
         )}
@@ -966,7 +968,7 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
               value={item}
               onChange={(event) => handleChange(index, event.target.value)}
             />
-            <button className="danger" onClick={() => handleChange(index, "")}>
+            <button className="danger" tabIndex={-1} onClick={() => handleChange(index, "")}>
               Remove
             </button>
           </div>

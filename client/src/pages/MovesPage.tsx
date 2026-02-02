@@ -370,7 +370,9 @@ export default function MovesPage() {
       setSnapshot(nextSnap);
       setBaselineEntries(data.entries);
       dirty.setDirty("moves", false);
-      setStatus("Exported move files to PBS_Output/");
+      const target = settings.exportMode === "PBS" ? "PBS/" : "PBS_Output/";
+
+      setStatus(`Exported move files to ${target}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
@@ -792,7 +794,7 @@ function MoveDetail({
           <button className="ghost" onClick={addField}>
             Add Field
           </button>
-          <button className="danger" onClick={() => onDelete(entry)}>
+          <button className="danger" tabIndex={-1} onClick={() => onDelete(entry)}>
             Delete
           </button>
         </div>
@@ -821,7 +823,7 @@ function MoveDetail({
           if (field.key === "Type") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("Type")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("Type")} readOnly tabIndex={-1} />
                 <select
                   className="input"
                   value={field.value}
@@ -841,7 +843,7 @@ function MoveDetail({
           if (field.key === "Category") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("Category")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("Category")} readOnly tabIndex={-1} />
                 <select
                   className="input"
                   value={field.value}
@@ -863,7 +865,7 @@ function MoveDetail({
             const selectValue = currentTarget === "" ? "" : isCustomTarget ? "__custom__" : currentTarget;
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("Target")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("Target")} readOnly tabIndex={-1} />
                 <div className="stack">
                   <select
                     className="input"
@@ -916,7 +918,7 @@ function MoveDetail({
           if (field.key === "Power") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("Power")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("Power")} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   value={field.value}
@@ -932,7 +934,7 @@ function MoveDetail({
 
           return (
             <div key={`${field.key}-${index}`} className="field-row">
-              <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
+              <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
               <input
                 className="input"
                 value={field.value}
@@ -995,7 +997,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
       <div className="list-field-header">
         <div className="list-field-label">{displayLabel}</div>
         {canCollapse && (
-          <button className="ghost" onClick={() => setCollapsed((prev) => !prev)}>
+          <button className="ghost" onClick={() => setCollapsed((prev) => !prev)} tabIndex={-1}>
             {collapsed ? `Show (${items.length}) ▾` : "Hide ▴"}
           </button>
         )}
@@ -1015,7 +1017,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
                 <option key={option} value={option} />
               ))}
             </datalist>
-            <button className="danger" onClick={() => handleSelectChange(index, "")}>Remove</button>
+            <button className="danger" tabIndex={-1} onClick={() => handleSelectChange(index, "")}>Remove</button>
           </div>
         ))}
         <div className="list-field-row">

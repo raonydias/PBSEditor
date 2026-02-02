@@ -327,7 +327,9 @@ export default function TrainerTypesPage() {
       setSnapshot(nextSnap);
       setBaselineEntries(data.entries);
       dirty.setDirty("trainer_types", false);
-      setStatus("Exported trainer type files to PBS_Output/");
+      const target = settings.exportMode === "PBS" ? "PBS/" : "PBS_Output/";
+
+      setStatus(`Exported trainer type files to ${target}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
@@ -770,7 +772,7 @@ function TrainerTypeDetail({
           <button className="ghost" onClick={addField}>
             Add Field
           </button>
-          <button className="danger" onClick={() => onDelete(entry)}>
+          <button className="danger" tabIndex={-1} onClick={() => onDelete(entry)}>
             Delete
           </button>
         </div>
@@ -812,7 +814,7 @@ function TrainerTypeDetail({
           if (field.key === "Gender") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("Gender")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("Gender")} readOnly tabIndex={-1} />
                 <select
                   className="input"
                   value={field.value}
@@ -832,7 +834,7 @@ function TrainerTypeDetail({
           if (field.key === "BaseMoney") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("BaseMoney")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("BaseMoney")} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   value={baseMoneyDraft}
@@ -859,7 +861,7 @@ function TrainerTypeDetail({
           if (field.key === "SkillLevel") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("SkillLevel")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("SkillLevel")} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   value={field.value}
@@ -898,7 +900,7 @@ function TrainerTypeDetail({
           if (field.key === "IntroBGM" || field.key === "BattleBGM" || field.key === "VictoryBGM") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
+                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <select
                   className="input"
                   value={field.value}
@@ -918,7 +920,7 @@ function TrainerTypeDetail({
 
           return (
             <div key={`${field.key}-${index}`} className="field-row">
-              <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
+              <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
               <input
                 className="input"
                 value={field.value}
@@ -979,7 +981,7 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
       <div className="list-field-header">
         <div className="list-field-label">{displayLabel}</div>
         {canCollapse && (
-          <button className="ghost" onClick={() => setCollapsed((prev) => !prev)}>
+          <button className="ghost" onClick={() => setCollapsed((prev) => !prev)} tabIndex={-1}>
             {collapsed ? `Show (${items.length}) ▾` : "Hide ▴"}
           </button>
         )}
@@ -993,7 +995,7 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
               value={item}
               onChange={(event) => handleChange(index, event.target.value)}
             />
-            <button className="danger" onClick={() => handleChange(index, "")}>
+            <button className="danger" tabIndex={-1} onClick={() => handleChange(index, "")}>
               Remove
             </button>
           </div>

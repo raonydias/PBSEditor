@@ -261,7 +261,9 @@ export default function BerryPlantsPage() {
       setSnapshot(nextSnap);
       setBaselineEntries(data.entries);
       dirty.setDirty("berry_plants", false);
-      setStatus("Exported berry plant files to PBS_Output/");
+      const target = settings.exportMode === "PBS" ? "PBS/" : "PBS_Output/";
+
+      setStatus(`Exported berry plant files to ${target}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
@@ -652,7 +654,7 @@ function BerryPlantDetail({
           <button className="ghost" onClick={() => onDuplicate(entry)}>
             Duplicate
           </button>
-          <button className="danger" onClick={() => onDelete(entry)}>
+          <button className="danger" tabIndex={-1} onClick={() => onDelete(entry)}>
             Delete
           </button>
         </div>
@@ -699,7 +701,7 @@ function BerryPlantDetail({
             return (
               <div key={`${field.key}-${index}`} className="yield-grid">
                 <div className="field-row">
-                  <input className="input key-label" value={formatKeyLabel("MinYield")} readOnly />
+                  <input className="input key-label" value={formatKeyLabel("MinYield")} readOnly tabIndex={-1} />
                   <input
                     className="input"
                     value={yieldMin ?? ""}
@@ -711,7 +713,7 @@ function BerryPlantDetail({
                   />
                 </div>
                 <div className="field-row">
-                  <input className="input key-label" value={formatKeyLabel("MaxYield")} readOnly />
+                  <input className="input key-label" value={formatKeyLabel("MaxYield")} readOnly tabIndex={-1} />
                   <input
                     className="input"
                     value={yieldMax ?? ""}
@@ -738,7 +740,7 @@ function BerryPlantDetail({
                     ? "Drying per Hour"
                     : formatKeyLabelIfKnown(field.key)
                 }
-                readOnly
+                readOnly tabIndex={-1}
               />
               <input
                 className="input"

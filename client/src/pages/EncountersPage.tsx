@@ -389,7 +389,9 @@ export default function EncountersPage() {
     try {
       const normalized = normalizeEncounterOrder(data.entries);
       await exportEncounters({ entries: normalized }, settings);
-      setStatus("Exported encounter files to PBS_Output/");
+      const target = settings.exportMode === "PBS" ? "PBS/" : "PBS_Output/";
+
+      setStatus(`Exported encounter files to ${target}`);
       setData({ entries: normalized });
       setBaselineEntries(normalized);
       const snap = serializeEncounters(normalized);
@@ -532,7 +534,7 @@ export default function EncountersPage() {
               <p>Select which file this entry should be added to.</p>
               <div className="field-list">
                 <div className="field-row single">
-                  <input className="input key-label" value={formatKeyLabel("Target file")} readOnly />
+                  <input className="input key-label" value={formatKeyLabel("Target file")} readOnly tabIndex={-1} />
                   <select
                     className="input"
                     value={addSourceDraft}
@@ -709,7 +711,7 @@ function EncounterDetail({
           <button className="ghost" onClick={() => onAddType(entry)}>
             Add New Encounter Type
           </button>
-          <button className="danger" onClick={() => onDelete(entry)}>
+          <button className="danger" tabIndex={-1} onClick={() => onDelete(entry)}>
             Delete
           </button>
         </div>
@@ -735,7 +737,7 @@ function EncounterDetail({
           </div>
         </div>
         <div className="field-row single">
-          <input className="input key-label" value={formatKeyLabel("Version")} readOnly />
+          <input className="input key-label" value={formatKeyLabel("Version")} readOnly tabIndex={-1} />
           <input
             className="input"
             value={versionDraft}
@@ -751,7 +753,7 @@ function EncounterDetail({
           />
         </div>
         <div className="field-row single">
-          <input className="input key-label" value={formatKeyLabel("Name")} readOnly />
+          <input className="input key-label" value={formatKeyLabel("Name")} readOnly tabIndex={-1} />
           <input
             className="input"
             value={entry.name}
@@ -829,10 +831,10 @@ function EncounterTypeEditor({
               </option>
             ))}
           </select>
-          <button className="ghost" onClick={() => setCollapsed(!collapsed)}>
+          <button className="ghost" onClick={() => setCollapsed(!collapsed)} tabIndex={-1}>
             {collapsed ? "Show" : "Hide"}
           </button>
-          <button className="danger" onClick={onRemove}>
+          <button className="danger" tabIndex={-1} onClick={onRemove} >
             Remove
           </button>
         </div>
@@ -840,7 +842,7 @@ function EncounterTypeEditor({
       <div className="field-list">
         <div className="field-row encounter-type-row">
           <div className="stack">
-            <input className="input key-label" value={formatKeyLabel("Type")} readOnly />
+            <input className="input key-label" value={formatKeyLabel("Type")} readOnly tabIndex={-1} />
             <input
               className="input"
               list="encounter-types"
@@ -854,7 +856,7 @@ function EncounterTypeEditor({
             </datalist>
           </div>
           <div className="stack">
-            <input className="input key-label" value={formatKeyLabel("Probability")} readOnly />
+            <input className="input key-label" value={formatKeyLabel("Probability")} readOnly tabIndex={-1} />
             <input
               className="input input-mini"
               value={value.probability}
@@ -911,7 +913,7 @@ function EncounterTypeEditor({
                       updateSlot(index, { ...slot, levelMax: event.target.value.replace(/\D+/g, "") })
                     }
                   />
-                  <button className="danger" onClick={() => removeSlot(index)}>
+                  <button className="danger" tabIndex={-1} onClick={() => removeSlot(index)}>
                     Remove
                   </button>
                 </div>

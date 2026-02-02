@@ -461,7 +461,9 @@ export default function ItemsPage() {
       setSnapshot(nextSnap);
       setBaselineEntries(data.entries);
       dirty.setDirty("items", false);
-      setStatus("Exported item files to PBS_Output/");
+      const target = settings.exportMode === "PBS" ? "PBS/" : "PBS_Output/";
+
+      setStatus(`Exported item files to ${target}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
@@ -986,7 +988,7 @@ function ItemDetail({
           <button className="ghost" onClick={addField}>
             Add Field
           </button>
-          <button className="danger" onClick={() => onDelete(entry)}>
+          <button className="danger" tabIndex={-1} onClick={() => onDelete(entry)}>
             Delete
           </button>
         </div>
@@ -1034,7 +1036,7 @@ function ItemDetail({
           if (field.key === "Name") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("Name")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("Name")} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   value={field.value}
@@ -1054,7 +1056,7 @@ function ItemDetail({
           if (field.key === "NamePlural") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("NamePlural")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("NamePlural")} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   value={field.value}
@@ -1072,7 +1074,7 @@ function ItemDetail({
           if (field.key === "PortionName") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("PortionName")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("PortionName")} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   value={field.value}
@@ -1086,7 +1088,7 @@ function ItemDetail({
             if (!portionName.trim()) return null;
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("PortionNamePlural")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("PortionNamePlural")} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   value={field.value}
@@ -1099,7 +1101,7 @@ function ItemDetail({
           if (field.key === "Pocket" || field.key === "Price") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
+                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   value={field.value}
@@ -1114,7 +1116,7 @@ function ItemDetail({
             const placeholder = `Auto: ${autoSell}`;
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("SellPrice")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("SellPrice")} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   value={sellPrice}
@@ -1141,7 +1143,7 @@ function ItemDetail({
           if (field.key === "BPPrice") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value="BP Price" readOnly />
+                <input className="input key-label" value="BP Price" readOnly tabIndex={-1} />
                 <input
                   className="input"
                   value={field.value}
@@ -1196,7 +1198,7 @@ function ItemDetail({
             const setManual = isConsumable ? setManualConsumable : setManualShowQuantity;
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
+                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <select
                   className="input"
                   value={field.value}
@@ -1227,7 +1229,7 @@ function ItemDetail({
             if (!isMoveRequired(entry)) return null;
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("Move")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("Move")} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   list="move-options"
@@ -1247,7 +1249,7 @@ function ItemDetail({
           if (field.key === "Description") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input key-label" value={formatKeyLabel("Description")} readOnly />
+                <input className="input key-label" value={formatKeyLabel("Description")} readOnly tabIndex={-1} />
                 <input
                   className="input"
                   value={field.value}
@@ -1260,7 +1262,7 @@ function ItemDetail({
 
           return (
             <div key={`${field.key}-${index}`} className="field-row">
-              <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
+              <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
               <input
                 className="input"
                 value={field.value}
@@ -1343,7 +1345,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
       <div className="list-field-header">
         <div className="list-field-label">{displayLabel}</div>
         {canCollapse && (
-          <button className="ghost" onClick={() => setCollapsed((prev) => !prev)}>
+          <button className="ghost" onClick={() => setCollapsed((prev) => !prev)} tabIndex={-1}>
             {collapsed ? `Show (${items.length}) ▾` : "Hide ▴"}
           </button>
         )}
@@ -1363,7 +1365,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
                 <option key={option} value={option} />
               ))}
             </datalist>
-            <button className="danger" onClick={() => handleSelectChange(index, "")}>
+            <button className="danger" tabIndex={-1} onClick={() => handleSelectChange(index, "")}>
               Remove
             </button>
           </div>

@@ -31,7 +31,7 @@ export type ExportOptions = {
 };
 
 async function exportWithOptions(url: string, data: unknown, options?: ExportOptions): Promise<void> {
-  const payload = options ? { ...data, ...options } : data;
+  const payload = options ? { ...(data as Record<string, unknown>), ...options } : data;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

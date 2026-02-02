@@ -35,6 +35,30 @@ export default function App() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [dirty.anyDirty]);
 
+  useEffect(() => {
+    const handleFocusIn = (event: FocusEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+      if (target instanceof HTMLInputElement) {
+        const type = target.type;
+        if (target.readOnly) return;
+        if (type === "checkbox" || type === "radio" || type === "button" || type === "submit" || type === "file") {
+          return;
+        }
+        if (target.value) {
+          target.select();
+        }
+      } else if (target instanceof HTMLTextAreaElement) {
+        if (target.readOnly) return;
+        if (target.value) {
+          target.select();
+        }
+      }
+    };
+    window.addEventListener("focusin", handleFocusIn);
+    return () => window.removeEventListener("focusin", handleFocusIn);
+  }, []);
+
   const missing = new Set(status?.missingFiles ?? []);
 
   return (
