@@ -43,7 +43,7 @@ export default function App() {
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-title">PBS Editor</div>
-          <div className="brand-sub">Local Essentials Project</div>
+          <div className="brand-sub">by Raony Dias</div>
         </div>
         <nav className="nav">
           <NavLink to="/pokemon" className="nav-link">
@@ -92,13 +92,7 @@ export default function App() {
           </NavLink>
         </nav>
         <div className="sidebar-footer">
-          {statusError ? (
-            <span className="error">Status unavailable</span>
-          ) : (
-            <>
-              Output is written to <strong>PBS_Output</strong>
-            </>
-          )}
+          {statusError ? <span className="error">Status unavailable</span> : null}
         </div>
       </aside>
       <main className="main">

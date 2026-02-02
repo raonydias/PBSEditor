@@ -4,10 +4,12 @@ import { exportRibbons, getRibbons } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
 import { useScrollTopButton } from "../hooks/useScrollTopButton";
+import { formatKeyLabel, formatKeyLabelIfKnown } from "../utils/labelUtils";
 import { useSettings } from "../settings";
 
 const emptyFile: RibbonsFile = { entries: [] };
 const emptyFiles: string[] = ["ribbons.txt"];
+const STANDARD_KEYS = new Set(["Name", "IconPosition", "Description", "Flags"]);
 
 export default function RibbonsPage() {
   const [data, setData] = useState<RibbonsFile>(emptyFile);
@@ -690,11 +692,13 @@ function RibbonDetail({
             );
           }
 
+          const isStandard = STANDARD_KEYS.has(field.key);
           return (
             <div key={`${field.key}-${index}`} className="field-row">
               <input
-                className="input"
-                value={field.key}
+                className={isStandard ? "input key-label" : "input"}
+                value={formatKeyLabelIfKnown(field.key)}
+                readOnly={isStandard}
                 onChange={(event) => updateField(index, event.target.value, field.value)}
               />
               <input
@@ -719,6 +723,7 @@ type FreeformListFieldEditorProps = {
 };
 
 function FreeformListFieldEditor({ label, value, onChange, error }: FreeformListFieldEditorProps) {
+  const displayLabel = formatKeyLabel(label);
   const items = value
     .split(",")
     .map((part) => part.trim())
@@ -754,7 +759,7 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
   return (
     <div className="list-field">
       <div className="list-field-header">
-        <div className="list-field-label">{label}</div>
+        <div className="list-field-label">{displayLabel}</div>
         {canCollapse && (
           <button className="ghost" onClick={() => setCollapsed((prev) => !prev)}>
             {collapsed ? `Show (${items.length}) ▾` : "Hide ▴"}
@@ -770,7 +775,7 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
               value={item}
               onChange={(event) => handleChange(index, event.target.value)}
             />
-            <button className="ghost" onClick={() => handleChange(index, "")}>
+            <button className="danger" onClick={() => handleChange(index, "")}>
               Remove
             </button>
           </div>
@@ -779,7 +784,7 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
           <input
             className="input"
             value={draft}
-            placeholder={`Add ${label}...`}
+            placeholder={`Add ${displayLabel}...`}
             onChange={(event) => setDraft(event.target.value)}
             onBlur={commitDraft}
             onKeyDown={(event) => {

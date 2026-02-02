@@ -4,6 +4,7 @@ import { exportMoves, getMoves, getTypes } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
 import { useScrollTopButton } from "../hooks/useScrollTopButton";
+import { formatKeyLabel, formatKeyLabelIfKnown } from "../utils/labelUtils";
 import { useSettings } from "../settings";
 
 const emptyFile: MovesFile = { entries: [] };
@@ -820,7 +821,7 @@ function MoveDetail({
           if (field.key === "Type") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="Type" readOnly />
+                <input className="input key-label" value={formatKeyLabel("Type")} readOnly />
                 <select
                   className="input"
                   value={field.value}
@@ -840,7 +841,7 @@ function MoveDetail({
           if (field.key === "Category") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="Category" readOnly />
+                <input className="input key-label" value={formatKeyLabel("Category")} readOnly />
                 <select
                   className="input"
                   value={field.value}
@@ -862,7 +863,7 @@ function MoveDetail({
             const selectValue = currentTarget === "" ? "" : isCustomTarget ? "__custom__" : currentTarget;
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="Target" readOnly />
+                <input className="input key-label" value={formatKeyLabel("Target")} readOnly />
                 <div className="stack">
                   <select
                     className="input"
@@ -915,7 +916,7 @@ function MoveDetail({
           if (field.key === "Power") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="Power" readOnly />
+                <input className="input key-label" value={formatKeyLabel("Power")} readOnly />
                 <input
                   className="input"
                   value={field.value}
@@ -931,7 +932,7 @@ function MoveDetail({
 
           return (
             <div key={`${field.key}-${index}`} className="field-row">
-              <input className="input" value={field.key} readOnly />
+              <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
               <input
                 className="input"
                 value={field.value}
@@ -955,6 +956,7 @@ type ListFieldEditorProps = {
 };
 
 function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEditorProps) {
+  const displayLabel = formatKeyLabel(label);
   const items = value
     .split(",")
     .map((part) => part.trim())
@@ -991,7 +993,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
   return (
     <div className="list-field">
       <div className="list-field-header">
-        <div className="list-field-label">{label}</div>
+        <div className="list-field-label">{displayLabel}</div>
         {canCollapse && (
           <button className="ghost" onClick={() => setCollapsed((prev) => !prev)}>
             {collapsed ? `Show (${items.length}) ▾` : "Hide ▴"}
@@ -1013,7 +1015,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
                 <option key={option} value={option} />
               ))}
             </datalist>
-            <button className="ghost" onClick={() => handleSelectChange(index, "")}>Remove</button>
+            <button className="danger" onClick={() => handleSelectChange(index, "")}>Remove</button>
           </div>
         ))}
         <div className="list-field-row">
@@ -1021,7 +1023,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
             className="input"
             list={`${label}-options`}
             value={draft}
-            placeholder="Add flag..."
+            placeholder={`Add ${displayLabel}...`}
             onChange={(event) => setDraft(event.target.value)}
             onBlur={commitDraft}
             onKeyDown={(event) => {

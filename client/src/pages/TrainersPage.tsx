@@ -16,6 +16,7 @@ import { useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
 import { useScrollTopButton } from "../hooks/useScrollTopButton";
 import { useSettings } from "../settings";
+import { formatKeyLabel } from "../utils/labelUtils";
 
 const emptyFile: TrainersFile = { entries: [] };
 const emptyFiles: string[] = ["trainers.txt"];
@@ -52,7 +53,7 @@ const NATURE_OPTIONS = [
   "TIMID",
 ] as const;
 
-const STAT_LABELS = ["HP", "Attack", "Defense", "Sp. Atk", "Sp. Def", "Speed"] as const;
+const STAT_LABELS = ["HP", "Attack", "Defense", "Special Attack", "Special Defense", "Speed"] as const;
 const STAT_EXPORT_INDEX = [0, 1, 2, 4, 5, 3] as const;
 
 type EntryIssues = {
@@ -519,7 +520,7 @@ export default function TrainersPage() {
               <p>Select which file this entry should be added to.</p>
               <div className="field-list">
                 <div className="field-row single">
-                  <label className="label">Target file</label>
+                  <input className="input key-label" value={formatKeyLabel("Target file")} readOnly />
                   <select
                     className="input"
                     value={addSourceDraft}
@@ -732,7 +733,7 @@ function TrainerDetail({
             Add New Trainer Version
           </button>
           <button className="ghost" onClick={addPokemon}>
-            Add New Pokemon
+            Add New Pokémon
           </button>
           <button className="danger" onClick={() => onDelete(entry)}>
             Delete
@@ -758,7 +759,7 @@ function TrainerDetail({
           {idError && <span className="field-error">{idError}</span>}
         </div>
         <div className="field-row single">
-          <label className="label">Name</label>
+          <input className="input key-label" value={formatKeyLabel("Name")} readOnly />
           <input
             className="input"
             value={nameDraft}
@@ -774,7 +775,7 @@ function TrainerDetail({
           />
         </div>
         <div className="field-row single">
-          <label className="label">Version</label>
+          <input className="input key-label" value={formatKeyLabel("Version")} readOnly />
           <input
             className="input"
             value={versionDraft}
@@ -795,7 +796,7 @@ function TrainerDetail({
           onChange={updateFlags}
         />
         <div className="field-row single">
-          <label className="label">Items</label>
+          <input className="input key-label" value={formatKeyLabel("Items")} readOnly />
           <div className="field-list">
             {(entry.items.length ? [...entry.items, ""] : [""]).map((item, idx) => (
               <div key={`${idx}-${item}`} className="field-row encounter-slot-row">
@@ -810,7 +811,7 @@ function TrainerDetail({
                   }}
                 />
                 {item && (
-                  <button className="ghost" onClick={() => updateItems(entry.items.filter((_, i) => i !== idx))}>
+                  <button className="danger" onClick={() => updateItems(entry.items.filter((_, i) => i !== idx))}>
                     Remove
                   </button>
                 )}
@@ -824,7 +825,7 @@ function TrainerDetail({
           </div>
         </div>
         <div className="field-row single">
-          <label className="label">LoseText</label>
+          <input className="input key-label" value={formatKeyLabel("LoseText")} readOnly />
           <input
             className="input"
             value={entry.loseText}
@@ -908,7 +909,7 @@ function TrainerPokemonEditor({
   return (
     <div className="panel">
       <div className="panel-header">
-        <h3>Pokemon {index + 1}</h3>
+        <h3>Pokémon {index + 1}</h3>
         <div className="button-row">
           <select className="input input-mini" value={index} onChange={(event) => onMove(Number(event.target.value))}>
             {Array.from({ length: total }).map((_, idx) => (
@@ -930,7 +931,7 @@ function TrainerPokemonEditor({
       </div>
       <div className="field-list">
         <div className="field-row single">
-          <label className="label">Pokemon</label>
+          <input className="input key-label" value={formatKeyLabel("Pokemon")} readOnly />
           <input
             className="input"
             list={`trainer-pokemon-${index}`}
@@ -944,7 +945,7 @@ function TrainerPokemonEditor({
           </datalist>
         </div>
         <div className="field-row single">
-          <label className="label">Level</label>
+          <input className="input key-label" value={formatKeyLabel("Level")} readOnly />
           <input
             className="input"
             value={value.level}
@@ -954,7 +955,7 @@ function TrainerPokemonEditor({
         {!collapsed && (
           <>
             <div className="field-row single">
-              <label className="label">Name</label>
+              <input className="input key-label" value={formatKeyLabel("Name")} readOnly />
               <input
                 className="input"
                 value={value.name}
@@ -962,7 +963,7 @@ function TrainerPokemonEditor({
               />
             </div>
             <div className="field-row single">
-              <label className="label">Gender</label>
+              <input className="input key-label" value={formatKeyLabel("Gender")} readOnly />
               <input
                 className="input"
                 value={value.gender}
@@ -970,7 +971,7 @@ function TrainerPokemonEditor({
               />
             </div>
             <div className="field-row single">
-              <label className="label">Shiny</label>
+              <input className="input key-label" value={formatKeyLabel("Shiny")} readOnly />
               <input
                 className="input"
                 value={value.shiny}
@@ -978,7 +979,7 @@ function TrainerPokemonEditor({
               />
             </div>
             <div className="field-row single">
-              <label className="label">SuperShiny</label>
+              <input className="input key-label" value={formatKeyLabel("SuperShiny")} readOnly />
               <input
                 className="input"
                 value={value.superShiny}
@@ -986,7 +987,7 @@ function TrainerPokemonEditor({
               />
             </div>
             <div className="field-row single">
-              <label className="label">Shadow</label>
+              <input className="input key-label" value={formatKeyLabel("Shadow")} readOnly />
               <input
                 className="input"
                 value={value.shadow}
@@ -994,7 +995,7 @@ function TrainerPokemonEditor({
               />
             </div>
             <div className="field-row single">
-              <label className="label">Moves</label>
+              <input className="input key-label" value={formatKeyLabel("Moves")} readOnly />
               <div className="field-list">
                 {moveSlots.map((move, idx) => {
                   const showField = idx === 0 || moveSlots[idx - 1];
@@ -1022,7 +1023,7 @@ function TrainerPokemonEditor({
               </div>
             </div>
             <div className="field-row single">
-              <label className="label">Ability</label>
+              <input className="input key-label" value={formatKeyLabel("Ability")} readOnly />
               <input
                 className="input"
                 list={`trainer-ability-${index}`}
@@ -1036,7 +1037,7 @@ function TrainerPokemonEditor({
               </datalist>
             </div>
             <div className="field-row single">
-              <label className="label">AbilityIndex</label>
+              <input className="input key-label" value={formatKeyLabel("AbilityIndex")} readOnly />
               <select
                 className="input"
                 value={value.abilityIndex}
@@ -1051,7 +1052,7 @@ function TrainerPokemonEditor({
               </select>
             </div>
             <div className="field-row single">
-              <label className="label">Item</label>
+              <input className="input key-label" value={formatKeyLabel("Item")} readOnly />
               <input
                 className="input"
                 list={`trainer-item-${index}`}
@@ -1065,7 +1066,7 @@ function TrainerPokemonEditor({
               </datalist>
             </div>
             <div className="field-row single">
-              <label className="label">Nature</label>
+              <input className="input key-label" value={formatKeyLabel("Nature")} readOnly />
               <input
                 className="input"
                 list={`trainer-nature-${index}`}
@@ -1079,13 +1080,13 @@ function TrainerPokemonEditor({
               </datalist>
             </div>
             <div className="field-row single">
-              <label className="label">IV + EV</label>
-              <div className="field-list">
+              <input className="input key-label" value="IVs and EVs" readOnly />
+              <div className="trainer-stats-grid">
                 {STAT_LABELS.map((label, idx) => {
                   const exportIndex = STAT_EXPORT_INDEX[idx];
                   return (
-                    <div key={label} className="field-row encounter-slot-row">
-                      <input className="input" value={label} readOnly />
+                    <div key={label} className="trainer-stats-row">
+                      <div className="stats-label">{label}</div>
                       <input
                         className="input input-mini"
                         placeholder="IV"
@@ -1104,7 +1105,7 @@ function TrainerPokemonEditor({
               </div>
             </div>
             <div className="field-row single">
-              <label className="label">Happiness</label>
+              <input className="input key-label" value={formatKeyLabel("Happiness")} readOnly />
               <input
                 className="input"
                 value={value.happiness}
@@ -1112,7 +1113,7 @@ function TrainerPokemonEditor({
               />
             </div>
             <div className="field-row single">
-              <label className="label">Ball</label>
+              <input className="input key-label" value={formatKeyLabel("Ball")} readOnly />
               <input
                 className="input"
                 list={`trainer-ball-${index}`}
@@ -1278,6 +1279,7 @@ function FreeformListFieldEditor({
   items: string[];
   onChange: (nextItems: string[]) => void;
 }) {
+  const displayLabel = formatKeyLabel(label);
   const [draft, setDraft] = useState("");
   const canCollapse = items.length > 5;
   const [collapsed, setCollapsed] = useState(canCollapse);
@@ -1296,7 +1298,7 @@ function FreeformListFieldEditor({
   return (
     <div className="list-field">
       <div className="list-field-header">
-        <div className="list-field-label">{label}</div>
+        <div className="list-field-label">{displayLabel}</div>
         {canCollapse && (
           <button className="ghost" onClick={() => setCollapsed((prev) => !prev)}>
             {collapsed ? `Show (${items.length}) ▾` : "Hide ▴"}
@@ -1321,7 +1323,7 @@ function FreeformListFieldEditor({
                   onChange(nextItems);
                 }}
               />
-              <button className="ghost" onClick={() => onChange(items.filter((_, idx) => idx !== index))}>
+              <button className="danger" onClick={() => onChange(items.filter((_, idx) => idx !== index))}>
                 Remove
               </button>
             </div>
@@ -1330,7 +1332,7 @@ function FreeformListFieldEditor({
             <input
               className="input"
               value={draft}
-              placeholder={`Add ${label}...`}
+              placeholder={`Add ${displayLabel}...`}
               onChange={(event) => setDraft(event.target.value)}
               onBlur={commitDraft}
               onKeyDown={(event) => {

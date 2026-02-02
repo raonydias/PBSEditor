@@ -14,6 +14,7 @@ import { exportPokemon, getAbilities, getItems, getMoves, getPokemon, getTypes }
 import { serializeEntries, useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
 import { useScrollTopButton } from "../hooks/useScrollTopButton";
+import { formatKeyLabel, formatKeyLabelIfKnown } from "../utils/labelUtils";
 import { useSettings } from "../settings";
 
 const emptyPokemon: PokemonFile = { entries: [] };
@@ -1461,7 +1462,7 @@ function PokemonDetail({
       </div>
       <div className="field-list">
         <div className="field-row single">
-          <label className="label">Pokemon ID</label>
+          <label className="label">{formatKeyLabel("Pokemon ID")}</label>
           <input
             className="input"
             value={idDraft}
@@ -1483,7 +1484,7 @@ function PokemonDetail({
           if (field.key === "Name") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="Name" readOnly />
+                <input className="input key-label" value={formatKeyLabel("Name")} readOnly />
                 <input
                   className="input"
                   value={field.value}
@@ -1497,7 +1498,7 @@ function PokemonDetail({
           if (field.key === "FormName") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="FormName" readOnly />
+                <input className="input key-label" value={formatKeyLabel("FormName")} readOnly />
                 <input
                   className="input"
                   value={field.value}
@@ -1510,7 +1511,7 @@ function PokemonDetail({
           if (field.key === "Types") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="PrimaryType" readOnly />
+                <input className="input key-label" value={formatKeyLabel("PrimaryType")} readOnly />
                 <select
                   className="input"
                   value={primaryType || ""}
@@ -1525,7 +1526,7 @@ function PokemonDetail({
                 {fieldErrors.Types && <span className="field-error">{fieldErrors.Types}</span>}
                 {primaryType && (
                   <>
-                    <input className="input" value="SecondaryType" readOnly />
+                    <input className="input key-label" value={formatKeyLabel("SecondaryType")} readOnly />
                     <select
                       className="input"
                       value={secondaryType || "NONE"}
@@ -1547,7 +1548,7 @@ function PokemonDetail({
           if (field.key === "GenderRatio") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="GenderRatio" readOnly />
+                <input className="input key-label" value={formatKeyLabel("GenderRatio")} readOnly />
                 <select
                   className="input"
                   value={field.value}
@@ -1567,7 +1568,7 @@ function PokemonDetail({
           if (field.key === "GrowthRate") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="GrowthRate" readOnly />
+                <input className="input key-label" value={formatKeyLabel("GrowthRate")} readOnly />
                 <select
                   className="input"
                   value={field.value}
@@ -1593,7 +1594,7 @@ function PokemonDetail({
               (field.key === "CatchRate" || field.key === "Happiness") && Number(field.value || 0) > 255;
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value={field.key} readOnly />
+                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
                 <input
                   className="input"
                   value={field.value}
@@ -1608,7 +1609,7 @@ function PokemonDetail({
           if (field.key === "BaseStats") {
             return (
               <div key={`${field.key}-${index}`} className="list-field">
-                <div className="list-field-label">Base Stats</div>
+                <div className="list-field-label">BASE STATS</div>
                 <div className="stats-grid">
                   {STAT_DISPLAY.map((stat) => (
                     <div key={stat.key} className="stats-row">
@@ -1654,7 +1655,7 @@ function PokemonDetail({
           if (field.key === "Abilities") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="Ability1" readOnly />
+                <input className="input key-label" value={formatKeyLabel("Ability1")} readOnly />
                 <input
                   className="input"
                   list="ability-options"
@@ -1671,7 +1672,7 @@ function PokemonDetail({
                 />
                 {ability1 && (
                   <>
-                    <input className="input" value="Ability2" readOnly />
+                    <input className="input key-label" value={formatKeyLabel("Ability2")} readOnly />
                     <input
                       className="input"
                       list="ability-options"
@@ -1732,7 +1733,7 @@ function PokemonDetail({
                         }}
                       />
                       <button
-                        className="ghost"
+                        className="danger"
                         onClick={() => {
                           const nextPairs = pairs.filter((_, idx) => idx !== pairIndex);
                           setFieldValue("Moves", buildMovesString(nextPairs));
@@ -1769,7 +1770,7 @@ function PokemonDetail({
                           className="input"
                           list="pokemon-options"
                           value={evo.pokemon}
-                          placeholder="Pokemon ID"
+                          placeholder="ID"
                           onChange={(event) =>
                             updateEvolutions(evolutions, evoIndex, { pokemon: event.target.value })
                           }
@@ -1858,7 +1859,7 @@ function PokemonDetail({
                           />
                         )}
                         <button
-                          className="ghost"
+                          className="danger"
                           onClick={() => {
                             const nextList = evolutions.filter((_, idx) => idx !== evoIndex);
                             setFieldValue("Evolutions", buildEvolutionString(nextList));
@@ -1932,6 +1933,7 @@ function PokemonDetail({
                 options={EGG_GROUP_OPTIONS}
                 onChange={(nextValue) => updateField(index, field.key, nextValue)}
                 error={fieldErrors[field.key]}
+                inputMode="datalist"
               />
             );
           }
@@ -1939,7 +1941,7 @@ function PokemonDetail({
           if (field.key === "HatchSteps") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="HatchSteps" readOnly />
+                <input className="input key-label" value={formatKeyLabel("HatchSteps")} readOnly />
                 <input
                   className="input"
                   value={field.value}
@@ -1953,7 +1955,7 @@ function PokemonDetail({
           if (field.key === "Incense") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="Incense" readOnly />
+                <input className="input key-label" value={formatKeyLabel("Incense")} readOnly />
                 <input
                   className="input"
                   list="item-options"
@@ -1975,6 +1977,9 @@ function PokemonDetail({
                 options={pokemonOptions}
                 onChange={(nextValue) => updateField(index, field.key, nextValue)}
                 error={fieldErrors[field.key]}
+                inputMode="datalist"
+                datalistId="pokemon-options"
+                renderDatalist={false}
               />
             );
           }
@@ -1984,7 +1989,7 @@ function PokemonDetail({
             const showHint = focusedField === field.key;
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value={field.key} readOnly />
+                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
                 <input
                   className="input"
                   value={field.value}
@@ -2001,7 +2006,7 @@ function PokemonDetail({
           if (field.key === "Color") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="Color" readOnly />
+                <input className="input key-label" value={formatKeyLabel("Color")} readOnly />
                 <select
                   className="input"
                   value={field.value}
@@ -2021,7 +2026,7 @@ function PokemonDetail({
           if (field.key === "Shape") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="Shape" readOnly />
+                <input className="input key-label" value={formatKeyLabel("Shape")} readOnly />
                 <select
                   className="input"
                   value={field.value}
@@ -2041,7 +2046,7 @@ function PokemonDetail({
           if (field.key === "Habitat") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="Habitat" readOnly />
+                <input className="input key-label" value={formatKeyLabel("Habitat")} readOnly />
                 <select
                   className="input"
                   value={field.value}
@@ -2061,7 +2066,7 @@ function PokemonDetail({
           if (field.key === "Category" || field.key === "Pokedex") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value={field.key} readOnly />
+                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
                 <input
                   className="input"
                   value={field.value}
@@ -2075,7 +2080,7 @@ function PokemonDetail({
           if (field.key === "Generation") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="Generation" readOnly />
+                <input className="input key-label" value={formatKeyLabel("Generation")} readOnly />
                 <input
                   className="input"
                   value={field.value}
@@ -2102,7 +2107,7 @@ function PokemonDetail({
           if (field.key === "WildItemCommon" || field.key === "WildItemUncommon" || field.key === "WildItemRare") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value={field.key} readOnly />
+                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
                 <input
                   className="input"
                   list="item-options"
@@ -2117,7 +2122,7 @@ function PokemonDetail({
 
           return (
             <div key={`${field.key}-${index}`} className="field-row">
-              <input className="input" value={field.key} readOnly />
+              <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
               <input
                 className="input"
                 value={field.value}
@@ -2178,6 +2183,7 @@ function SelectListField({
   datalistId,
   renderDatalist = true,
 }: SelectListFieldProps) {
+  const displayLabel = formatKeyLabel(label);
   const items = splitList(value);
   const canCollapse = items.length > 5;
   const [collapsed, setCollapsed] = useState(canCollapse);
@@ -2208,7 +2214,7 @@ function SelectListField({
   return (
     <div className="list-field">
       <div className="list-field-header">
-        <div className="list-field-label">{label}</div>
+        <div className="list-field-label">{displayLabel}</div>
         {canCollapse && (
           <button className="ghost" onClick={() => setCollapsed((prev) => !prev)}>
             {collapsed ? `Show (${items.length}) ▾` : "Hide ▴"}
@@ -2239,7 +2245,7 @@ function SelectListField({
                   ))}
                 </select>
               )}
-              <button className="ghost" onClick={() => removeAt(index)}>
+              <button className="danger" onClick={() => removeAt(index)}>
                 Remove
               </button>
             </div>
@@ -2250,12 +2256,12 @@ function SelectListField({
                 className="input"
                 list={resolvedDatalistId}
                 value=""
-                placeholder={`Add ${label}...`}
+                placeholder={`Add ${displayLabel}...`}
                 onChange={(event) => updateAt(items.length, event.target.value)}
               />
             ) : (
               <select className="input" value="" onChange={(event) => updateAt(items.length, event.target.value)}>
-                <option value="">Add {label}...</option>
+                <option value="">Add {displayLabel}...</option>
                 {options
                   .filter((option) => !items.includes(option))
                   .map((option) => (
@@ -2289,6 +2295,7 @@ type ListFieldEditorProps = {
 };
 
 function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEditorProps) {
+  const displayLabel = formatKeyLabel(label);
   const items = splitList(value);
   const [draft, setDraft] = useState("");
   const canCollapse = items.length > 5;
@@ -2322,7 +2329,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
   return (
     <div className="list-field">
       <div className="list-field-header">
-        <div className="list-field-label">{label}</div>
+        <div className="list-field-label">{displayLabel}</div>
         {canCollapse && (
           <button className="ghost" onClick={() => setCollapsed((prev) => !prev)}>
             {collapsed ? `Show (${items.length}) ▾` : "Hide ▴"}
@@ -2344,7 +2351,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
                 <option key={option} value={option} />
               ))}
             </datalist>
-            <button className="ghost" onClick={() => handleSelectChange(index, "")}>
+            <button className="danger" onClick={() => handleSelectChange(index, "")}>
               Remove
             </button>
           </div>
@@ -2354,7 +2361,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
             className="input"
             list={`${label}-options`}
             value={draft}
-            placeholder={`Add ${label}...`}
+            placeholder={`Add ${displayLabel}...`}
             onChange={(event) => setDraft(event.target.value)}
             onBlur={commitDraft}
             onKeyDown={(event) => {

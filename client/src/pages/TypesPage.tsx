@@ -4,6 +4,7 @@ import { exportTypes, getTypes } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
 import { useScrollTopButton } from "../hooks/useScrollTopButton";
+import { formatKeyLabel, formatKeyLabelIfKnown } from "../utils/labelUtils";
 import { useSettings } from "../settings";
 
 const emptyFile: TypesFile = { entries: [] };
@@ -773,11 +774,25 @@ function TypeDetail({
 
           return (
             <div key={`${field.key}-${index}`} className="field-row">
-              <input
-                className="input"
-                value={field.key}
-                onChange={(event) => updateField(index, event.target.value, field.value)}
-              />
+              {["Name", "IconPosition", "IsSpecialType", "IsPseudoType"].includes(field.key) ? (
+                <input
+                  className="input key-label"
+                  value={
+                    field.key === "IsSpecialType"
+                      ? "Is Special Type?"
+                      : field.key === "IsPseudoType"
+                      ? "Is Pseudo Type?"
+                      : formatKeyLabelIfKnown(field.key)
+                  }
+                  readOnly
+                />
+              ) : (
+                <input
+                  className="input"
+                  value={field.key}
+                  onChange={(event) => updateField(index, event.target.value, field.value)}
+                />
+              )}
               <input
                 className="input"
                 value={field.value}
@@ -801,10 +816,12 @@ type ListFieldEditorProps = {
 };
 
 function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEditorProps) {
+  const displayLabel = formatKeyLabel(label);
   const items = value
     .split(",")
     .map((part) => part.trim())
     .filter(Boolean);
+  const [draft, setDraft] = useState("");
   const canCollapse = items.length > 5;
   const [collapsed, setCollapsed] = useState(canCollapse);
 
@@ -813,23 +830,31 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
   }, [canCollapse]);
 
   const handleSelectChange = (index: number, next: string) => {
+    const normalizedNext = next.trim();
     const nextItems = [...items];
-    if (next === "") {
+    if (normalizedNext === "") {
       nextItems.splice(index, 1);
     } else if (index === items.length) {
-      nextItems.push(next);
+      nextItems.push(normalizedNext);
     } else {
-      nextItems[index] = next;
+      nextItems[index] = normalizedNext;
     }
     const normalized = nextItems.map((item) => item.toUpperCase());
     const deduped = normalized.filter((item, idx) => normalized.indexOf(item) === idx);
     onChange(deduped.join(","));
   };
 
+  const commitDraft = () => {
+    const next = draft.trim();
+    if (!next) return;
+    handleSelectChange(items.length, next);
+    setDraft("");
+  };
+
   return (
     <div className="list-field">
       <div className="list-field-header">
-        <div className="list-field-label">{label}</div>
+        <div className="list-field-label">{displayLabel}</div>
         {canCollapse && (
           <button className="ghost" onClick={() => setCollapsed((prev) => !prev)}>
             {collapsed ? `Show (${items.length}) ▾` : "Hide ▴"}
@@ -840,37 +865,39 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
         <div className="list-field-items">
         {items.map((item, index) => (
           <div key={`${label}-${index}`} className="list-field-row">
-            <select
+            <input
               className="input"
+              list={`${label}-options`}
               value={item}
               onChange={(event) => handleSelectChange(index, event.target.value)}
-            >
-              {options.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-            <button className="ghost" onClick={() => handleSelectChange(index, "")}>
+            />
+            <button className="danger" onClick={() => handleSelectChange(index, "")}>
               Remove
             </button>
           </div>
         ))}
         <div className="list-field-row">
-          <select
+          <input
             className="input"
-            value=""
-            onChange={(event) => handleSelectChange(items.length, event.target.value)}
-          >
-            <option value="">Add type...</option>
+            list={`${label}-options`}
+            value={draft}
+            placeholder={`Add ${displayLabel}...`}
+            onChange={(event) => setDraft(event.target.value)}
+            onBlur={commitDraft}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                commitDraft();
+              }
+            }}
+          />
+          <datalist id={`${label}-options`}>
             {options
               .filter((option) => !items.includes(option))
               .map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
+                <option key={option} value={option} />
               ))}
-          </select>
+          </datalist>
         </div>
       </div>
       )}
@@ -887,6 +914,7 @@ type FreeformListFieldEditorProps = {
 };
 
 function FreeformListFieldEditor({ label, value, onChange, error }: FreeformListFieldEditorProps) {
+  const displayLabel = formatKeyLabel(label);
   const items = value
     .split(",")
     .map((part) => part.trim())
@@ -922,7 +950,7 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
   return (
     <div className="list-field">
       <div className="list-field-header">
-        <div className="list-field-label">{label}</div>
+        <div className="list-field-label">{displayLabel}</div>
         {canCollapse && (
           <button className="ghost" onClick={() => setCollapsed((prev) => !prev)}>
             {collapsed ? `Show (${items.length}) ▾` : "Hide ▴"}
@@ -938,7 +966,7 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
               value={item}
               onChange={(event) => handleChange(index, event.target.value)}
             />
-            <button className="ghost" onClick={() => handleChange(index, "")}>
+            <button className="danger" onClick={() => handleChange(index, "")}>
               Remove
             </button>
           </div>
@@ -947,7 +975,7 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
           <input
             className="input"
             value={draft}
-            placeholder={`Add ${label}...`}
+            placeholder={`Add ${displayLabel}...`}
             onChange={(event) => setDraft(event.target.value)}
             onBlur={commitDraft}
             onKeyDown={(event) => {

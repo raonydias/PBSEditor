@@ -328,11 +328,12 @@ body {
 }
 
 .label {
-    font-size: 12px;
+    font-size: 16px;
     color: var(--muted);
-    text-transform: uppercase;
+    text-transform: none;
     letter-spacing: 0.08em;
     margin-bottom: 6px;
+    font-weight: 700;
 }
 
 .input {
@@ -342,6 +343,17 @@ body {
     padding: 10px 12px;
     color: var(--text);
     font-family: "Space Mono", monospace;
+}
+
+.input.key-label {
+    background: transparent;
+    border-color: transparent;
+    color: var(--muted);
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 16px;
+    letter-spacing: 0.06em;
+    padding: 0;
+    text-transform: none;
 }
 
 .primary {
@@ -412,6 +424,11 @@ body {
 .ghost:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.ghost.remove {
+    border-color: #5a2a2a;
+    color: var(--danger);
 }
 
 .danger {
@@ -569,10 +586,10 @@ body {
 }
 
 .list-field-label {
-    font-size: 12px;
+    font-size: 16px;
     color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    text-transform: none;
+    letter-spacing: 0.06em;
 }
 
 .list-field-header {
@@ -604,9 +621,24 @@ body {
 .stats-label,
 .stats-ev-label {
     color: var(--muted);
-    font-size: 12px;
+    font-size: 14px;
+    letter-spacing: 0.04em;
+}
+
+.stats-ev-label {
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+}
+
+.trainer-stats-grid {
+    display: grid;
+    gap: 10px;
+}
+
+.trainer-stats-row {
+    display: grid;
+    grid-template-columns: 1fr 100px 100px;
+    gap: 10px;
+    align-items: center;
 }
 
 .stats-ev-input {

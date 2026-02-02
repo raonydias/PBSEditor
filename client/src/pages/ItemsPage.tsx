@@ -5,6 +5,7 @@ import { exportItems, getItems, getMoves } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
 import { useScrollTopButton } from "../hooks/useScrollTopButton";
+import { formatKeyLabel, formatKeyLabelIfKnown } from "../utils/labelUtils";
 import { useSettings } from "../settings";
 
 const emptyFile: ItemsFile = { entries: [] };
@@ -1033,7 +1034,7 @@ function ItemDetail({
           if (field.key === "Name") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="Name" readOnly />
+                <input className="input key-label" value={formatKeyLabel("Name")} readOnly />
                 <input
                   className="input"
                   value={field.value}
@@ -1053,7 +1054,7 @@ function ItemDetail({
           if (field.key === "NamePlural") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="NamePlural" readOnly />
+                <input className="input key-label" value={formatKeyLabel("NamePlural")} readOnly />
                 <input
                   className="input"
                   value={field.value}
@@ -1071,7 +1072,7 @@ function ItemDetail({
           if (field.key === "PortionName") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="PortionName" readOnly />
+                <input className="input key-label" value={formatKeyLabel("PortionName")} readOnly />
                 <input
                   className="input"
                   value={field.value}
@@ -1085,7 +1086,7 @@ function ItemDetail({
             if (!portionName.trim()) return null;
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="PortionNamePlural" readOnly />
+                <input className="input key-label" value={formatKeyLabel("PortionNamePlural")} readOnly />
                 <input
                   className="input"
                   value={field.value}
@@ -1098,7 +1099,7 @@ function ItemDetail({
           if (field.key === "Pocket" || field.key === "Price") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value={field.key} readOnly />
+                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
                 <input
                   className="input"
                   value={field.value}
@@ -1113,7 +1114,7 @@ function ItemDetail({
             const placeholder = `Auto: ${autoSell}`;
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="SellPrice" readOnly />
+                <input className="input key-label" value={formatKeyLabel("SellPrice")} readOnly />
                 <input
                   className="input"
                   value={sellPrice}
@@ -1140,7 +1141,7 @@ function ItemDetail({
           if (field.key === "BPPrice") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="BPPrice" readOnly />
+                <input className="input key-label" value="BP Price" readOnly />
                 <input
                   className="input"
                   value={field.value}
@@ -1155,7 +1156,7 @@ function ItemDetail({
             return (
               <SingleSelectField
                 key={`${field.key}-${index}`}
-                label="FieldUse"
+                label="Field Use"
                 value={field.value}
                 options={FIELD_USE_OPTIONS}
                 onChange={(nextValue) => updateField(index, field.key, nextValue)}
@@ -1168,7 +1169,7 @@ function ItemDetail({
             return (
               <SingleSelectField
                 key={`${field.key}-${index}`}
-                label="BattleUse"
+                label="Battle Use"
                 value={field.value}
                 options={BATTLE_USE_OPTIONS}
                 onChange={(nextValue) => updateField(index, field.key, nextValue)}
@@ -1195,7 +1196,7 @@ function ItemDetail({
             const setManual = isConsumable ? setManualConsumable : setManualShowQuantity;
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value={field.key} readOnly />
+                <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
                 <select
                   className="input"
                   value={field.value}
@@ -1226,7 +1227,7 @@ function ItemDetail({
             if (!isMoveRequired(entry)) return null;
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="Move" readOnly />
+                <input className="input key-label" value={formatKeyLabel("Move")} readOnly />
                 <input
                   className="input"
                   list="move-options"
@@ -1246,7 +1247,7 @@ function ItemDetail({
           if (field.key === "Description") {
             return (
               <div key={`${field.key}-${index}`} className="field-row">
-                <input className="input" value="Description" readOnly />
+                <input className="input key-label" value={formatKeyLabel("Description")} readOnly />
                 <input
                   className="input"
                   value={field.value}
@@ -1259,7 +1260,7 @@ function ItemDetail({
 
           return (
             <div key={`${field.key}-${index}`} className="field-row">
-              <input className="input" value={field.key} readOnly />
+              <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly />
               <input
                 className="input"
                 value={field.value}
@@ -1306,6 +1307,7 @@ function SingleSelectField({ label, value, options, onChange, error }: SingleSel
 }
 
 function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEditorProps) {
+  const displayLabel = formatKeyLabel(label);
   const items = splitList(value);
   const [draft, setDraft] = useState("");
   const canCollapse = items.length > 5;
@@ -1339,7 +1341,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
   return (
     <div className="list-field">
       <div className="list-field-header">
-        <div className="list-field-label">{label}</div>
+        <div className="list-field-label">{displayLabel}</div>
         {canCollapse && (
           <button className="ghost" onClick={() => setCollapsed((prev) => !prev)}>
             {collapsed ? `Show (${items.length}) ▾` : "Hide ▴"}
@@ -1361,7 +1363,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
                 <option key={option} value={option} />
               ))}
             </datalist>
-            <button className="ghost" onClick={() => handleSelectChange(index, "")}>
+            <button className="danger" onClick={() => handleSelectChange(index, "")}>
               Remove
             </button>
           </div>
@@ -1371,7 +1373,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
             className="input"
             list={`${label}-options`}
             value={draft}
-            placeholder={`Add ${label}...`}
+            placeholder={`Add ${displayLabel}...`}
             onChange={(event) => setDraft(event.target.value)}
             onBlur={commitDraft}
             onKeyDown={(event) => {

@@ -12,6 +12,7 @@ import { useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
 import { useScrollTopButton } from "../hooks/useScrollTopButton";
 import { useSettings } from "../settings";
+import { formatKeyLabel } from "../utils/labelUtils";
 
 const emptyEncounters: EncountersFile = { entries: [] };
 const emptyFiles: string[] = ["encounters.txt"];
@@ -531,7 +532,7 @@ export default function EncountersPage() {
               <p>Select which file this entry should be added to.</p>
               <div className="field-list">
                 <div className="field-row single">
-                  <label className="label">Target file</label>
+                  <input className="input key-label" value={formatKeyLabel("Target file")} readOnly />
                   <select
                     className="input"
                     value={addSourceDraft}
@@ -734,7 +735,7 @@ function EncounterDetail({
           </div>
         </div>
         <div className="field-row single">
-          <label className="label">Version</label>
+          <input className="input key-label" value={formatKeyLabel("Version")} readOnly />
           <input
             className="input"
             value={versionDraft}
@@ -750,7 +751,7 @@ function EncounterDetail({
           />
         </div>
         <div className="field-row single">
-          <label className="label">Name</label>
+          <input className="input key-label" value={formatKeyLabel("Name")} readOnly />
           <input
             className="input"
             value={entry.name}
@@ -839,7 +840,7 @@ function EncounterTypeEditor({
       <div className="field-list">
         <div className="field-row encounter-type-row">
           <div className="stack">
-            <label className="label">Type</label>
+            <input className="input key-label" value={formatKeyLabel("Type")} readOnly />
             <input
               className="input"
               list="encounter-types"
@@ -853,7 +854,7 @@ function EncounterTypeEditor({
             </datalist>
           </div>
           <div className="stack">
-            <label className="label">Probability</label>
+            <input className="input key-label" value={formatKeyLabel("Probability")} readOnly />
             <input
               className="input input-mini"
               value={value.probability}
@@ -910,7 +911,7 @@ function EncounterTypeEditor({
                       updateSlot(index, { ...slot, levelMax: event.target.value.replace(/\D+/g, "") })
                     }
                   />
-                  <button className="ghost" onClick={() => removeSlot(index)}>
+                  <button className="danger" onClick={() => removeSlot(index)}>
                     Remove
                   </button>
                 </div>

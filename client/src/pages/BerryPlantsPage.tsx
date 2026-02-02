@@ -4,6 +4,7 @@ import { exportBerryPlants, getBerryPlants } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
 import MoveEntryModal from "../components/MoveEntryModal";
 import { useScrollTopButton } from "../hooks/useScrollTopButton";
+import { formatKeyLabel, formatKeyLabelIfKnown } from "../utils/labelUtils";
 import { useSettings } from "../settings";
 
 const emptyFile: BerryPlantsFile = { entries: [] };
@@ -698,7 +699,7 @@ function BerryPlantDetail({
             return (
               <div key={`${field.key}-${index}`} className="yield-grid">
                 <div className="field-row">
-                  <input className="input" value="MinYield" readOnly />
+                  <input className="input key-label" value={formatKeyLabel("MinYield")} readOnly />
                   <input
                     className="input"
                     value={yieldMin ?? ""}
@@ -710,7 +711,7 @@ function BerryPlantDetail({
                   />
                 </div>
                 <div className="field-row">
-                  <input className="input" value="MaxYield" readOnly />
+                  <input className="input key-label" value={formatKeyLabel("MaxYield")} readOnly />
                   <input
                     className="input"
                     value={yieldMax ?? ""}
@@ -728,7 +729,17 @@ function BerryPlantDetail({
 
           return (
             <div key={`${field.key}-${index}`} className="field-row">
-              <input className="input" value={field.key} readOnly />
+              <input
+                className="input key-label"
+                value={
+                  field.key === "HoursPerStage"
+                    ? "Hours per Stage"
+                    : field.key === "DryingPerHour"
+                    ? "Drying per Hour"
+                    : formatKeyLabelIfKnown(field.key)
+                }
+                readOnly
+              />
               <input
                 className="input"
                 value={field.value}
