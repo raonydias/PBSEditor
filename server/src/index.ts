@@ -54,6 +54,11 @@ import {
 } from "./pbs.js";
 
 const app = express();
+
+const normalizePbsOutput = (text: string) => {
+  const normalized = text.replace(/\r?\n/g, "\r\n");
+  return normalized.startsWith("\ufeff") ? normalized : `\ufeff${normalized}`;
+};
 app.use(express.json({ limit: "50mb" }));
 app.use("/assets/graphics", express.static(path.join(projectRoot(), "Graphics")));
 
@@ -687,7 +692,7 @@ app.post("/api/pbs/:file/export", async (req, res) => {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportItemsFile({ entries: sorted });
         const outputPath = path.join(pbsOutputDir(), source);
-        await fs.writeFile(outputPath, output, "utf-8");
+        await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
       res.json({ ok: true, paths: outputs });
@@ -707,7 +712,7 @@ app.post("/api/pbs/:file/export", async (req, res) => {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportAbilitiesFile({ entries: sorted });
         const outputPath = path.join(pbsOutputDir(), source);
-        await fs.writeFile(outputPath, output, "utf-8");
+        await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
       res.json({ ok: true, paths: outputs });
@@ -727,7 +732,7 @@ app.post("/api/pbs/:file/export", async (req, res) => {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportTypesFile({ entries: sorted });
         const outputPath = path.join(pbsOutputDir(), source);
-        await fs.writeFile(outputPath, output, "utf-8");
+        await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
       res.json({ ok: true, paths: outputs });
@@ -747,7 +752,7 @@ app.post("/api/pbs/:file/export", async (req, res) => {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportMovesFile({ entries: sorted });
         const outputPath = path.join(pbsOutputDir(), source);
-        await fs.writeFile(outputPath, output, "utf-8");
+        await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
       res.json({ ok: true, paths: outputs });
@@ -767,7 +772,7 @@ app.post("/api/pbs/:file/export", async (req, res) => {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportRibbonsFile({ entries: sorted });
         const outputPath = path.join(pbsOutputDir(), source);
-        await fs.writeFile(outputPath, output, "utf-8");
+        await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
       res.json({ ok: true, paths: outputs });
@@ -787,7 +792,7 @@ app.post("/api/pbs/:file/export", async (req, res) => {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportBerryPlantsFile({ entries: sorted });
         const outputPath = path.join(pbsOutputDir(), source);
-        await fs.writeFile(outputPath, output, "utf-8");
+        await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
       res.json({ ok: true, paths: outputs });
@@ -807,7 +812,7 @@ app.post("/api/pbs/:file/export", async (req, res) => {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportTrainerTypesFile({ entries: sorted });
         const outputPath = path.join(pbsOutputDir(), source);
-        await fs.writeFile(outputPath, output, "utf-8");
+        await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
       res.json({ ok: true, paths: outputs });
@@ -827,7 +832,7 @@ app.post("/api/pbs/:file/export", async (req, res) => {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportEncountersFile({ entries: sorted });
         const outputPath = path.join(pbsOutputDir(), source);
-        await fs.writeFile(outputPath, output, "utf-8");
+        await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
       res.json({ ok: true, paths: outputs });
@@ -847,7 +852,7 @@ app.post("/api/pbs/:file/export", async (req, res) => {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportTrainersFile({ entries: sorted });
         const outputPath = path.join(pbsOutputDir(), source);
-        await fs.writeFile(outputPath, output, "utf-8");
+        await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
       res.json({ ok: true, paths: outputs });
@@ -867,7 +872,7 @@ app.post("/api/pbs/:file/export", async (req, res) => {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportPokemonFile({ entries: sorted });
         const outputPath = path.join(pbsOutputDir(), source);
-        await fs.writeFile(outputPath, output, "utf-8");
+        await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
       res.json({ ok: true, paths: outputs });
@@ -887,7 +892,7 @@ app.post("/api/pbs/:file/export", async (req, res) => {
         const sorted = [...groupEntries].sort((a, b) => a.order - b.order);
         const output = exportPokemonFormsFile({ entries: sorted });
         const outputPath = path.join(pbsOutputDir(), source);
-        await fs.writeFile(outputPath, output, "utf-8");
+        await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
         outputs.push(outputPath);
       }
       res.json({ ok: true, paths: outputs });
@@ -915,7 +920,7 @@ app.post("/api/pbs/:file/export", async (req, res) => {
         ? exportTrainersFile(payload as TrainersFile)
         : exportTypesFile(payload as TypesFile);
     const outputPath = path.join(pbsOutputDir(), file);
-    await fs.writeFile(outputPath, output, "utf-8");
+    await fs.writeFile(outputPath, normalizePbsOutput(output), "utf-8");
     res.json({ ok: true, path: outputPath });
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
