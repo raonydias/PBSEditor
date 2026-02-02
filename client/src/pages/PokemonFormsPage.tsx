@@ -1055,10 +1055,12 @@ export default function PokemonFormsPage() {
         <div className="list">
           {filteredEntries.map((entry) => {
             const { pokemonId, formNumber } = parseFormId(entry.id);
-            const safePokemonId = pokemonId.trim().toUpperCase();
-            const safeFormNumber = formNumber.trim();
-            const baseName = getFieldValueFromList(pokemon.entries, safePokemonId, "Name");
-            const formSuffix = safeFormNumber ? `_${safeFormNumber}` : "";
+              const safePokemonId = pokemonId.trim().toUpperCase();
+              const safeFormNumber = formNumber.trim();
+              const baseName = getFieldValueFromList(pokemon.entries, safePokemonId, "Name");
+              const formNameValue = entry.fields.find((field) => field.key === "FormName")?.value ?? "";
+              const isGigantamax = formNameValue.trim().toLowerCase() === "gigantamax";
+              const formSuffix = isGigantamax ? "_gmax" : safeFormNumber ? `_${safeFormNumber}` : "";
             const iconFormSrc = `/assets/graphics/Pokemon/Icons/${safePokemonId}${formSuffix}.png`;
             const iconBaseSrc = `/assets/graphics/Pokemon/Icons/${safePokemonId}.png`;
             return (
@@ -1289,14 +1291,19 @@ function PokemonFormDetail({
   pokemonOptions,
 }: DetailProps) {
   const { pokemonId, formNumber } = parseFormId(entry.id);
-  const safePokemonId = pokemonId.trim().toUpperCase();
-  const safeFormNumber = formNumber.trim();
-  const [idDraft, setIdDraft] = useState(pokemonId);
-  const [formDraft, setFormDraft] = useState(formNumber);
-  const [focusedField, setFocusedField] = useState<string | null>(null);
-  const validateTimer = useRef<number | null>(null);
-  const frontBaseSrc = `/assets/graphics/Pokemon/Front/${safePokemonId}.png`;
-  const frontFormSrc = `/assets/graphics/Pokemon/Front/${safePokemonId}_${safeFormNumber}.png`;
+    const safePokemonId = pokemonId.trim().toUpperCase();
+    const safeFormNumber = formNumber.trim();
+    const formNameValue = entry.fields.find((field) => field.key === "FormName")?.value ?? "";
+    const isGigantamax = formNameValue.trim().toLowerCase() === "gigantamax";
+    const [idDraft, setIdDraft] = useState(pokemonId);
+    const [formDraft, setFormDraft] = useState(formNumber);
+    const [focusedField, setFocusedField] = useState<string | null>(null);
+    const validateTimer = useRef<number | null>(null);
+    const frontBaseSrc = `/assets/graphics/Pokemon/Front/${safePokemonId}.png`;
+    const frontFormSrc = isGigantamax
+      ? `/assets/graphics/Pokemon/Front/${safePokemonId}_gmax.png`
+      : `/assets/graphics/Pokemon/Front/${safePokemonId}_${safeFormNumber}.png`;
+    const formSpriteKey = isGigantamax ? "gmax" : safeFormNumber || "base";
 
   useEffect(() => {
     setIdDraft(pokemonId);
@@ -1416,15 +1423,15 @@ function PokemonFormDetail({
           </button>
         </div>
       </div>
-      <div className="pokemon-sprite pokemon-sprite-left">
-        <img
-          src={frontFormSrc}
-          key={`${pokemonId}-${formNumber || "base"}`}
-          alt=""
-          width={96}
-          height={96}
-          onLoad={(event) => {
-            event.currentTarget.style.visibility = "visible";
+        <div className="pokemon-sprite pokemon-sprite-left">
+          <img
+            src={frontFormSrc}
+            key={`${pokemonId}-${formSpriteKey}`}
+            alt=""
+            width={96}
+            height={96}
+            onLoad={(event) => {
+              event.currentTarget.style.visibility = "visible";
           }}
           onError={(event) => {
             const img = event.currentTarget;
