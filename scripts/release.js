@@ -3,34 +3,13 @@ const path = require("path");
 
 const root = process.cwd();
 const releaseDir = path.join(root, "release");
-const clientDist = path.join(root, "client", "dist");
-const targetClient = path.join(releaseDir, "client", "dist");
 const readmePath = path.join(releaseDir, "README.md");
 
 const ensureDir = (dir) => {
   fs.mkdirSync(dir, { recursive: true });
 };
 
-const copyDir = (src, dest) => {
-  ensureDir(dest);
-  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
-    const srcPath = path.join(src, entry.name);
-    const destPath = path.join(dest, entry.name);
-    if (entry.isDirectory()) {
-      copyDir(srcPath, destPath);
-    } else if (entry.isFile()) {
-      fs.copyFileSync(srcPath, destPath);
-    }
-  }
-};
-
-if (!fs.existsSync(clientDist)) {
-  console.error("Missing client/dist. Run npm run build first.");
-  process.exit(1);
-}
-
 ensureDir(releaseDir);
-copyDir(clientDist, targetClient);
 const readme = `# PBS Editor (Release)
 
 ## Quick start
@@ -55,5 +34,4 @@ fs.writeFileSync(readmePath, readme, "utf8");
 
 console.log("Release assets prepared:");
 console.log("- release/PBSEditor.exe");
-console.log("- release/client/dist");
 console.log("- release/README.md");

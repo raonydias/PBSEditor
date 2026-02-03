@@ -1,6 +1,7 @@
 import express from "express";
 import { z } from "zod";
 import { promises as fs, accessSync } from "fs";
+import os from "os";
 import path from "path";
 import {
   AbilitiesFile,
@@ -230,6 +231,51 @@ function clientDistDir(): string | null {
     if (fileExistsSync(candidate)) return candidate;
   }
   return null;
+}
+
+function isPkgRuntime(): boolean {
+  return Boolean((process as { pkg?: unknown }).pkg);
+}
+
+function bundledClientDir(): string | null {
+  const candidates = [
+    path.join(__dirname, "..", "client", "dist"),
+    path.join(__dirname, "..", "..", "client", "dist"),
+    path.join(__dirname, "client", "dist"),
+  ];
+  for (const candidate of candidates) {
+    if (fileExistsSync(path.join(candidate, "index.html"))) return candidate;
+  }
+  return null;
+}
+
+async function copyDir(src: string, dest: string): Promise<void> {
+  await fs.mkdir(dest, { recursive: true });
+  const entries = await fs.readdir(src, { withFileTypes: true });
+  await Promise.all(
+    entries.map(async (entry) => {
+      const srcPath = path.join(src, entry.name);
+      const destPath = path.join(dest, entry.name);
+      if (entry.isDirectory()) {
+        await copyDir(srcPath, destPath);
+      } else if (entry.isFile()) {
+        await fs.copyFile(srcPath, destPath);
+      }
+    })
+  );
+}
+
+async function resolveClientDist(): Promise<string | null> {
+  if (!isPkgRuntime()) {
+    return clientDistDir();
+  }
+  const tempRoot = path.join(os.tmpdir(), "pbs-editor-client");
+  const targetDir = path.join(tempRoot, "dist");
+  if (await fileExists(path.join(targetDir, "index.html"))) return targetDir;
+  const sourceDir = bundledClientDir();
+  if (!sourceDir) return null;
+  await copyDir(sourceDir, targetDir);
+  return targetDir;
 }
 
 async function ensurePbsOutput(): Promise<void> {
@@ -1000,17 +1046,24 @@ app.post("/api/pbs/:file/export", async (req, res) => {
   }
 });
 
-const clientDist = clientDistDir();
-if (clientDist) {
-  app.use(express.static(clientDist));
-  app.get("*", (req, res, next) => {
-    if (req.path.startsWith("/api")) return next();
-    const indexPath = path.join(clientDist, "index.html");
-    if (!fileExistsSync(indexPath)) return next();
-    res.sendFile(indexPath);
-  });
-}
+const startServer = async () => {
+  const clientDist = await resolveClientDist();
+  if (clientDist) {
+    app.use(express.static(clientDist));
+    app.get("*", (req, res, next) => {
+      if (req.path.startsWith("/api")) return next();
+      const indexPath = path.join(clientDist, "index.html");
+      if (!fileExistsSync(indexPath)) return next();
+      res.sendFile(indexPath);
+    });
+  }
 
-app.listen(PORT, () => {
-  console.log(`PBS Editor server running on http://localhost:${PORT}`);
+  app.listen(PORT, () => {
+    console.log(`PBS Editor server running on http://localhost:${PORT}`);
+  });
+};
+
+startServer().catch((error) => {
+  console.error("Failed to start PBS Editor server:", error);
+  process.exit(1);
 });

@@ -19,5 +19,8 @@
     "pkg": "^5.8.1",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
+  },
+  "pkg": {
+    "assets": ["../client/dist/**/*"]
   }
 }
