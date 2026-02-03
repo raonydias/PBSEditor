@@ -7,7 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
-    "build:pkg": "tsc -p tsconfig.pkg.json && npx pkg dist-pkg/index.js --targets node18-win-x64 --output ../release/PBSEditor.exe"
+    "build:pkg": "node ../scripts/prepare-pkg.js && tsc -p tsconfig.pkg.json && npx pkg dist-pkg/index.js --targets node18-win-x64 --output ../release/PBSEditor.exe"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -20,7 +20,5 @@
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   },
-  "pkg": {
-    "assets": ["../client/dist/**/*"]
-  }
+  "pkg": {}
 }

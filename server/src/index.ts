@@ -53,6 +53,7 @@ import {
   parseTrainerTypesFile,
   parseTypesFile,
 } from "./pbs.js";
+import { clientBundle } from "./generated/clientBundle.js";
 
 const app = express();
 
@@ -237,30 +238,15 @@ function isPkgRuntime(): boolean {
   return Boolean((process as { pkg?: unknown }).pkg);
 }
 
-function bundledClientDir(): string | null {
-  const candidates = [
-    path.join(__dirname, "..", "client", "dist"),
-    path.join(__dirname, "..", "..", "client", "dist"),
-    path.join(__dirname, "client", "dist"),
-  ];
-  for (const candidate of candidates) {
-    if (fileExistsSync(path.join(candidate, "index.html"))) return candidate;
-  }
-  return null;
-}
-
-async function copyDir(src: string, dest: string): Promise<void> {
-  await fs.mkdir(dest, { recursive: true });
-  const entries = await fs.readdir(src, { withFileTypes: true });
+async function extractClientBundle(targetDir: string): Promise<void> {
+  if (!clientBundle.length) return;
+  await fs.mkdir(targetDir, { recursive: true });
   await Promise.all(
-    entries.map(async (entry) => {
-      const srcPath = path.join(src, entry.name);
-      const destPath = path.join(dest, entry.name);
-      if (entry.isDirectory()) {
-        await copyDir(srcPath, destPath);
-      } else if (entry.isFile()) {
-        await fs.copyFile(srcPath, destPath);
-      }
+    clientBundle.map(async (entry) => {
+      const outPath = path.join(targetDir, entry.path);
+      await fs.mkdir(path.dirname(outPath), { recursive: true });
+      const buffer = Buffer.from(entry.data, "base64");
+      await fs.writeFile(outPath, buffer);
     })
   );
 }
@@ -269,12 +255,19 @@ async function resolveClientDist(): Promise<string | null> {
   if (!isPkgRuntime()) {
     return clientDistDir();
   }
+  console.log("PBS Editor: running in pkg mode.");
   const tempRoot = path.join(os.tmpdir(), "pbs-editor-client");
   const targetDir = path.join(tempRoot, "dist");
-  if (await fileExists(path.join(targetDir, "index.html"))) return targetDir;
-  const sourceDir = bundledClientDir();
-  if (!sourceDir) return null;
-  await copyDir(sourceDir, targetDir);
+  if (await fileExists(path.join(targetDir, "index.html"))) {
+    console.log(`PBS Editor: using cached client at ${targetDir}`);
+    return targetDir;
+  }
+  if (!clientBundle.length) {
+    console.log("PBS Editor: bundled client is empty.");
+    return null;
+  }
+  console.log(`PBS Editor: extracting client to ${targetDir}`);
+  await extractClientBundle(targetDir);
   return targetDir;
 }
 

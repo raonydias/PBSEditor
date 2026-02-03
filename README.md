@@ -1,80 +1,79 @@
-# PBS Editor (Local)
+# PBS Editor
 
-Local, browser-based editor for Pokemon Essentials PBS files. This app reads from `./PBS/` and **never** overwrites those files. All exports go to `./PBS_Output/`.
+Local, browser-based editor for Pokémon Essentials PBS files. Reads from `./PBS/` and exports to either `./PBS_Output/` (safe) or directly to `./PBS/` (opt‑in).
 
-## Quick Start (Dev)
+## Requirements
 
-1. Open a terminal **inside your Essentials project root** (this repo should live there).
-2. Install dependencies:
+- Node.js 18+
+- Run from an Essentials project root (alongside `PBS/`, `Graphics/`, `Audio/`, etc.)
+
+## Dev (two terminals)
 
 ```bash
 npm install
-```
-
-3. Start the backend (terminal A):
-
-```bash
 npm run dev:server
 ```
 
-4. Start the frontend (terminal B):
+In another terminal:
 
 ```bash
 npm run dev:client
 ```
 
-The app runs at `http://localhost:5173` and proxies API calls to the local server at `http://localhost:5174`.
+Open `http://localhost:5173` (API served at `http://localhost:5174`).
 
-### Project Root Detection
-
-The server looks for a `PBS/` folder in:
-1. The current working directory (where you run `npm run dev:server` or `npm run start`)
-2. The parent directory
-3. The grandparent directory
-
-Recommended: run the server from the project root so `PBS/` is found at the same level as `server/`.
-
-## Build + Run (Production)
+## Build & Run from Source
 
 ```bash
 npm run build
 npm run start
 ```
 
-The server will still read from `./PBS/` and export to `./PBS_Output/` relative to where you start it.
+## Release (single EXE)
 
-## Current MVP
+```bash
+npm run release
+```
 
-- `/types` editor (list + edit + export) for `PBS/types.txt`.
-- `/abilities` editor (list + edit + export) for `PBS/abilities.txt`.
-- `/berry-plants` editor (list + edit + export) for `PBS/berry_plants.txt`.
-- `/ribbons` editor (list + edit + export) for `PBS/ribbons.txt`.
-- `/moves` editor (list + edit + export) for `PBS/moves.txt`.
-- `/items` editor (list + edit + export) for `PBS/items.txt`.
-- `/pokemon` skeleton showing Type1/Type2 dropdowns sourced from `types.txt`.
+This produces `release/PBSEditor.exe`. The client is embedded in the exe and extracted to the OS temp folder on first run (no `client/` folder required in the user’s project).
 
-## Export Safety
+## Editors Supported
 
-- The app **never** writes into `PBS/`.
-- Exported files go to `PBS_Output/` only.
-- You manually copy exported files into `PBS/` when you decide to apply changes.
+- Types
+- Abilities
+- Berry Plants
+- Ribbons
+- Moves
+- Items
+- Trainer Types
+- Pokémon
+- Pokémon Forms
+- Encounters
+- Trainers
 
-## Roadmap
+Multi‑file support is implemented (e.g. `items_*.txt`, `moves_*.txt`, etc.) and preserves source files on export.
 
-Next PBS files to support:
-- `pokemon.txt` full editor
-- `trainers.txt`
+## Export Modes
 
-## Add a New Editor Module
+Configured in Settings:
 
-1. Add a parser + exporter in `server/src/pbs.ts` (or new module).
-2. Register the file in `server/src/index.ts` for read/export endpoints.
-3. Create a page in `client/src/pages/` and add a route + sidebar link in `client/src/App.tsx`.
-4. If the editor needs cross-file data, add a loader in `client/src/api.ts` and share in component state.
+- **PBS_Output** (default): writes to `./PBS_Output/` and never touches `PBS/`.
+- **PBS**: writes directly into `./PBS/`. Optional backups are stored in `./PBS_Backup/` with a configurable limit.
+
+## Project Root Detection
+
+The server looks for `PBS/` in:
+
+1. Current working directory
+2. Parent directory
+3. Grandparent directory
+
+Run the server from the project root for predictable behavior.
 
 ## Parser Notes
 
-PBS files are INI-like. The current parser:
+PBS files are INI‑like. The parser:
+
 - Preserves entry ordering.
 - Preserves unknown keys.
-- **Does not preserve comments yet.** This is an intentional MVP limit; comment preservation can be layered in later.
+- Does not preserve comments (except map name in encounters.txt and entry separators).
