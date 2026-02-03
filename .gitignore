@@ -2,7 +2,9 @@ node_modules
 /dist
 /client/dist
 /server/dist
+/server/dist-pkg
 /shared/dist
+/release
 .DS_Store
 .env
 PBS/
