@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { PBSEntry, RibbonsFile, RibbonsMultiFile } from "@pbs/shared";
 import { exportRibbons, getRibbons } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
@@ -193,11 +193,12 @@ export default function RibbonsPage() {
     return errors;
   };
 
+  const deferredEntries = useDeferredValue(data.entries);
   const invalidEntries = useMemo(() => {
-    return data.entries
+    return deferredEntries
       .map((entry) => ({ entry, errors: collectEntryErrors(entry) }))
       .filter((item) => item.errors.length > 0);
-  }, [data.entries]);
+  }, [deferredEntries]);
 
   const hasInvalidEntries = useMemo(() => {
     for (const entry of data.entries) {

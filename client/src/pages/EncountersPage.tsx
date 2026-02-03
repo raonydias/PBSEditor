@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import type {
   EncounterEntry,
   EncounterSlot,
@@ -277,19 +277,20 @@ export default function EncountersPage() {
     return { errors, warnings };
   };
 
+  const deferredEntries = useDeferredValue(data.entries);
   const invalidEntries = useMemo(() => {
-    return data.entries
+    return deferredEntries
       .map((entry) => ({ entry, issues: validateEntry(entry) }))
       .filter(({ issues }) => issues.errors.length > 0)
       .map(({ entry, issues }) => ({ entry, errors: issues.errors }));
-  }, [data.entries, pokemonOptions]);
+  }, [deferredEntries, pokemonOptions]);
 
   const warningEntries = useMemo(() => {
-    return data.entries
+    return deferredEntries
       .map((entry) => ({ entry, issues: validateEntry(entry) }))
       .filter(({ issues }) => issues.warnings.length > 0)
       .map(({ entry, issues }) => ({ entry, warnings: issues.warnings }));
-  }, [data.entries, pokemonOptions]);
+  }, [deferredEntries, pokemonOptions]);
 
   const hasInvalidEntries = invalidEntries.length > 0;
 

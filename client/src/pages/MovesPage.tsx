@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { MovesFile, MovesMultiFile, PBSEntry, TypesFile } from "@pbs/shared";
 import { exportMoves, getMoves, getTypes } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
@@ -305,11 +305,12 @@ export default function MovesPage() {
     return errors;
   };
 
+  const deferredEntries = useDeferredValue(data.entries);
   const invalidEntries = useMemo(() => {
-    return data.entries
+    return deferredEntries
       .map((entry) => ({ entry, errors: collectEntryErrors(entry) }))
       .filter((item) => item.errors.length > 0);
-  }, [data.entries, typeOptions]);
+  }, [deferredEntries, typeOptions]);
 
   const hasInvalidEntries = useMemo(() => {
     for (const entry of data.entries) {

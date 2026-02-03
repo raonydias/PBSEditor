@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { AbilitiesFile, AbilitiesMultiFile, PBSEntry } from "@pbs/shared";
 import { exportAbilities, getAbilities } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
@@ -184,11 +184,12 @@ export default function AbilitiesPage() {
     return errors;
   };
 
+  const deferredEntries = useDeferredValue(data.entries);
   const invalidEntries = useMemo(() => {
-    return data.entries
+    return deferredEntries
       .map((entry) => ({ entry, errors: collectEntryErrors(entry) }))
       .filter((item) => item.errors.length > 0);
-  }, [data.entries]);
+  }, [deferredEntries]);
 
   const hasInvalidEntries = useMemo(() => {
     for (const entry of data.entries) {

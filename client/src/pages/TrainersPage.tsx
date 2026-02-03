@@ -1,5 +1,5 @@
 
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useDeferredValue, useEffect, useMemo, useState } from "react";
 import type {
   TrainerEntry,
   TrainerPokemon,
@@ -281,7 +281,11 @@ export default function TrainersPage() {
     return { entry, errors, warnings };
   };
 
-  const validation = useMemo(() => data.entries.map(validateEntry), [data.entries, pokemonOptions, moveOptions, itemOptions, ballOptions]);
+  const deferredEntries = useDeferredValue(data.entries);
+  const validation = useMemo(
+    () => deferredEntries.map(validateEntry),
+    [deferredEntries, pokemonOptions, moveOptions, itemOptions, ballOptions]
+  );
   const invalidEntries = validation.filter((entry) => entry.errors.length > 0);
   const warningEntries = validation.filter((entry) => entry.warnings.length > 0);
   const hasInvalidEntries = invalidEntries.length > 0;

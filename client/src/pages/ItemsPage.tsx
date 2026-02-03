@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { ItemsFile, ItemsMultiFile, MovesFile, PBSEntry } from "@pbs/shared";
 import { exportItems, getItems, getMoves } from "../api";
@@ -337,11 +337,12 @@ export default function ItemsPage() {
     return errors;
   };
 
+  const deferredEntries = useDeferredValue(data.entries);
   const invalidEntries = useMemo(() => {
-    return data.entries
+    return deferredEntries
       .map((entry) => ({ entry, errors: collectEntryErrors(entry) }))
       .filter((item) => item.errors.length > 0);
-  }, [data.entries, moveOptions]);
+  }, [deferredEntries, moveOptions]);
 
   const hasInvalidEntries = useMemo(() => {
     for (const entry of data.entries) {

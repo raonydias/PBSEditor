@@ -1,5 +1,5 @@
 
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   AbilitiesFile,
   ItemsFile,
@@ -780,11 +780,12 @@ export default function PokemonPage() {
     return errors;
   };
 
+  const deferredEntries = useDeferredValue(data.entries);
   const invalidEntries = useMemo(() => {
-    return data.entries
+    return deferredEntries
       .map((entry) => ({ entry, errors: collectEntryErrors(entry) }))
       .filter((item) => item.errors.length > 0);
-  }, [data.entries, entryErrors, entryIdErrors]);
+  }, [deferredEntries, entryErrors, entryIdErrors]);
 
   const hasInvalidEntries = invalidEntries.length > 0;
 
@@ -2220,31 +2221,11 @@ function PokemonDetail({
             <option key={option} value={option} />
           ))}
         </datalist>
-        <datalist id="ability-options">
-          {abilityOptions.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
-        <datalist id="pokemon-options">
-          {pokemonOptions.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
-        <datalist id="type-options">
-          {typeOptions.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
-        <datalist id="evolution-method-options">
-          {EVOLUTION_METHOD_OPTIONS.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
-        <datalist id="item-options">
-          {itemOptions.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
+        <OptionsDatalist id="ability-options" options={abilityOptions} />
+        <OptionsDatalist id="pokemon-options" options={pokemonOptions} />
+        <OptionsDatalist id="type-options" options={typeOptions} />
+        <OptionsDatalist id="evolution-method-options" options={EVOLUTION_METHOD_OPTIONS} />
+        <OptionsDatalist id="item-options" options={itemOptions} />
       </div>
     </div>
   );
@@ -2260,6 +2241,22 @@ type SelectListFieldProps = {
   datalistId?: string;
   renderDatalist?: boolean;
 };
+
+const OptionsDatalist = memo(function OptionsDatalist({
+  id,
+  options,
+}: {
+  id: string;
+  options: readonly string[];
+}) {
+  return (
+    <datalist id={id}>
+      {options.map((option) => (
+        <option key={option} value={option} />
+      ))}
+    </datalist>
+  );
+});
 
 const SelectListField = memo(function SelectListField({
   label,
@@ -2409,11 +2406,7 @@ const SelectListField = memo(function SelectListField({
             )}
           </div>
           {inputMode === "datalist" && renderDatalist && (
-            <datalist id={resolvedDatalistId}>
-              {options.map((option) => (
-                <option key={option} value={option} />
-              ))}
-            </datalist>
+            <OptionsDatalist id={resolvedDatalistId} options={options} />
           )}
         </div>
       )}

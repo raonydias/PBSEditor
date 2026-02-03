@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useDeferredValue, useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { PBSEntry, TrainerTypesFile, TrainerTypesMultiFile } from "@pbs/shared";
 import { exportTrainerTypes, getBgmFiles, getTrainerTypes } from "../api";
@@ -246,11 +246,12 @@ export default function TrainerTypesPage() {
     return errors;
   };
 
+  const deferredEntries = useDeferredValue(data.entries);
   const invalidEntries = useMemo(() => {
-    return data.entries
+    return deferredEntries
       .map((entry) => ({ entry, errors: collectEntryErrors(entry) }))
       .filter((item) => item.errors.length > 0);
-  }, [data.entries, bgmOptions]);
+  }, [deferredEntries, bgmOptions]);
 
   const hasInvalidEntries = useMemo(() => {
     for (const entry of data.entries) {
