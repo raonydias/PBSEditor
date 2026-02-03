@@ -13,22 +13,21 @@ ensureDir(releaseDir);
 const readme = `# PBS Editor (Release)
 
 ## Quick start
-1) Unzip this folder into the root of your Pokemon Essentials project.
-   - The folder should be alongside PBS/, Graphics/, Audio/, etc.
-2) Run PBSEditor.exe.
-3) Open http://localhost:5174 in your browser.
+1) Unzip this folder into the root of your Pokémon Essentials project.
+   - It should sit alongside \`PBS/\`, \`Graphics/\`, \`Audio/\`, etc.
+2) Run \`PBSEditor.exe\`.
+3) Open \`http://localhost:5174\`.
 
-## Behavior
-- Reads from ./PBS/
-- Writes exports to ./PBS_Output/
-- Never overwrites your original PBS files.
+## Export modes
+- **PBS_Output** (default): writes to \`PBS_Output/\` only.
+- **PBS**: writes directly into \`PBS/\` (optional backups in \`PBS_Backup/\`).
 
 ## Stop the server
-- Close the terminal window running PBSEditor.exe.
+- Close the terminal window running \`PBSEditor.exe\`.
 
 ## Troubleshooting
 - If Windows Firewall prompts, allow access for localhost.
-- If the page does not load, make sure PBSEditor.exe is still running.
+- If the page does not load, make sure \`PBSEditor.exe\` is still running.
 `;
 fs.writeFileSync(readmePath, readme, "utf8");
 
