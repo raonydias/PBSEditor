@@ -1,5 +1,5 @@
 
-import { memo, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import type {
   TrainerEntry,
   TrainerPokemon,
@@ -281,14 +281,26 @@ export default function TrainersPage() {
     return { entry, errors, warnings };
   };
 
-  const deferredEntries = useDeferredValue(data.entries);
-  const validation = useMemo(
-    () => deferredEntries.map(validateEntry),
-    [deferredEntries, pokemonOptions, moveOptions, itemOptions, ballOptions]
+  const [validationResults, setValidationResults] = useState<
+    Array<{ entry: TrainerEntry; errors: string[]; warnings: string[] }>
+  >([]);
+  const [isValidating, setIsValidating] = useState(false);
+  const computeValidation = (entries: TrainerEntry[]) => entries.map(validateEntry);
+  const invalidEntries = useMemo(
+    () => validationResults.filter((entry) => entry.errors.length > 0),
+    [validationResults]
   );
-  const invalidEntries = validation.filter((entry) => entry.errors.length > 0);
-  const warningEntries = validation.filter((entry) => entry.warnings.length > 0);
+  const warningEntries = useMemo(
+    () => validationResults.filter((entry) => entry.warnings.length > 0),
+    [validationResults]
+  );
   const hasInvalidEntries = invalidEntries.length > 0;
+
+  useEffect(() => {
+    if (validationResults.length > 0) {
+      setValidationResults([]);
+    }
+  }, [data.entries]);
 
   const isActiveEntryDirty = useMemo(() => {
     if (!activeEntry) return false;
@@ -381,10 +393,18 @@ export default function TrainersPage() {
   };
 
   const handleExport = async () => {
-    if (idError || hasInvalidEntries) return;
     setStatus(null);
     setError(null);
     try {
+      setIsValidating(true);
+      setStatus("Validating...");
+      const validation = computeValidation(data.entries);
+      setIsValidating(false);
+      setValidationResults(validation);
+      if (validation.some((entry) => entry.errors.length > 0)) {
+        setStatus("Fix validation issues before exporting.");
+        return;
+      }
       await exportTrainers(data, settings);
       const target = settings.exportMode === "PBS" ? "PBS/" : "PBS_Output/";
 
@@ -393,6 +413,7 @@ export default function TrainersPage() {
       setBaselineEntries(data.entries);
       dirty.setDirty("trainers", false);
     } catch (err) {
+      setIsValidating(false);
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
     }
@@ -632,7 +653,11 @@ export default function TrainersPage() {
           <button className="ghost reset" onClick={handleResetEntry} disabled={!isActiveEntryDirty}>
             Reset
           </button>
-          <button className="primary" onClick={handleExport} disabled={Boolean(idError) || hasInvalidEntries}>
+          <button
+            className="primary"
+            onClick={handleExport}
+            disabled={Boolean(idError) || hasInvalidEntries || isValidating}
+          >
             Export trainers.txt
           </button>
         </div>

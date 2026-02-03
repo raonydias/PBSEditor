@@ -1,4 +1,4 @@
-import { memo, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { ItemsFile, ItemsMultiFile, MovesFile, PBSEntry } from "@pbs/shared";
 import { exportItems, getItems, getMoves } from "../api";
@@ -337,21 +337,21 @@ export default function ItemsPage() {
     return errors;
   };
 
-  const deferredEntries = useDeferredValue(data.entries);
-  const invalidEntries = useMemo(() => {
-    return deferredEntries
+  const [validationIssues, setValidationIssues] = useState<Array<{ entry: PBSEntry; errors: string[] }>>([]);
+  const [isValidating, setIsValidating] = useState(false);
+  const computeInvalidEntries = (entries: PBSEntry[]) => {
+    return entries
       .map((entry) => ({ entry, errors: collectEntryErrors(entry) }))
       .filter((item) => item.errors.length > 0);
-  }, [deferredEntries, moveOptions]);
+  };
+  const invalidEntries = useMemo(() => validationIssues, [validationIssues]);
+  const hasInvalidEntries = validationIssues.length > 0;
 
-  const hasInvalidEntries = useMemo(() => {
-    for (const entry of data.entries) {
-      if (Object.keys(validateEntryFields(entry)).length > 0) return true;
-      const idErrorMessage = validateEntryId(entry, entry.id);
-      if (idErrorMessage) return true;
+  useEffect(() => {
+    if (validationIssues.length > 0) {
+      setValidationIssues([]);
     }
-    return false;
-  }, [data.entries, moveOptions]);
+  }, [data.entries]);
 
   const isActiveEntryDirty = useMemo(() => {
     if (!activeEntry) return false;
@@ -456,6 +456,16 @@ export default function ItemsPage() {
     setStatus(null);
     setError(null);
     try {
+      setIsValidating(true);
+      setStatus("Validating...");
+      const issues = computeInvalidEntries(data.entries);
+      setIsValidating(false);
+      if (issues.length > 0) {
+        setValidationIssues(issues);
+        setStatus("Fix validation issues before exporting.");
+        return;
+      }
+      setValidationIssues([]);
       const exportData = buildExportData(data);
       await exportItems(exportData, settings);
       const nextSnap = serializeEntries(data.entries);
@@ -466,6 +476,7 @@ export default function ItemsPage() {
 
       setStatus(`Exported item files to ${target}`);
     } catch (err) {
+      setIsValidating(false);
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
     }
@@ -882,7 +893,11 @@ export default function ItemsPage() {
           <button className="ghost reset" onClick={handleResetEntry} disabled={!isActiveEntryDirty}>
             Reset
           </button>
-          <button className="primary" onClick={handleExport} disabled={Boolean(idError) || hasInvalidEntries}>
+          <button
+            className="primary"
+            onClick={handleExport}
+            disabled={Boolean(idError) || hasInvalidEntries || isValidating}
+          >
             Export items.txt
           </button>
         </div>

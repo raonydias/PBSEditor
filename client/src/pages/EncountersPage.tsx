@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   EncounterEntry,
   EncounterSlot,
@@ -277,22 +277,33 @@ export default function EncountersPage() {
     return { errors, warnings };
   };
 
-  const deferredEntries = useDeferredValue(data.entries);
-  const invalidEntries = useMemo(() => {
-    return deferredEntries
-      .map((entry) => ({ entry, issues: validateEntry(entry) }))
-      .filter(({ issues }) => issues.errors.length > 0)
-      .map(({ entry, issues }) => ({ entry, errors: issues.errors }));
-  }, [deferredEntries, pokemonOptions]);
-
-  const warningEntries = useMemo(() => {
-    return deferredEntries
-      .map((entry) => ({ entry, issues: validateEntry(entry) }))
-      .filter(({ issues }) => issues.warnings.length > 0)
-      .map(({ entry, issues }) => ({ entry, warnings: issues.warnings }));
-  }, [deferredEntries, pokemonOptions]);
-
+  const [validationResults, setValidationResults] = useState<
+    Array<{ entry: EncounterEntry; issues: { errors: string[]; warnings: string[] } }>
+  >([]);
+  const [isValidating, setIsValidating] = useState(false);
+  const computeValidation = (entries: EncounterEntry[]) =>
+    entries.map((entry) => ({ entry, issues: validateEntry(entry) }));
+  const invalidEntries = useMemo(
+    () =>
+      validationResults
+        .filter(({ issues }) => issues.errors.length > 0)
+        .map(({ entry, issues }) => ({ entry, errors: issues.errors })),
+    [validationResults]
+  );
+  const warningEntries = useMemo(
+    () =>
+      validationResults
+        .filter(({ issues }) => issues.warnings.length > 0)
+        .map(({ entry, issues }) => ({ entry, warnings: issues.warnings })),
+    [validationResults]
+  );
   const hasInvalidEntries = invalidEntries.length > 0;
+
+  useEffect(() => {
+    if (validationResults.length > 0) {
+      setValidationResults([]);
+    }
+  }, [data.entries]);
 
   const isActiveEntryDirty = useMemo(() => {
     if (!activeEntry) return false;
@@ -384,10 +395,18 @@ export default function EncountersPage() {
   };
 
   const handleExport = async () => {
-    if (idError || hasInvalidEntries) return;
     setStatus(null);
     setError(null);
     try {
+      setIsValidating(true);
+      setStatus("Validating...");
+      const validation = computeValidation(data.entries);
+      setIsValidating(false);
+      setValidationResults(validation);
+      if (validation.some(({ issues }) => issues.errors.length > 0)) {
+        setStatus("Fix validation issues before exporting.");
+        return;
+      }
       const normalized = normalizeEncounterOrder(data.entries);
       await exportEncounters({ entries: normalized }, settings);
       const target = settings.exportMode === "PBS" ? "PBS/" : "PBS_Output/";
@@ -399,6 +418,7 @@ export default function EncountersPage() {
       setSnapshot(snap);
       dirty.setDirty("encounters", false);
     } catch (err) {
+      setIsValidating(false);
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
     }
@@ -641,7 +661,11 @@ export default function EncountersPage() {
           <button className="ghost reset" onClick={handleResetEntry} disabled={!isActiveEntryDirty}>
             Reset
           </button>
-          <button className="primary" onClick={handleExport} disabled={Boolean(idError) || hasInvalidEntries}>
+          <button
+            className="primary"
+            onClick={handleExport}
+            disabled={Boolean(idError) || hasInvalidEntries || isValidating}
+          >
             Export encounters.txt
           </button>
         </div>

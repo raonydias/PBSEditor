@@ -1,5 +1,5 @@
 
-import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   AbilitiesFile,
   ItemsFile,
@@ -765,6 +765,7 @@ export default function PokemonPage() {
     }
     setEntryErrors(nextFieldErrors);
     setEntryIdErrors(nextIdErrors);
+    return { nextFieldErrors, nextIdErrors };
   };
 
   const fieldErrors = activeEntry ? entryErrors[activeEntry.id] ?? {} : {};
@@ -780,14 +781,16 @@ export default function PokemonPage() {
     return errors;
   };
 
-  const deferredEntries = useDeferredValue(data.entries);
-  const invalidEntries = useMemo(() => {
-    return deferredEntries
-      .map((entry) => ({ entry, errors: collectEntryErrors(entry) }))
-      .filter((item) => item.errors.length > 0);
-  }, [deferredEntries, entryErrors, entryIdErrors]);
+  const [validationIssues, setValidationIssues] = useState<Array<{ entry: PBSEntry; errors: string[] }>>([]);
+  const [isValidating, setIsValidating] = useState(false);
+  const invalidEntries = useMemo(() => validationIssues, [validationIssues]);
+  const hasInvalidEntries = validationIssues.length > 0;
 
-  const hasInvalidEntries = invalidEntries.length > 0;
+  useEffect(() => {
+    if (validationIssues.length > 0) {
+      setValidationIssues([]);
+    }
+  }, [data.entries]);
 
   const isActiveEntryDirty = useMemo(() => {
     if (!activeEntry) return false;
@@ -839,6 +842,27 @@ export default function PokemonPage() {
     setStatus(null);
     setError(null);
     try {
+      setIsValidating(true);
+      setStatus("Validating...");
+      const { nextFieldErrors, nextIdErrors } = validateAllEntries();
+      const issues = data.entries
+        .map((entry) => {
+          const errors: string[] = [];
+          const idErrorMessage = nextIdErrors[entry.id];
+          if (idErrorMessage) errors.push(`ID: ${idErrorMessage}`);
+          const fieldErrorMap = nextFieldErrors[entry.id] ?? {};
+          for (const [key, message] of Object.entries(fieldErrorMap)) {
+            errors.push(`${key}: ${message}`);
+          }
+          return { entry, errors };
+        })
+        .filter((item) => item.errors.length > 0);
+      setIsValidating(false);
+      setValidationIssues(issues);
+      if (issues.length > 0) {
+        setStatus("Fix validation issues before exporting.");
+        return;
+      }
       await exportPokemon(data, settings);
       const nextSnap = serializeEntries(data.entries);
       setSnapshot(nextSnap);
@@ -847,6 +871,7 @@ export default function PokemonPage() {
       const target = settings.exportMode === "PBS" ? "PBS/" : "PBS_Output/";
       setStatus(`Exported Pokemon files to ${target}`);
     } catch (err) {
+      setIsValidating(false);
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
     }
@@ -1281,7 +1306,11 @@ export default function PokemonPage() {
           <button className="ghost reset" onClick={handleResetEntry} disabled={!isActiveEntryDirty}>
             Reset
           </button>
-          <button className="primary" onClick={handleExport} disabled={Boolean(idError) || hasInvalidEntries}>
+          <button
+            className="primary"
+            onClick={handleExport}
+            disabled={Boolean(idError) || hasInvalidEntries || isValidating}
+          >
             Export pokemon.txt
           </button>
           {hasInvalidEntries && <span className="muted">Fix validation issues before export.</span>}
