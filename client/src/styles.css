@@ -1,6 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Space+Mono&display=swap");
 
-:root {
+:root,
+body[data-theme="umbreon"] {
     --bg: #0f1014;
     --bg-alt: #151821;
     --panel: #1e2330;
@@ -11,6 +12,59 @@
     --muted: #a7b0c0;
     --danger: #ff6b6b;
     --success: #8ef0b0;
+    --app-bg: radial-gradient(circle at top left, #22283a 0%, #0f1014 55%);
+    --input-bg: #121620;
+    --input-border: #2b3245;
+    --input-text: #f6f1e6;
+    --input-placeholder: #7b8497;
+    --ghost-border: #2b3245;
+    --ghost-text: #f6f1e6;
+    --ghost-reset-bg: #2b3245;
+    --ghost-reset-text: #f6f1e6;
+}
+
+body[data-theme="daylight"] {
+    --bg: #f5f1e6;
+    --bg-alt: #efe6d4;
+    --panel: #fff9ee;
+    --panel-soft: #f6f0e1;
+    --accent: #e08a3f;
+    --accent-dark: #b9682b;
+    --text: #262625;
+    --muted: #6b6b68;
+    --danger: #d64545;
+    --success: #2f9e62;
+    --app-bg: radial-gradient(circle at top left, #fff3d9 0%, #f5f1e6 60%);
+    --input-bg: #ffffff;
+    --input-border: #c8bba6;
+    --input-text: #262625;
+    --input-placeholder: #8b8173;
+    --ghost-border: #bfae96;
+    --ghost-text: #262625;
+    --ghost-reset-bg: #d9cfbf;
+    --ghost-reset-text: #262625;
+}
+
+body[data-theme="pokeball"] {
+    --bg: #121212;
+    --bg-alt: #1b1b1b;
+    --panel: #232323;
+    --panel-soft: #2c2c2c;
+    --accent: #e34b4b;
+    --accent-dark: #b83a3a;
+    --text: #f3f3f3;
+    --muted: #b7b7b7;
+    --danger: #ff6b6b;
+    --success: #7adf9b;
+    --app-bg: radial-gradient(circle at top left, #3b0f0f 0%, #121212 55%);
+    --input-bg: #111111;
+    --input-border: #3b3b3b;
+    --input-text: #f3f3f3;
+    --input-placeholder: #8a8a8a;
+    --ghost-border: #3b3b3b;
+    --ghost-text: #f3f3f3;
+    --ghost-reset-bg: #2c2c2c;
+    --ghost-reset-text: #f3f3f3;
 }
 
 * {
@@ -21,7 +75,7 @@ body {
     margin: 0;
     font-family: "Space Grotesk", sans-serif;
     color: var(--text);
-    background: radial-gradient(circle at top left, #22283a 0%, #0f1014 55%);
+    background: var(--app-bg);
     min-height: 100vh;
 }
 
@@ -337,12 +391,16 @@ body {
 }
 
 .input {
-    background: #121620;
-    border: 1px solid #2b3245;
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
     border-radius: 10px;
     padding: 10px 12px;
-    color: var(--text);
+    color: var(--input-text);
     font-family: "Space Mono", monospace;
+}
+
+.input::placeholder {
+    color: var(--input-placeholder);
 }
 
 
@@ -396,17 +454,17 @@ body {
 
 .ghost {
     background: transparent;
-    border: 1px solid #2b3245;
-    color: var(--text);
+    border: 1px solid var(--ghost-border);
+    color: var(--ghost-text);
     padding: 8px 12px;
     border-radius: 10px;
     cursor: pointer;
 }
 
 .ghost.reset {
-    background: #2b3245;
-    border-color: #2b3245;
-    color: var(--text);
+    background: var(--ghost-reset-bg);
+    border-color: var(--ghost-reset-bg);
+    color: var(--ghost-reset-text);
 }
 
 .ghost.top {

@@ -1,9 +1,9 @@
 import { useSettings } from "../settings";
 
 const THEME_OPTIONS = [
-  { value: "nocturne", label: "Nocturne (default)" },
-  { value: "ember", label: "Ember" },
-  { value: "slate", label: "Slate" },
+  { value: "umbreon", label: "Umbreon (default)" },
+  { value: "daylight", label: "Daylight" },
+  { value: "pokeball", label: "Poké Ball" },
 ];
 
 export default function SettingsModal() {

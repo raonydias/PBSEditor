@@ -21,7 +21,7 @@ type SettingsContextValue = {
 
 const STORAGE_KEY = "pbs-editor-settings";
 const DEFAULT_SETTINGS: AppSettings = {
-  theme: "nocturne",
+  theme: "umbreon",
   images: true,
   animations: true,
   exportMode: "PBS_Output",
@@ -36,8 +36,10 @@ const readSettings = (): AppSettings => {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_SETTINGS;
     const parsed = JSON.parse(raw) as Partial<AppSettings>;
+    const resolvedTheme =
+      parsed.theme === "nocturne" ? "umbreon" : parsed.theme ?? DEFAULT_SETTINGS.theme;
     return {
-      theme: parsed.theme ?? DEFAULT_SETTINGS.theme,
+      theme: resolvedTheme,
       images: parsed.images ?? DEFAULT_SETTINGS.images,
       animations: parsed.animations ?? DEFAULT_SETTINGS.animations,
       exportMode: parsed.exportMode ?? DEFAULT_SETTINGS.exportMode,
