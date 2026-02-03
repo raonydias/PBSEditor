@@ -652,16 +652,29 @@ export function exportPokemonFile(data: PokemonFile): string {
     const fieldMap = new Map(entry.fields.map((field) => [field.key, field.value]));
     const seen = new Set<string>();
     for (const key of order) {
-      const value = fieldMap.get(key);
+      let value = fieldMap.get(key);
       if (value === undefined) continue;
       seen.add(key);
       if (value.trim() === "") continue;
+      if (key === "Types") {
+        const parts = value.split(",").map((part) => part.trim()).filter(Boolean);
+        if (parts.length >= 2 && parts[0] === parts[1]) {
+          value = parts[0];
+        }
+      }
       lines.push(`${key} = ${value}`);
     }
     for (const field of entry.fields) {
       if (seen.has(field.key)) continue;
       if (field.value.trim() === "") continue;
-      lines.push(`${field.key} = ${field.value}`);
+      let value = field.value;
+      if (field.key === "Types") {
+        const parts = value.split(",").map((part) => part.trim()).filter(Boolean);
+        if (parts.length >= 2 && parts[0] === parts[1]) {
+          value = parts[0];
+        }
+      }
+      lines.push(`${field.key} = ${value}`);
     }
     lines.push("#-------------------------------");
   }
@@ -713,16 +726,29 @@ export function exportPokemonFormsFile(data: PokemonFormsFile): string {
     const fieldMap = new Map(entry.fields.map((field) => [field.key, field.value]));
     const seen = new Set<string>();
     for (const key of order) {
-      const value = fieldMap.get(key);
+      let value = fieldMap.get(key);
       if (value === undefined) continue;
       seen.add(key);
       if (value.trim() === "") continue;
+      if (key === "Types") {
+        const parts = value.split(",").map((part) => part.trim()).filter(Boolean);
+        if (parts.length >= 2 && parts[0] === parts[1]) {
+          value = parts[0];
+        }
+      }
       lines.push(`${key} = ${value}`);
     }
     for (const field of entry.fields) {
       if (seen.has(field.key)) continue;
       if (field.value.trim() === "") continue;
-      lines.push(`${field.key} = ${field.value}`);
+      let value = field.value;
+      if (field.key === "Types") {
+        const parts = value.split(",").map((part) => part.trim()).filter(Boolean);
+        if (parts.length >= 2 && parts[0] === parts[1]) {
+          value = parts[0];
+        }
+      }
+      lines.push(`${field.key} = ${value}`);
     }
     lines.push("#-------------------------------");
   }

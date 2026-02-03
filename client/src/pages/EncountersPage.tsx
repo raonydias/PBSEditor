@@ -580,7 +580,11 @@ export default function EncountersPage() {
                       Go to entry
                     </button>
                   </div>
-                  <div className="muted">{errors.join("\n")}</div>
+                  <div className="muted">
+                    {errors.map((message, index) => (
+                      <div key={`${entry.id}-${index}`}>{message}</div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>

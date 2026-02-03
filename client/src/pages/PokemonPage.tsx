@@ -1,5 +1,5 @@
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   AbilitiesFile,
   ItemsFile,
@@ -364,6 +364,7 @@ export default function PokemonPage() {
     return data.entries.find((entry) => entry.id === activeId) ?? null;
   }, [data.entries, activeId]);
 
+
   const filteredEntries = useMemo(() => {
     const needle = filter.trim().toUpperCase();
     const sourceFiltered =
@@ -654,8 +655,6 @@ export default function PokemonPage() {
     const eggGroups = splitList(getField("EggGroups"));
     if (eggGroups.length === 0) {
       errors.EggGroups = "EggGroups is required.";
-    } else if (eggGroups.some((value) => !EGG_GROUP_OPTIONS.includes(value as (typeof EGG_GROUP_OPTIONS)[number]))) {
-      errors.EggGroups = "EggGroups must be valid options.";
     }
 
     const hatchSteps = getField("HatchSteps").trim();
@@ -1232,11 +1231,21 @@ export default function PokemonPage() {
                 <div key={entry.id} className="list-field">
                   <div className="list-field-row">
                     <strong>{entry.id}</strong>
-                    <button className="ghost" onClick={() => setActiveId(entry.id)}>
+                    <button
+                      className="ghost"
+                      onClick={() => {
+                        setActiveId(entry.id);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                    >
                       Go to entry
                     </button>
                   </div>
-                  <div className="muted">{errors.join(" • ")}</div>
+                  <div className="muted">
+                    {errors.map((message, index) => (
+                      <div key={`${entry.id}-${index}`}>{message}</div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1336,6 +1345,7 @@ function PokemonDetail({
     };
   }, []);
 
+
   const scheduleValidate = () => {
     if (validateTimer.current !== null) {
       window.clearTimeout(validateTimer.current);
@@ -1396,10 +1406,12 @@ function PokemonDetail({
       setFieldValue("Types", "");
       return;
     }
-    if (secondary && secondary !== "NONE") {
-      setFieldValue("Types", `${primary},${secondary}`);
+    const safePrimary = primary.toUpperCase();
+    const safeSecondary = secondary.toUpperCase();
+    if (safeSecondary && safeSecondary !== "NONE") {
+      setFieldValue("Types", `${safePrimary},${safeSecondary}`);
     } else {
-      setFieldValue("Types", primary);
+      setFieldValue("Types", safePrimary);
     }
   };
 
@@ -1475,7 +1487,7 @@ function PokemonDetail({
         />
       </div>
       <div className="field-list">
-        <div className="field-row single">
+        <div className="field-row single" data-field-key="ID">
           <label className="label">{formatKeyLabel("Pokemon ID")}</label>
           <input
             className="input"
@@ -1497,7 +1509,7 @@ function PokemonDetail({
         {getOrderedFields(entry.fields, DISPLAY_FIELD_ORDER).map((field, index) => {
           if (field.key === "Name") {
             return (
-              <div key={`${field.key}-${index}`} className="field-row">
+              <div key={`${field.key}-${index}`} className="field-row" data-field-key="Name">
                 <input className="input key-label" value={formatKeyLabel("Name")} readOnly tabIndex={-1} />
                 <input
                   className="input"
@@ -1511,7 +1523,7 @@ function PokemonDetail({
 
           if (field.key === "FormName") {
             return (
-              <div key={`${field.key}-${index}`} className="field-row">
+              <div key={`${field.key}-${index}`} className="field-row" data-field-key="FormName">
                 <input className="input key-label" value={formatKeyLabel("FormName")} readOnly tabIndex={-1} />
                 <input
                   className="input"
@@ -1523,37 +1535,39 @@ function PokemonDetail({
           }
 
           if (field.key === "Types") {
+            const typesMatch = primaryType && secondaryType && primaryType === secondaryType;
             return (
-              <div key={`${field.key}-${index}`} className="field-row">
+              <div key={`${field.key}-${index}`} className="field-row" data-field-key="Types">
                 <input className="input key-label" value={formatKeyLabel("PrimaryType")} readOnly tabIndex={-1} />
-                <select
+                <input
                   className="input"
+                  list="type-options"
                   value={primaryType || ""}
-                  onChange={(event) => updateTypes(event.target.value, secondaryType)}
-                >
-                  {typeOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-                {fieldErrors.Types && <span className="field-error">{fieldErrors.Types}</span>}
+                  onChange={(event) => updateTypes(event.target.value.toUpperCase(), secondaryType)}
+                />
                 {primaryType && (
                   <>
                     <input className="input key-label" value={formatKeyLabel("SecondaryType")} readOnly tabIndex={-1} />
-                    <select
+                    <input
                       className="input"
-                      value={secondaryType || "NONE"}
-                      onChange={(event) => updateTypes(primaryType, event.target.value)}
-                    >
-                      <option value="NONE">(None)</option>
-                      {typeOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
+                      list="type-options"
+                      value={secondaryType || ""}
+                      placeholder="(None)"
+                      onChange={(event) => updateTypes(primaryType, event.target.value.toUpperCase())}
+                    />
                   </>
+                )}
+                {fieldErrors.Types && (
+                  <div className="field-row single">
+                    <span className="field-error">{fieldErrors.Types}</span>
+                  </div>
+                )}
+                {typesMatch && (
+                  <div className="field-row single">
+                    <span className="field-warning">
+                      SecondaryType matches PrimaryType; export will use PrimaryType only.
+                    </span>
+                  </div>
                 )}
               </div>
             );
@@ -1622,7 +1636,7 @@ function PokemonDetail({
 
           if (field.key === "BaseStats") {
             return (
-              <div key={`${field.key}-${index}`} className="list-field">
+              <div key={`${field.key}-${index}`} className="list-field" data-field-key="BaseStats">
                 <div className="list-field-label">BASE STATS</div>
                 <div className="stats-grid">
                   {STAT_DISPLAY.map((stat, displayIndex) => (
@@ -2201,6 +2215,11 @@ function PokemonDetail({
             </div>
           );
         })}
+        <datalist id="type-options">
+          {typeOptions.map((option) => (
+            <option key={option} value={option} />
+          ))}
+        </datalist>
         <datalist id="ability-options">
           {abilityOptions.map((option) => (
             <option key={option} value={option} />
@@ -2242,7 +2261,7 @@ type SelectListFieldProps = {
   renderDatalist?: boolean;
 };
 
-function SelectListField({
+const SelectListField = memo(function SelectListField({
   label,
   value,
   options,
@@ -2255,6 +2274,7 @@ function SelectListField({
   const displayLabel = formatKeyLabel(label);
   const items = splitList(value);
   const [draft, setDraft] = useState("");
+  const [drafts, setDrafts] = useState<Record<number, string>>({});
   const canCollapse = items.length > 5;
   const [collapsed, setCollapsed] = useState(canCollapse);
   const resolvedDatalistId = datalistId ?? `${label}-options`;
@@ -2262,6 +2282,9 @@ function SelectListField({
   useEffect(() => {
     if (!canCollapse) setCollapsed(false);
   }, [canCollapse]);
+  useEffect(() => {
+    setDrafts({});
+  }, [value]);
 
   const updateAt = (index: number, next: string) => {
     if (!next) return;
@@ -2273,6 +2296,26 @@ function SelectListField({
     }
     const deduped = nextItems.filter((item, idx) => nextItems.indexOf(item) === idx);
     onChange(deduped.join(","));
+  };
+
+  const commitAt = (index: number) => {
+    const next = (drafts[index] ?? items[index] ?? "").trim();
+    if (!next) {
+      setDrafts((prev) => {
+        if (!(index in prev)) return prev;
+        const updated = { ...prev };
+        delete updated[index];
+        return updated;
+      });
+      return;
+    }
+    updateAt(index, next);
+    setDrafts((prev) => {
+      if (!(index in prev)) return prev;
+      const updated = { ...prev };
+      delete updated[index];
+      return updated;
+    });
   };
 
   const commitDraft = () => {
@@ -2306,8 +2349,17 @@ function SelectListField({
                 <input
                   className="input"
                   list={resolvedDatalistId}
-                  value={item}
-                  onChange={(event) => updateAt(index, event.target.value)}
+                  value={drafts[index] ?? item}
+                  onChange={(event) =>
+                    setDrafts((prev) => ({ ...prev, [index]: event.target.value }))
+                  }
+                  onBlur={() => commitAt(index)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitAt(index);
+                    }
+                  }}
                 />
               ) : (
                 <select
@@ -2368,7 +2420,7 @@ function SelectListField({
       {error && <span className="field-error">{error}</span>}
     </div>
   );
-}
+});
 
 type ListFieldEditorProps = {
   label: string;
@@ -2378,16 +2430,20 @@ type ListFieldEditorProps = {
   error?: string;
 };
 
-function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEditorProps) {
+const ListFieldEditor = memo(function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEditorProps) {
   const displayLabel = formatKeyLabel(label);
   const items = splitList(value);
   const [draft, setDraft] = useState("");
+  const [drafts, setDrafts] = useState<Record<number, string>>({});
   const canCollapse = items.length > 5;
   const [collapsed, setCollapsed] = useState(canCollapse);
 
   useEffect(() => {
     if (!canCollapse) setCollapsed(false);
   }, [canCollapse]);
+  useEffect(() => {
+    setDrafts({});
+  }, [value]);
 
   const handleSelectChange = (index: number, next: string) => {
     const normalized = normalizeOption(next, options);
@@ -2410,6 +2466,26 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
     setDraft("");
   };
 
+  const commitAt = (index: number) => {
+    const next = (drafts[index] ?? items[index] ?? "").trim();
+    if (!next) {
+      setDrafts((prev) => {
+        if (!(index in prev)) return prev;
+        const updated = { ...prev };
+        delete updated[index];
+        return updated;
+      });
+      return;
+    }
+    handleSelectChange(index, next);
+    setDrafts((prev) => {
+      if (!(index in prev)) return prev;
+      const updated = { ...prev };
+      delete updated[index];
+      return updated;
+    });
+  };
+
   return (
     <div className="list-field">
       <div className="list-field-header">
@@ -2427,8 +2503,17 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
             <input
               className="input"
               list={`${label}-options`}
-              value={item}
-              onChange={(event) => handleSelectChange(index, event.target.value)}
+              value={drafts[index] ?? item}
+              onChange={(event) =>
+                setDrafts((prev) => ({ ...prev, [index]: event.target.value }))
+              }
+              onBlur={() => commitAt(index)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  commitAt(index);
+                }
+              }}
             />
             <datalist id={`${label}-options`}>
               {options.map((option) => (
@@ -2468,7 +2553,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
       {error && <span className="field-error">{error}</span>}
     </div>
   );
-}
+});
 
 function splitList(value: string) {
   return value

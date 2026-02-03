@@ -356,6 +356,7 @@ export default function PokemonFormsPage() {
   const [snapshot, setSnapshot] = useState<string | null>(null);
   const [entryErrors, setEntryErrors] = useState<Record<string, Record<string, string>>>({});
   const [entryIdErrors, setEntryIdErrors] = useState<Record<string, string | null>>({});
+  const entryIndexRef = useRef<Map<string, number>>(new Map());
   const [baselineEntries, setBaselineEntries] = useState<PBSEntry[]>([]);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showAddSourceModal, setShowAddSourceModal] = useState(false);
@@ -434,6 +435,7 @@ export default function PokemonFormsPage() {
     return data.entries.find((entry) => entry.id === activeId) ?? null;
   }, [data.entries, activeId]);
 
+
   const filteredEntries = useMemo(() => {
     const needle = filter.trim().toUpperCase();
     const sourceFiltered =
@@ -443,6 +445,14 @@ export default function PokemonFormsPage() {
     if (!needle) return sourceFiltered;
     return sourceFiltered.filter((entry) => entry.id.includes(needle));
   }, [data.entries, filter, activeSource]);
+
+  useEffect(() => {
+    const next = new Map<string, number>();
+    data.entries.forEach((entry, index) => {
+      next.set(entry.id, index);
+    });
+    entryIndexRef.current = next;
+  }, [data.entries]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -463,7 +473,13 @@ export default function PokemonFormsPage() {
   const updateEntry = (updated: PBSEntry) => {
     setData((prev) => ({
       ...prev,
-      entries: prev.entries.map((entry) => (entry.id === updated.id ? updated : entry)),
+      entries: (() => {
+        const index = entryIndexRef.current.get(updated.id);
+        if (index == null) return prev.entries;
+        const nextEntries = prev.entries.slice();
+        nextEntries[index] = updated;
+        return nextEntries;
+      })(),
     }));
   };
 
@@ -483,12 +499,20 @@ export default function PokemonFormsPage() {
     const nextId = buildFormId(pokemonId, formNumber);
     setData((prev) => ({
       ...prev,
-      entries: prev.entries.map((item) => {
-        if (item.id !== entry.id) return item;
-        if (!resetFields) return { ...item, id: nextId };
+      entries: (() => {
+        const index = entryIndexRef.current.get(entry.id);
+        if (index == null) return prev.entries;
+        const nextEntries = prev.entries.slice();
+        const item = nextEntries[index];
+        if (!item) return prev.entries;
+        if (!resetFields) {
+          nextEntries[index] = { ...item, id: nextId };
+          return nextEntries;
+        }
         const nextFields = resetFormFields(item.fields, pokemonId, pokemon.entries);
-        return { ...item, id: nextId, fields: nextFields };
-      }),
+        nextEntries[index] = { ...item, id: nextId, fields: nextFields };
+        return nextEntries;
+      })(),
     }));
     setActiveId(nextId);
     setEntryErrors((prev) => {
@@ -702,8 +726,8 @@ export default function PokemonFormsPage() {
     }
 
     const eggGroups = splitList(getField("EggGroups"));
-    if (eggGroups.length && eggGroups.some((value) => !EGG_GROUP_OPTIONS.includes(value as (typeof EGG_GROUP_OPTIONS)[number]))) {
-      errors.EggGroups = "EggGroups must be valid options.";
+    if (eggGroups.length === 0) {
+      errors.EggGroups = "EggGroups is required.";
     }
 
     const hatchSteps = getField("HatchSteps").trim();
@@ -900,7 +924,13 @@ export default function PokemonFormsPage() {
     }
     const cloned = JSON.parse(JSON.stringify(baseline)) as PBSEntry;
     setData((prev) => ({
-      entries: prev.entries.map((entry) => (entry.id === activeEntry.id ? cloned : entry)),
+      entries: (() => {
+        const index = entryIndexRef.current.get(activeEntry.id);
+        if (index == null) return prev.entries;
+        const nextEntries = prev.entries.slice();
+        nextEntries[index] = cloned;
+        return nextEntries;
+      })(),
     }));
     setStatus(`Reset ${activeEntry.id}.`);
   };
@@ -1302,11 +1332,21 @@ export default function PokemonFormsPage() {
                 <div key={entry.id} className="list-field">
                   <div className="list-field-row">
                     <strong>{entry.id}</strong>
-                    <button className="ghost" onClick={() => setActiveId(entry.id)}>
+                    <button
+                      className="ghost"
+                      onClick={() => {
+                        setActiveId(entry.id);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                    >
                       Go to entry
                     </button>
                   </div>
-                  <div className="muted">{errors.join(" • ")}</div>
+                  <div className="muted">
+                    {errors.map((message, index) => (
+                      <div key={`${entry.id}-${index}`}>{message}</div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1447,6 +1487,7 @@ function PokemonFormDetail({
     };
   }, []);
 
+
   const scheduleValidate = () => {
     if (validateTimer.current !== null) {
       window.clearTimeout(validateTimer.current);
@@ -1524,10 +1565,12 @@ function PokemonFormDetail({
       setFieldValue("Types", "");
       return;
     }
-    if (secondary && secondary !== "NONE") {
-      setFieldValue("Types", `${primary},${secondary}`);
+    const safePrimary = primary.toUpperCase();
+    const safeSecondary = secondary.toUpperCase();
+    if (safeSecondary && safeSecondary !== "NONE") {
+      setFieldValue("Types", `${safePrimary},${safeSecondary}`);
     } else {
-      setFieldValue("Types", primary);
+      setFieldValue("Types", safePrimary);
     }
   };
 
@@ -1608,7 +1651,7 @@ function PokemonFormDetail({
         />
       </div>
       <div className="field-list">
-        <div className="field-row single">
+        <div className="field-row single" data-field-key="ID">
           <label className="label">{formatKeyLabel("Pokemon ID")}</label>
           <div className="stack">
             <input
@@ -1671,37 +1714,39 @@ function PokemonFormDetail({
           }
 
           if (field.key === "Types") {
+            const typesMatch = primaryType && secondaryType && primaryType === secondaryType;
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("PrimaryType")} readOnly tabIndex={-1} />
-                <select
+                <input
                   className="input"
+                  list="type-options"
                   value={primaryType || ""}
-                  onChange={(event) => updateTypes(event.target.value, secondaryType)}
-                >
-                  {typeOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-                {fieldErrors.Types && <span className="field-error">{fieldErrors.Types}</span>}
+                  onChange={(event) => updateTypes(event.target.value.toUpperCase(), secondaryType)}
+                />
                 {primaryType && (
                   <>
                     <input className="input key-label" value={formatKeyLabel("SecondaryType")} readOnly tabIndex={-1} />
-                    <select
+                    <input
                       className="input"
-                      value={secondaryType || "NONE"}
-                      onChange={(event) => updateTypes(primaryType, event.target.value)}
-                    >
-                      <option value="NONE">(None)</option>
-                      {typeOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
+                      list="type-options"
+                      value={secondaryType || ""}
+                      placeholder="(None)"
+                      onChange={(event) => updateTypes(primaryType, event.target.value.toUpperCase())}
+                    />
                   </>
+                )}
+                {fieldErrors.Types && (
+                  <div className="field-row single">
+                    <span className="field-error">{fieldErrors.Types}</span>
+                  </div>
+                )}
+                {typesMatch && (
+                  <div className="field-row single">
+                    <span className="field-warning">
+                      SecondaryType matches PrimaryType; export will use PrimaryType only.
+                    </span>
+                  </div>
                 )}
               </div>
             );
@@ -1913,11 +1958,7 @@ function PokemonFormDetail({
                   ))}
                 </div>
                 {fieldErrors.Moves && <span className="field-error">{fieldErrors.Moves}</span>}
-                <datalist id="move-options">
-                  {moveOptions.map((option) => (
-                    <option key={option} value={option} />
-                  ))}
-                </datalist>
+                <OptionsDatalist id="move-options" options={moveOptions} />
               </div>
             );
           }
@@ -2454,31 +2495,11 @@ function PokemonFormDetail({
             </div>
           );
         })}
-        <datalist id="ability-options">
-          {abilityOptions.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
-        <datalist id="pokemon-options">
-          {pokemonOptions.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
-        <datalist id="type-options">
-          {typeOptions.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
-        <datalist id="evolution-method-options">
-          {EVOLUTION_METHOD_OPTIONS.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
-        <datalist id="item-options">
-          {itemOptions.map((option) => (
-            <option key={option} value={option} />
-          ))}
-        </datalist>
+        <OptionsDatalist id="ability-options" options={abilityOptions} />
+        <OptionsDatalist id="pokemon-options" options={pokemonOptions} />
+        <OptionsDatalist id="type-options" options={typeOptions} />
+        <OptionsDatalist id="evolution-method-options" options={EVOLUTION_METHOD_OPTIONS} />
+        <OptionsDatalist id="item-options" options={itemOptions} />
       </div>
     </div>
   );
@@ -2494,6 +2515,17 @@ type SelectListFieldProps = {
   datalistId?: string;
   renderDatalist?: boolean;
 };
+
+const OptionsDatalist = memo(function OptionsDatalist({
+  id,
+  options,
+}: {
+  id: string;
+  options: readonly string[];
+}) {
+  const nodes = useMemo(() => options.map((option) => <option key={option} value={option} />), [options]);
+  return <datalist id={id}>{nodes}</datalist>;
+});
 
 const SelectListField = memo(function SelectListField({
   label,

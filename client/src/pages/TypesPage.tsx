@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { PBSEntry, TypesFile, TypesMultiFile } from "@pbs/shared";
 import { exportTypes, getTypes } from "../api";
 import { serializeEntries, useDirty } from "../dirty";
@@ -588,7 +588,11 @@ export default function TypesPage() {
                       Go to entry
                     </button>
                   </div>
-                  <div className="muted">{errors.join(" • ")}</div>
+                  <div className="muted">
+                    {errors.map((message, index) => (
+                      <div key={`${entry.id}-${index}`}>{message}</div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -817,19 +821,23 @@ type ListFieldEditorProps = {
   error?: string;
 };
 
-function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEditorProps) {
+const ListFieldEditor = memo(function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEditorProps) {
   const displayLabel = formatKeyLabel(label);
   const items = value
     .split(",")
     .map((part) => part.trim())
     .filter(Boolean);
   const [draft, setDraft] = useState("");
+  const [drafts, setDrafts] = useState<Record<number, string>>({});
   const canCollapse = items.length > 5;
   const [collapsed, setCollapsed] = useState(canCollapse);
 
   useEffect(() => {
     if (!canCollapse) setCollapsed(false);
   }, [canCollapse]);
+  useEffect(() => {
+    setDrafts({});
+  }, [value]);
 
   const handleSelectChange = (index: number, next: string) => {
     const normalizedNext = next.trim();
@@ -853,6 +861,26 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
     setDraft("");
   };
 
+  const commitAt = (index: number) => {
+    const next = (drafts[index] ?? items[index] ?? "").trim();
+    if (!next) {
+      setDrafts((prev) => {
+        if (!(index in prev)) return prev;
+        const updated = { ...prev };
+        delete updated[index];
+        return updated;
+      });
+      return;
+    }
+    handleSelectChange(index, next);
+    setDrafts((prev) => {
+      if (!(index in prev)) return prev;
+      const updated = { ...prev };
+      delete updated[index];
+      return updated;
+    });
+  };
+
   return (
     <div className="list-field">
       <div className="list-field-header">
@@ -870,8 +898,17 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
             <input
               className="input"
               list={`${label}-options`}
-              value={item}
-              onChange={(event) => handleSelectChange(index, event.target.value)}
+              value={drafts[index] ?? item}
+              onChange={(event) =>
+                setDrafts((prev) => ({ ...prev, [index]: event.target.value }))
+              }
+              onBlur={() => commitAt(index)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  commitAt(index);
+                }
+              }}
             />
             <button className="danger" tabIndex={-1} onClick={() => handleSelectChange(index, "")}>
               Remove
@@ -906,7 +943,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
       {error && <span className="field-error">{error}</span>}
     </div>
   );
-}
+});
 
 type FreeformListFieldEditorProps = {
   label: string;
@@ -915,19 +952,23 @@ type FreeformListFieldEditorProps = {
   error?: string;
 };
 
-function FreeformListFieldEditor({ label, value, onChange, error }: FreeformListFieldEditorProps) {
+const FreeformListFieldEditor = memo(function FreeformListFieldEditor({ label, value, onChange, error }: FreeformListFieldEditorProps) {
   const displayLabel = formatKeyLabel(label);
   const items = value
     .split(",")
     .map((part) => part.trim())
     .filter(Boolean);
   const [draft, setDraft] = useState("");
+  const [drafts, setDrafts] = useState<Record<number, string>>({});
   const canCollapse = items.length > 5;
   const [collapsed, setCollapsed] = useState(canCollapse);
 
   useEffect(() => {
     if (!canCollapse) setCollapsed(false);
   }, [canCollapse]);
+  useEffect(() => {
+    setDrafts({});
+  }, [value]);
 
   const handleChange = (index: number, next: string) => {
     const nextItems = [...items];
@@ -940,6 +981,26 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
     }
     const deduped = nextItems.filter((item, idx) => nextItems.indexOf(item) === idx);
     onChange(deduped.join(","));
+  };
+
+  const commitAt = (index: number) => {
+    const next = (drafts[index] ?? items[index] ?? "").trim();
+    if (!next) {
+      setDrafts((prev) => {
+        if (!(index in prev)) return prev;
+        const updated = { ...prev };
+        delete updated[index];
+        return updated;
+      });
+      return;
+    }
+    handleChange(index, next);
+    setDrafts((prev) => {
+      if (!(index in prev)) return prev;
+      const updated = { ...prev };
+      delete updated[index];
+      return updated;
+    });
   };
 
   const commitDraft = () => {
@@ -965,8 +1026,17 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
           <div key={`${label}-${index}`} className="list-field-row">
             <input
               className="input"
-              value={item}
-              onChange={(event) => handleChange(index, event.target.value)}
+              value={drafts[index] ?? item}
+              onChange={(event) =>
+                setDrafts((prev) => ({ ...prev, [index]: event.target.value }))
+              }
+              onBlur={() => commitAt(index)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  commitAt(index);
+                }
+              }}
             />
             <button className="danger" tabIndex={-1} onClick={() => handleChange(index, "")}>
               Remove
@@ -993,7 +1063,7 @@ function FreeformListFieldEditor({ label, value, onChange, error }: FreeformList
       {error && <span className="field-error">{error}</span>}
     </div>
   );
-}
+});
 
 function moveEntryByIdWithinSource(entries: PBSEntry[], id: string, sourceFile: string, targetIndex: number) {
   const scoped = entries.filter((entry) => (entry.sourceFile ?? "types.txt") === sourceFile);

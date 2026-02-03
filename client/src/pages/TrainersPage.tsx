@@ -1,5 +1,5 @@
 
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import type {
   TrainerEntry,
   TrainerPokemon,
@@ -568,7 +568,11 @@ export default function TrainersPage() {
                       Go to entry
                     </button>
                   </div>
-                  <div className="muted">{errors.join("\n")}</div>
+                  <div className="muted">
+                    {errors.map((message, index) => (
+                      <div key={`${entry.id}-${index}`}>{message}</div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1272,7 +1276,7 @@ function serializeTrainers(entries: TrainerEntry[]) {
   );
 }
 
-function FreeformListFieldEditor({
+const FreeformListFieldEditor = memo(function FreeformListFieldEditor({
   label,
   items,
   onChange,
@@ -1283,18 +1287,44 @@ function FreeformListFieldEditor({
 }) {
   const displayLabel = formatKeyLabel(label);
   const [draft, setDraft] = useState("");
+  const [drafts, setDrafts] = useState<Record<number, string>>({});
   const canCollapse = items.length > 5;
   const [collapsed, setCollapsed] = useState(canCollapse);
 
   useEffect(() => {
     if (!canCollapse) setCollapsed(false);
   }, [canCollapse]);
+  useEffect(() => {
+    setDrafts({});
+  }, [items]);
 
   const commitDraft = () => {
     const next = draft.trim();
     if (!next) return;
     onChange([...items, next]);
     setDraft("");
+  };
+
+  const commitAt = (index: number) => {
+    const next = (drafts[index] ?? items[index] ?? "").trim();
+    if (!next) {
+      setDrafts((prev) => {
+        if (!(index in prev)) return prev;
+        const updated = { ...prev };
+        delete updated[index];
+        return updated;
+      });
+      return;
+    }
+    const nextItems = [...items];
+    nextItems[index] = next;
+    onChange(nextItems);
+    setDrafts((prev) => {
+      if (!(index in prev)) return prev;
+      const updated = { ...prev };
+      delete updated[index];
+      return updated;
+    });
   };
 
   return (
@@ -1313,16 +1343,16 @@ function FreeformListFieldEditor({
             <div key={`${label}-${index}`} className="list-field-row">
               <input
                 className="input"
-                value={item}
-                onChange={(event) => {
-                  const nextItems = [...items];
-                  const nextValue = event.target.value.trim();
-                  if (!nextValue) {
-                    nextItems.splice(index, 1);
-                  } else {
-                    nextItems[index] = nextValue;
+                value={drafts[index] ?? item}
+                onChange={(event) =>
+                  setDrafts((prev) => ({ ...prev, [index]: event.target.value }))
+                }
+                onBlur={() => commitAt(index)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    commitAt(index);
                   }
-                  onChange(nextItems);
                 }}
               />
               <button className="danger" tabIndex={-1} onClick={() => onChange(items.filter((_, idx) => idx !== index))}>
@@ -1349,4 +1379,4 @@ function FreeformListFieldEditor({
       )}
     </div>
   );
-}
+});

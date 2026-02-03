@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { ItemsFile, ItemsMultiFile, MovesFile, PBSEntry } from "@pbs/shared";
 import { exportItems, getItems, getMoves } from "../api";
@@ -842,7 +842,11 @@ export default function ItemsPage() {
                       Go to entry
                     </button>
                   </div>
-                  <div className="muted">{errors.join(" • ")}</div>
+                  <div className="muted">
+                    {errors.map((message, index) => (
+                      <div key={`${entry.id}-${index}`}>{message}</div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1308,16 +1312,20 @@ function SingleSelectField({ label, value, options, onChange, error }: SingleSel
   );
 }
 
-function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEditorProps) {
+const ListFieldEditor = memo(function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEditorProps) {
   const displayLabel = formatKeyLabel(label);
   const items = splitList(value);
   const [draft, setDraft] = useState("");
+  const [drafts, setDrafts] = useState<Record<number, string>>({});
   const canCollapse = items.length > 5;
   const [collapsed, setCollapsed] = useState(canCollapse);
 
   useEffect(() => {
     if (!canCollapse) setCollapsed(false);
   }, [canCollapse]);
+  useEffect(() => {
+    setDrafts({});
+  }, [value]);
 
   const handleSelectChange = (index: number, next: string) => {
     const normalized = normalizeOption(next, options);
@@ -1340,6 +1348,26 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
     setDraft("");
   };
 
+  const commitAt = (index: number) => {
+    const next = (drafts[index] ?? items[index] ?? "").trim();
+    if (!next) {
+      setDrafts((prev) => {
+        if (!(index in prev)) return prev;
+        const updated = { ...prev };
+        delete updated[index];
+        return updated;
+      });
+      return;
+    }
+    handleSelectChange(index, next);
+    setDrafts((prev) => {
+      if (!(index in prev)) return prev;
+      const updated = { ...prev };
+      delete updated[index];
+      return updated;
+    });
+  };
+
   return (
     <div className="list-field">
       <div className="list-field-header">
@@ -1357,8 +1385,17 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
             <input
               className="input"
               list={`${label}-options`}
-              value={item}
-              onChange={(event) => handleSelectChange(index, event.target.value)}
+              value={drafts[index] ?? item}
+              onChange={(event) =>
+                setDrafts((prev) => ({ ...prev, [index]: event.target.value }))
+              }
+              onBlur={() => commitAt(index)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  commitAt(index);
+                }
+              }}
             />
             <datalist id={`${label}-options`}>
               {options.map((option) => (
@@ -1398,7 +1435,7 @@ function ListFieldEditor({ label, value, options, onChange, error }: ListFieldEd
       {error && <span className="field-error">{error}</span>}
     </div>
   );
-}
+});
 
 function normalizeOption(value: string, options: readonly string[]) {
   const match = options.find((option) => option.toLowerCase() === value.toLowerCase());

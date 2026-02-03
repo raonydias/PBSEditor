@@ -544,7 +544,11 @@ export default function BerryPlantsPage() {
                       Go to entry
                     </button>
                   </div>
-                  <div className="muted">{errors.join(" • ")}</div>
+                  <div className="muted">
+                    {errors.map((message, index) => (
+                      <div key={`${entry.id}-${index}`}>{message}</div>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
