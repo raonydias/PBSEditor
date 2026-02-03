@@ -621,9 +621,11 @@ function BerryPlantDetail({
   fieldErrors,
 }: DetailProps) {
   const [idDraft, setIdDraft] = useState(entry.id);
+  const [fieldDrafts, setFieldDrafts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setIdDraft(entry.id);
+    setFieldDrafts({});
   }, [entry.id]);
 
   const updateField = (index: number, key: string, value: string) => {
@@ -631,6 +633,22 @@ function BerryPlantDetail({
       idx === index ? { key, value } : field
     );
     onChange({ ...entry, fields: nextFields });
+  };
+
+  const getDraft = (key: string, fallback: string) => fieldDrafts[key] ?? fallback;
+  const setDraft = (key: string, value: string) => {
+    setFieldDrafts((prev) => ({ ...prev, [key]: value }));
+  };
+  const clearDraft = (key: string) => {
+    setFieldDrafts((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+  const commitDraft = (index: number, key: string, value: string) => {
+    updateField(index, key, value);
+    clearDraft(key);
   };
 
   const getFieldValue = (key: string) => entry.fields.find((field) => field.key === key)?.value ?? "";
@@ -704,35 +722,51 @@ function BerryPlantDetail({
         {entry.fields.map((field, index) => {
           if (field.key === "Yield") {
             return (
-              <div key={`${field.key}-${index}`} className="yield-grid">
-                <div className="field-row">
-                  <input className="input key-label" value={formatKeyLabel("MinYield")} readOnly tabIndex={-1} />
-                  <input
-                    className="input"
-                    value={yieldMin ?? ""}
-                    onChange={(event) => {
-                      const nextMin = event.target.value;
-                      const nextValue = `${nextMin},${yieldMax ?? ""}`;
-                      setFieldValue("Yield", nextValue);
-                    }}
-                  />
+                <div key={`${field.key}-${index}`} className="yield-grid">
+                  <div className="field-row">
+                    <input className="input key-label" value={formatKeyLabel("MinYield")} readOnly tabIndex={-1} />
+                    <input
+                      className="input"
+                      value={getDraft("yield-min", yieldMin ?? "")}
+                      onChange={(event) => setDraft("yield-min", event.target.value)}
+                      onBlur={() => {
+                        const nextMin = getDraft("yield-min", yieldMin ?? "");
+                        const nextMax = getDraft("yield-max", yieldMax ?? "");
+                        setFieldValue("Yield", `${nextMin},${nextMax}`);
+                        clearDraft("yield-min");
+                        clearDraft("yield-max");
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.currentTarget.blur();
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="field-row">
+                    <input className="input key-label" value={formatKeyLabel("MaxYield")} readOnly tabIndex={-1} />
+                    <input
+                      className="input"
+                      value={getDraft("yield-max", yieldMax ?? "")}
+                      onChange={(event) => setDraft("yield-max", event.target.value)}
+                      onBlur={() => {
+                        const nextMin = getDraft("yield-min", yieldMin ?? "");
+                        const nextMax = getDraft("yield-max", yieldMax ?? "");
+                        setFieldValue("Yield", `${nextMin},${nextMax}`);
+                        clearDraft("yield-min");
+                        clearDraft("yield-max");
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.currentTarget.blur();
+                        }
+                      }}
+                    />
+                  </div>
+                  {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
                 </div>
-                <div className="field-row">
-                  <input className="input key-label" value={formatKeyLabel("MaxYield")} readOnly tabIndex={-1} />
-                  <input
-                    className="input"
-                    value={yieldMax ?? ""}
-                    onChange={(event) => {
-                      const nextMax = event.target.value;
-                      const nextValue = `${yieldMin ?? ""},${nextMax}`;
-                      setFieldValue("Yield", nextValue);
-                    }}
-                  />
-                </div>
-                {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
-              </div>
-            );
-          }
+              );
+            }
 
           return (
             <div key={`${field.key}-${index}`} className="field-row">
@@ -749,8 +783,14 @@ function BerryPlantDetail({
               />
               <input
                 className="input"
-                value={field.value}
-                onChange={(event) => updateField(index, field.key, event.target.value)}
+                value={getDraft(field.key, field.value)}
+                onChange={(event) => setDraft(field.key, event.target.value)}
+                onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
               />
               {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
             </div>

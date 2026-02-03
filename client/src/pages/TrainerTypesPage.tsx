@@ -715,9 +715,11 @@ function TrainerTypeDetail({
 }: DetailProps) {
   const [idDraft, setIdDraft] = useState(entry.id);
   const [baseMoneyDraft, setBaseMoneyDraft] = useState("");
+  const [fieldDrafts, setFieldDrafts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setIdDraft(entry.id);
+    setFieldDrafts({});
   }, [entry.id]);
 
   useEffect(() => {
@@ -730,6 +732,22 @@ function TrainerTypeDetail({
       idx === index ? { key, value } : field
     );
     onChange({ ...entry, fields: nextFields });
+  };
+
+  const getDraft = (key: string, fallback: string) => fieldDrafts[key] ?? fallback;
+  const setDraft = (key: string, value: string) => {
+    setFieldDrafts((prev) => ({ ...prev, [key]: value }));
+  };
+  const clearDraft = (key: string) => {
+    setFieldDrafts((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+  const commitDraft = (index: number, key: string, value: string) => {
+    updateField(index, key, value);
+    clearDraft(key);
   };
 
   const commitBaseMoney = (index: number, nextValue: string) => {
@@ -869,10 +887,11 @@ function TrainerTypeDetail({
                 <input className="input key-label" value={formatKeyLabel("SkillLevel")} readOnly tabIndex={-1} />
                 <input
                   className="input"
-                  value={field.value}
-                  onChange={(event) => {
-                    const nextValue = event.target.value;
-                    updateField(index, field.key, nextValue);
+                  value={getDraft(field.key, field.value)}
+                  onChange={(event) => setDraft(field.key, event.target.value)}
+                  onBlur={() => {
+                    const nextValue = getDraft(field.key, field.value);
+                    commitDraft(index, field.key, nextValue);
                     const currentBase = getFieldValue("BaseMoney");
                     if (nextValue.trim() === "" || nextValue === currentBase) {
                       setManualSkillLevel((prev) => {
@@ -882,6 +901,11 @@ function TrainerTypeDetail({
                       });
                     } else {
                       setManualSkillLevel((prev) => new Set(prev).add(entry.id));
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
                     }
                   }}
                 />
@@ -928,8 +952,14 @@ function TrainerTypeDetail({
               <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
               <input
                 className="input"
-                value={field.value}
-                onChange={(event) => updateField(index, field.key, event.target.value)}
+                value={getDraft(field.key, field.value)}
+                onChange={(event) => setDraft(field.key, event.target.value)}
+                onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
               />
               {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
             </div>

@@ -669,9 +669,11 @@ function TypeDetail({
   spriteHeight,
 }: DetailProps) {
   const [idDraft, setIdDraft] = useState(entry.id);
+  const [fieldDrafts, setFieldDrafts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setIdDraft(entry.id);
+    setFieldDrafts({});
   }, [entry.id]);
   const updateField = (index: number, key: string, value: string) => {
     const lowerBoolKeys = ["IsSpecialType", "IsPseudoType"];
@@ -680,6 +682,22 @@ function TypeDetail({
       idx === index ? { key, value: nextValue } : field
     );
     onChange({ ...entry, fields: nextFields });
+  };
+
+  const getDraft = (key: string, fallback: string) => fieldDrafts[key] ?? fallback;
+  const setDraft = (key: string, value: string) => {
+    setFieldDrafts((prev) => ({ ...prev, [key]: value }));
+  };
+  const clearDraft = (key: string) => {
+    setFieldDrafts((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+  const commitDraft = (index: number, key: string, value: string) => {
+    updateField(index, key, value);
+    clearDraft(key);
   };
 
   const addField = () => {
@@ -802,8 +820,14 @@ function TypeDetail({
               )}
               <input
                 className="input"
-                value={field.value}
-                onChange={(event) => updateField(index, field.key, event.target.value)}
+                value={getDraft(field.key, field.value)}
+                onChange={(event) => setDraft(field.key, event.target.value)}
+                onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
               />
               {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
             </div>

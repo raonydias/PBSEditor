@@ -680,12 +680,28 @@ function TrainerDetail({
   const [idDraft, setIdDraft] = useState(entry.id);
   const [nameDraft, setNameDraft] = useState(entry.name);
   const [versionDraft, setVersionDraft] = useState(String(entry.version));
+  const [fieldDrafts, setFieldDrafts] = useState<Record<string, string>>({});
+  const [itemDrafts, setItemDrafts] = useState<Record<number, string>>({});
 
   useEffect(() => {
     setIdDraft(entry.id);
     setNameDraft(entry.name);
     setVersionDraft(String(entry.version));
+    setFieldDrafts({});
+    setItemDrafts({});
   }, [entry.id, entry.name, entry.version]);
+
+  const getDraft = (key: string, fallback: string) => fieldDrafts[key] ?? fallback;
+  const setDraft = (key: string, value: string) => {
+    setFieldDrafts((prev) => ({ ...prev, [key]: value }));
+  };
+  const clearDraft = (key: string) => {
+    setFieldDrafts((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
 
   const updateItems = (items: string[]) => {
     const cleaned = items.filter((item) => typeof item === "string" && item.trim());
@@ -813,11 +829,26 @@ function TrainerDetail({
                 <input
                   className="input"
                   list="trainer-items"
-                  value={item}
-                  onChange={(event) => {
+                  value={itemDrafts[idx] ?? item}
+                  onChange={(event) =>
+                    setItemDrafts((prev) => ({ ...prev, [idx]: event.target.value }))
+                  }
+                  onBlur={() => {
                     const next = [...entry.items];
-                    next[idx] = event.target.value.trim().toUpperCase();
+                    const draftValue = (itemDrafts[idx] ?? item).trim().toUpperCase();
+                    next[idx] = draftValue;
                     updateItems(next);
+                    setItemDrafts((prev) => {
+                      if (!(idx in prev)) return prev;
+                      const nextDrafts = { ...prev };
+                      delete nextDrafts[idx];
+                      return nextDrafts;
+                    });
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                    }
                   }}
                 />
                 {item && (
@@ -838,8 +869,18 @@ function TrainerDetail({
           <input className="input key-label" value={formatKeyLabel("LoseText")} readOnly tabIndex={-1} />
           <input
             className="input"
-            value={entry.loseText}
-            onChange={(event) => onChange({ ...entry, loseText: event.target.value })}
+            value={getDraft("LoseText", entry.loseText)}
+            onChange={(event) => setDraft("LoseText", event.target.value)}
+            onBlur={() => {
+              const nextValue = getDraft("LoseText", entry.loseText);
+              onChange({ ...entry, loseText: nextValue });
+              clearDraft("LoseText");
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+              }
+            }}
           />
         </div>
         {entry.pokemon.map((mon, index) => (
@@ -897,6 +938,7 @@ function TrainerPokemonEditor({
   pokemonEntries,
 }: PokemonEditorProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
 
   const moveSlots = normalizeMoves(value.moves);
   const ivs = normalizeStatList(value.ivs);
@@ -905,6 +947,22 @@ function TrainerPokemonEditor({
   const abilityOptions = useMemo(() => {
     return abilitiesFromPokemon(value.pokemonId, pokemonEntries);
   }, [value.pokemonId, pokemonEntries]);
+
+  useEffect(() => {
+    setDrafts({});
+  }, [value]);
+
+  const getDraft = (key: string, fallback: string) => drafts[key] ?? fallback;
+  const setDraft = (key: string, next: string) => {
+    setDrafts((prev) => ({ ...prev, [key]: next }));
+  };
+  const clearDraft = (key: string) => {
+    setDrafts((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
 
   const updateMoves = (nextMoves: string[]) => {
     onChange({ ...value, moves: normalizeMoves(nextMoves) });
@@ -945,8 +1003,18 @@ function TrainerPokemonEditor({
           <input
             className="input"
             list={`trainer-pokemon-${index}`}
-            value={value.pokemonId}
-            onChange={(event) => onChange({ ...value, pokemonId: event.target.value.trim().toUpperCase() })}
+            value={getDraft("pokemonId", value.pokemonId)}
+            onChange={(event) => setDraft("pokemonId", event.target.value)}
+            onBlur={() => {
+              const nextValue = getDraft("pokemonId", value.pokemonId).trim().toUpperCase();
+              onChange({ ...value, pokemonId: nextValue });
+              clearDraft("pokemonId");
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+              }
+            }}
           />
           <datalist id={`trainer-pokemon-${index}`}>
             {pokemonOptions.map((option) => (
@@ -958,8 +1026,18 @@ function TrainerPokemonEditor({
           <input className="input key-label" value={formatKeyLabel("Level")} readOnly tabIndex={-1} />
           <input
             className="input"
-            value={value.level}
-            onChange={(event) => onChange({ ...value, level: event.target.value.replace(/\D+/g, "") })}
+            value={getDraft("level", value.level)}
+            onChange={(event) => setDraft("level", event.target.value)}
+            onBlur={() => {
+              const nextValue = getDraft("level", value.level).replace(/\D+/g, "");
+              onChange({ ...value, level: nextValue });
+              clearDraft("level");
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+              }
+            }}
           />
         </div>
         {!collapsed && (
@@ -968,40 +1046,90 @@ function TrainerPokemonEditor({
               <input className="input key-label" value={formatKeyLabel("Name")} readOnly tabIndex={-1} />
               <input
                 className="input"
-                value={value.name}
-                onChange={(event) => onChange({ ...value, name: event.target.value })}
+                value={getDraft("name", value.name)}
+                onChange={(event) => setDraft("name", event.target.value)}
+                onBlur={() => {
+                  const nextValue = getDraft("name", value.name);
+                  onChange({ ...value, name: nextValue });
+                  clearDraft("name");
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
               />
             </div>
             <div className="field-row single">
               <input className="input key-label" value={formatKeyLabel("Gender")} readOnly tabIndex={-1} />
               <input
                 className="input"
-                value={value.gender}
-                onChange={(event) => onChange({ ...value, gender: event.target.value.toLowerCase() })}
+                value={getDraft("gender", value.gender)}
+                onChange={(event) => setDraft("gender", event.target.value)}
+                onBlur={() => {
+                  const nextValue = getDraft("gender", value.gender).toLowerCase();
+                  onChange({ ...value, gender: nextValue });
+                  clearDraft("gender");
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
               />
             </div>
             <div className="field-row single">
               <input className="input key-label" value={formatKeyLabel("Shiny")} readOnly tabIndex={-1} />
               <input
                 className="input"
-                value={value.shiny}
-                onChange={(event) => onChange({ ...value, shiny: event.target.value.toLowerCase() })}
+                value={getDraft("shiny", value.shiny)}
+                onChange={(event) => setDraft("shiny", event.target.value)}
+                onBlur={() => {
+                  const nextValue = getDraft("shiny", value.shiny).toLowerCase();
+                  onChange({ ...value, shiny: nextValue });
+                  clearDraft("shiny");
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
               />
             </div>
             <div className="field-row single">
               <input className="input key-label" value={formatKeyLabel("SuperShiny")} readOnly tabIndex={-1} />
               <input
                 className="input"
-                value={value.superShiny}
-                onChange={(event) => onChange({ ...value, superShiny: event.target.value.toLowerCase() })}
+                value={getDraft("superShiny", value.superShiny)}
+                onChange={(event) => setDraft("superShiny", event.target.value)}
+                onBlur={() => {
+                  const nextValue = getDraft("superShiny", value.superShiny).toLowerCase();
+                  onChange({ ...value, superShiny: nextValue });
+                  clearDraft("superShiny");
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
               />
             </div>
             <div className="field-row single">
               <input className="input key-label" value={formatKeyLabel("Shadow")} readOnly tabIndex={-1} />
               <input
                 className="input"
-                value={value.shadow}
-                onChange={(event) => onChange({ ...value, shadow: event.target.value.toLowerCase() })}
+                value={getDraft("shadow", value.shadow)}
+                onChange={(event) => setDraft("shadow", event.target.value)}
+                onBlur={() => {
+                  const nextValue = getDraft("shadow", value.shadow).toLowerCase();
+                  onChange({ ...value, shadow: nextValue });
+                  clearDraft("shadow");
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
               />
             </div>
             <div className="field-row single">
@@ -1015,11 +1143,18 @@ function TrainerPokemonEditor({
                       <input
                         className="input"
                         list={`trainer-move-${index}-${idx}`}
-                        value={move}
-                        onChange={(event) => {
+                        value={getDraft(`move-${idx}`, move)}
+                        onChange={(event) => setDraft(`move-${idx}`, event.target.value)}
+                        onBlur={() => {
                           const next = [...moveSlots];
-                          next[idx] = event.target.value.trim().toUpperCase();
+                          next[idx] = getDraft(`move-${idx}`, move).trim().toUpperCase();
                           updateMoves(next);
+                          clearDraft(`move-${idx}`);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.currentTarget.blur();
+                          }
                         }}
                       />
                       <datalist id={`trainer-move-${index}-${idx}`}>
@@ -1037,8 +1172,18 @@ function TrainerPokemonEditor({
               <input
                 className="input"
                 list={`trainer-ability-${index}`}
-                value={value.ability}
-                onChange={(event) => onChange({ ...value, ability: event.target.value.trim().toUpperCase() })}
+                value={getDraft("ability", value.ability)}
+                onChange={(event) => setDraft("ability", event.target.value)}
+                onBlur={() => {
+                  const nextValue = getDraft("ability", value.ability).trim().toUpperCase();
+                  onChange({ ...value, ability: nextValue });
+                  clearDraft("ability");
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
               />
               <datalist id={`trainer-ability-${index}`}>
                 {abilities.entries.map((option) => (
@@ -1066,8 +1211,18 @@ function TrainerPokemonEditor({
               <input
                 className="input"
                 list={`trainer-item-${index}`}
-                value={value.item}
-                onChange={(event) => onChange({ ...value, item: event.target.value.trim().toUpperCase() })}
+                value={getDraft("item", value.item)}
+                onChange={(event) => setDraft("item", event.target.value)}
+                onBlur={() => {
+                  const nextValue = getDraft("item", value.item).trim().toUpperCase();
+                  onChange({ ...value, item: nextValue });
+                  clearDraft("item");
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
               />
               <datalist id={`trainer-item-${index}`}>
                 {itemOptions.map((option) => (
@@ -1080,8 +1235,18 @@ function TrainerPokemonEditor({
               <input
                 className="input"
                 list={`trainer-nature-${index}`}
-                value={value.nature}
-                onChange={(event) => onChange({ ...value, nature: event.target.value.trim().toUpperCase() })}
+                value={getDraft("nature", value.nature)}
+                onChange={(event) => setDraft("nature", event.target.value)}
+                onBlur={() => {
+                  const nextValue = getDraft("nature", value.nature).trim().toUpperCase();
+                  onChange({ ...value, nature: nextValue });
+                  clearDraft("nature");
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
               />
               <datalist id={`trainer-nature-${index}`}>
                 {NATURE_OPTIONS.map((option) => (
@@ -1100,14 +1265,34 @@ function TrainerPokemonEditor({
                       <input
                         className="input input-mini"
                         placeholder="IV"
-                        value={ivs[exportIndex]}
-                        onChange={(event) => updateStat("ivs", exportIndex, event.target.value.replace(/\D+/g, ""))}
+                        value={getDraft(`iv-${exportIndex}`, ivs[exportIndex])}
+                        onChange={(event) => setDraft(`iv-${exportIndex}`, event.target.value)}
+                        onBlur={() => {
+                          const nextValue = getDraft(`iv-${exportIndex}`, ivs[exportIndex]).replace(/\D+/g, "");
+                          updateStat("ivs", exportIndex, nextValue);
+                          clearDraft(`iv-${exportIndex}`);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.currentTarget.blur();
+                          }
+                        }}
                       />
                       <input
                         className="input input-mini"
                         placeholder="EV"
-                        value={evs[exportIndex]}
-                        onChange={(event) => updateStat("evs", exportIndex, event.target.value.replace(/\D+/g, ""))}
+                        value={getDraft(`ev-${exportIndex}`, evs[exportIndex])}
+                        onChange={(event) => setDraft(`ev-${exportIndex}`, event.target.value)}
+                        onBlur={() => {
+                          const nextValue = getDraft(`ev-${exportIndex}`, evs[exportIndex]).replace(/\D+/g, "");
+                          updateStat("evs", exportIndex, nextValue);
+                          clearDraft(`ev-${exportIndex}`);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.currentTarget.blur();
+                          }
+                        }}
                       />
                     </div>
                   );
@@ -1118,8 +1303,18 @@ function TrainerPokemonEditor({
               <input className="input key-label" value={formatKeyLabel("Happiness")} readOnly tabIndex={-1} />
               <input
                 className="input"
-                value={value.happiness}
-                onChange={(event) => onChange({ ...value, happiness: event.target.value.replace(/\D+/g, "") })}
+                value={getDraft("happiness", value.happiness)}
+                onChange={(event) => setDraft("happiness", event.target.value)}
+                onBlur={() => {
+                  const nextValue = getDraft("happiness", value.happiness).replace(/\D+/g, "");
+                  onChange({ ...value, happiness: nextValue });
+                  clearDraft("happiness");
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
               />
             </div>
             <div className="field-row single">
@@ -1127,8 +1322,18 @@ function TrainerPokemonEditor({
               <input
                 className="input"
                 list={`trainer-ball-${index}`}
-                value={value.ball}
-                onChange={(event) => onChange({ ...value, ball: event.target.value.trim().toUpperCase() })}
+                value={getDraft("ball", value.ball)}
+                onChange={(event) => setDraft("ball", event.target.value)}
+                onBlur={() => {
+                  const nextValue = getDraft("ball", value.ball).trim().toUpperCase();
+                  onChange({ ...value, ball: nextValue });
+                  clearDraft("ball");
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
               />
               <datalist id={`trainer-ball-${index}`}>
                 {ballOptions.map((option) => (

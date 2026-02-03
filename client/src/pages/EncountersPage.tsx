@@ -681,11 +681,13 @@ function EncounterDetail({
 }: DetailProps) {
   const [idDraft, setIdDraft] = useState(entry.id);
   const [versionDraft, setVersionDraft] = useState(String(entry.version));
+  const [nameDraft, setNameDraft] = useState(entry.name);
 
   useEffect(() => {
     setIdDraft(entry.id);
     setVersionDraft(String(entry.version));
-  }, [entry.id, entry.version]);
+    setNameDraft(entry.name);
+  }, [entry.id, entry.version, entry.name]);
 
   const updateEncounterType = (index: number, next: EncounterType) => {
     const nextTypes = entry.encounterTypes.map((type, idx) => (idx === index ? next : type));
@@ -761,8 +763,14 @@ function EncounterDetail({
           <input className="input key-label" value={formatKeyLabel("Name")} readOnly tabIndex={-1} />
           <input
             className="input"
-            value={entry.name}
-            onChange={(event) => onChange({ ...entry, name: event.target.value })}
+            value={nameDraft}
+            onChange={(event) => setNameDraft(event.target.value)}
+            onBlur={() => onChange({ ...entry, name: nameDraft })}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.currentTarget.blur();
+              }
+            }}
           />
         </div>
 
@@ -807,8 +815,25 @@ function EncounterTypeEditor({
   pokemonOptions: string[];
 }) {
   const [collapsed, setCollapsed] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
 
   const slots = value.slots;
+
+  useEffect(() => {
+    setDrafts({});
+  }, [value]);
+
+  const getDraft = (key: string, fallback: string) => drafts[key] ?? fallback;
+  const setDraft = (key: string, next: string) => {
+    setDrafts((prev) => ({ ...prev, [key]: next }));
+  };
+  const clearDraft = (key: string) => {
+    setDrafts((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
 
   const updateSlot = (index: number, nextSlot: EncounterSlot) => {
     const nextSlots = slots.map((slot, idx) => (idx === index ? nextSlot : slot));
@@ -851,8 +876,18 @@ function EncounterTypeEditor({
             <input
               className="input"
               list="encounter-types"
-              value={value.type}
-              onChange={(event) => onChange({ ...value, type: event.target.value.trim() })}
+              value={getDraft("type", value.type)}
+              onChange={(event) => setDraft("type", event.target.value)}
+              onBlur={() => {
+                const nextValue = getDraft("type", value.type).trim();
+                onChange({ ...value, type: nextValue });
+                clearDraft("type");
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.currentTarget.blur();
+                }
+              }}
             />
             <datalist id="encounter-types">
               {ENCOUNTER_TYPE_OPTIONS.map((option) => (
@@ -864,8 +899,18 @@ function EncounterTypeEditor({
             <input className="input key-label" value={formatKeyLabel("Probability")} readOnly tabIndex={-1} />
             <input
               className="input input-mini"
-              value={value.probability}
-              onChange={(event) => onChange({ ...value, probability: event.target.value.replace(/\D+/g, "") })}
+              value={getDraft("probability", value.probability)}
+              onChange={(event) => setDraft("probability", event.target.value)}
+              onBlur={() => {
+                const nextValue = getDraft("probability", value.probability).replace(/\D+/g, "");
+                onChange({ ...value, probability: nextValue });
+                clearDraft("probability");
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.currentTarget.blur();
+                }
+              }}
             />
           </div>
         </div>
@@ -877,17 +922,35 @@ function EncounterTypeEditor({
                   <input
                     className="input input-mini"
                     placeholder="Chance"
-                    value={slot.chance}
-                    onChange={(event) =>
-                      updateSlot(index, { ...slot, chance: event.target.value.replace(/\D+/g, "") })
-                    }
+                    value={getDraft(`slot-${index}-chance`, slot.chance)}
+                    onChange={(event) => setDraft(`slot-${index}-chance`, event.target.value)}
+                    onBlur={() => {
+                      const nextValue = getDraft(`slot-${index}-chance`, slot.chance).replace(/\D+/g, "");
+                      updateSlot(index, { ...slot, chance: nextValue });
+                      clearDraft(`slot-${index}-chance`);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.currentTarget.blur();
+                      }
+                    }}
                   />
                   <input
                     className="input"
                     list={`encounter-pokemon-${index}`}
                     placeholder="Select Pokemon"
-                    value={slot.pokemon}
-                    onChange={(event) => updateSlot(index, { ...slot, pokemon: event.target.value.trim().toUpperCase() })}
+                    value={getDraft(`slot-${index}-pokemon`, slot.pokemon)}
+                    onChange={(event) => setDraft(`slot-${index}-pokemon`, event.target.value)}
+                    onBlur={() => {
+                      const nextValue = getDraft(`slot-${index}-pokemon`, slot.pokemon).trim().toUpperCase();
+                      updateSlot(index, { ...slot, pokemon: nextValue });
+                      clearDraft(`slot-${index}-pokemon`);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.currentTarget.blur();
+                      }
+                    }}
                   />
                   <datalist id={`encounter-pokemon-${index}`}>
                     {pokemonOptions.map((option) => (
@@ -897,26 +960,50 @@ function EncounterTypeEditor({
                   <input
                     className="input input-mini"
                     placeholder="Form"
-                    value={slot.formNumber}
-                    onChange={(event) =>
-                      updateSlot(index, { ...slot, formNumber: event.target.value.replace(/\D+/g, "") })
-                    }
+                    value={getDraft(`slot-${index}-form`, slot.formNumber)}
+                    onChange={(event) => setDraft(`slot-${index}-form`, event.target.value)}
+                    onBlur={() => {
+                      const nextValue = getDraft(`slot-${index}-form`, slot.formNumber).replace(/\D+/g, "");
+                      updateSlot(index, { ...slot, formNumber: nextValue });
+                      clearDraft(`slot-${index}-form`);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.currentTarget.blur();
+                      }
+                    }}
                   />
                   <input
                     className="input input-mini"
                     placeholder="Min"
-                    value={slot.levelMin}
-                    onChange={(event) =>
-                      updateSlot(index, { ...slot, levelMin: event.target.value.replace(/\D+/g, "") })
-                    }
+                    value={getDraft(`slot-${index}-min`, slot.levelMin)}
+                    onChange={(event) => setDraft(`slot-${index}-min`, event.target.value)}
+                    onBlur={() => {
+                      const nextValue = getDraft(`slot-${index}-min`, slot.levelMin).replace(/\D+/g, "");
+                      updateSlot(index, { ...slot, levelMin: nextValue });
+                      clearDraft(`slot-${index}-min`);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.currentTarget.blur();
+                      }
+                    }}
                   />
                   <input
                     className="input input-mini"
                     placeholder="Max"
-                    value={slot.levelMax}
-                    onChange={(event) =>
-                      updateSlot(index, { ...slot, levelMax: event.target.value.replace(/\D+/g, "") })
-                    }
+                    value={getDraft(`slot-${index}-max`, slot.levelMax)}
+                    onChange={(event) => setDraft(`slot-${index}-max`, event.target.value)}
+                    onBlur={() => {
+                      const nextValue = getDraft(`slot-${index}-max`, slot.levelMax).replace(/\D+/g, "");
+                      updateSlot(index, { ...slot, levelMax: nextValue });
+                      clearDraft(`slot-${index}-max`);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.currentTarget.blur();
+                      }
+                    }}
                   />
                   <button className="danger" tabIndex={-1} onClick={() => removeSlot(index)}>
                     Remove

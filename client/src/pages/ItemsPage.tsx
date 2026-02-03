@@ -939,9 +939,11 @@ function ItemDetail({
   isMoveRequired,
 }: DetailProps) {
   const [idDraft, setIdDraft] = useState(entry.id);
+  const [fieldDrafts, setFieldDrafts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setIdDraft(entry.id);
+    setFieldDrafts({});
   }, [entry.id]);
 
   const updateField = (index: number, key: string, value: string) => {
@@ -951,6 +953,22 @@ function ItemDetail({
       idx === index ? { key, value: nextValue } : field
     );
     onChange({ ...entry, fields: nextFields });
+  };
+
+  const getDraft = (key: string, fallback: string) => fieldDrafts[key] ?? fallback;
+  const setDraft = (key: string, value: string) => {
+    setFieldDrafts((prev) => ({ ...prev, [key]: value }));
+  };
+  const clearDraft = (key: string) => {
+    setFieldDrafts((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+  const commitDraft = (index: number, key: string, value: string) => {
+    updateField(index, key, value);
+    clearDraft(key);
   };
 
   const addField = () => {
@@ -1044,12 +1062,18 @@ function ItemDetail({
                 <input className="input key-label" value={formatKeyLabel("Name")} readOnly tabIndex={-1} />
                 <input
                   className="input"
-                  value={field.value}
-                  onChange={(event) => {
-                    const nextValue = event.target.value;
-                    updateField(index, field.key, nextValue);
+                  value={getDraft(field.key, field.value)}
+                  onChange={(event) => setDraft(field.key, event.target.value)}
+                  onBlur={() => {
+                    const nextValue = getDraft(field.key, field.value);
+                    commitDraft(index, field.key, nextValue);
                     if (!manualNamePlural.has(entry.id) && namePlural === `${currentName}s`) {
                       setFieldValue("NamePlural", `${nextValue}s`);
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
                     }
                   }}
                 />
@@ -1064,11 +1088,17 @@ function ItemDetail({
                 <input className="input key-label" value={formatKeyLabel("NamePlural")} readOnly tabIndex={-1} />
                 <input
                   className="input"
-                  value={field.value}
-                  onChange={(event) => {
-                    const nextValue = event.target.value;
-                    updateField(index, field.key, nextValue);
+                  value={getDraft(field.key, field.value)}
+                  onChange={(event) => setDraft(field.key, event.target.value)}
+                  onBlur={() => {
+                    const nextValue = getDraft(field.key, field.value);
+                    commitDraft(index, field.key, nextValue);
                     setManualNamePlural((prev) => new Set(prev).add(entry.id));
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                    }
                   }}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
@@ -1082,8 +1112,14 @@ function ItemDetail({
                 <input className="input key-label" value={formatKeyLabel("PortionName")} readOnly tabIndex={-1} />
                 <input
                   className="input"
-                  value={field.value}
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                  value={getDraft(field.key, field.value)}
+                  onChange={(event) => setDraft(field.key, event.target.value)}
+                  onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                    }
+                  }}
                 />
               </div>
             );
@@ -1096,8 +1132,14 @@ function ItemDetail({
                 <input className="input key-label" value={formatKeyLabel("PortionNamePlural")} readOnly tabIndex={-1} />
                 <input
                   className="input"
-                  value={field.value}
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                  value={getDraft(field.key, field.value)}
+                  onChange={(event) => setDraft(field.key, event.target.value)}
+                  onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                    }
+                  }}
                 />
               </div>
             );
@@ -1109,8 +1151,14 @@ function ItemDetail({
                 <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <input
                   className="input"
-                  value={field.value}
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                  value={getDraft(field.key, field.value)}
+                  onChange={(event) => setDraft(field.key, event.target.value)}
+                  onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                    }
+                  }}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
@@ -1124,11 +1172,12 @@ function ItemDetail({
                 <input className="input key-label" value={formatKeyLabel("SellPrice")} readOnly tabIndex={-1} />
                 <input
                   className="input"
-                  value={sellPrice}
+                  value={getDraft(field.key, sellPrice)}
                   placeholder={placeholder}
-                  onChange={(event) => {
-                    const nextValue = event.target.value;
-                    updateField(index, field.key, nextValue);
+                  onChange={(event) => setDraft(field.key, event.target.value)}
+                  onBlur={() => {
+                    const nextValue = getDraft(field.key, sellPrice);
+                    commitDraft(index, field.key, nextValue);
                     if (nextValue.trim() === "") {
                       setManualSellPrice((prev) => {
                         const next = new Set(prev);
@@ -1137,6 +1186,11 @@ function ItemDetail({
                       });
                     } else {
                       setManualSellPrice((prev) => new Set(prev).add(entry.id));
+                    }
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
                     }
                   }}
                 />
@@ -1151,8 +1205,14 @@ function ItemDetail({
                 <input className="input key-label" value="BP Price" readOnly tabIndex={-1} />
                 <input
                   className="input"
-                  value={field.value}
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                  value={getDraft(field.key, field.value)}
+                  onChange={(event) => setDraft(field.key, event.target.value)}
+                  onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                    }
+                  }}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
@@ -1238,8 +1298,16 @@ function ItemDetail({
                 <input
                   className="input"
                   list="move-options"
-                  value={field.value}
-                  onChange={(event) => updateField(index, field.key, event.target.value.toUpperCase())}
+                  value={getDraft(field.key, field.value)}
+                  onChange={(event) => setDraft(field.key, event.target.value)}
+                  onBlur={() =>
+                    commitDraft(index, field.key, getDraft(field.key, field.value).toUpperCase())
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                    }
+                  }}
                 />
                 <datalist id="move-options">
                   {moveOptions.map((option) => (
@@ -1257,8 +1325,14 @@ function ItemDetail({
                 <input className="input key-label" value={formatKeyLabel("Description")} readOnly tabIndex={-1} />
                 <input
                   className="input"
-                  value={field.value}
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                  value={getDraft(field.key, field.value)}
+                  onChange={(event) => setDraft(field.key, event.target.value)}
+                  onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                    }
+                  }}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
@@ -1270,8 +1344,14 @@ function ItemDetail({
               <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
               <input
                 className="input"
-                value={field.value}
-                onChange={(event) => updateField(index, field.key, event.target.value)}
+                value={getDraft(field.key, field.value)}
+                onChange={(event) => setDraft(field.key, event.target.value)}
+                onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
               />
               {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
             </div>

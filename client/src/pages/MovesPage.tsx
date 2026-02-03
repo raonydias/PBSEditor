@@ -742,9 +742,11 @@ function MoveDetail({
 }: DetailProps) {
   const [idDraft, setIdDraft] = useState(entry.id);
   const [isCustomTarget, setIsCustomTarget] = useState(false);
+  const [fieldDrafts, setFieldDrafts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setIdDraft(entry.id);
+    setFieldDrafts({});
   }, [entry.id]);
 
   useEffect(() => {
@@ -760,6 +762,22 @@ function MoveDetail({
       idx === index ? { key, value } : field
     );
     onChange({ ...entry, fields: nextFields });
+  };
+
+  const getDraft = (key: string, fallback: string) => fieldDrafts[key] ?? fallback;
+  const setDraft = (key: string, value: string) => {
+    setFieldDrafts((prev) => ({ ...prev, [key]: value }));
+  };
+  const clearDraft = (key: string) => {
+    setFieldDrafts((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+  const commitDraft = (index: number, key: string, value: string) => {
+    updateField(index, key, value);
+    clearDraft(key);
   };
 
   const addField = () => {
@@ -778,7 +796,8 @@ function MoveDetail({
 
   const category = getFieldValue("Category");
   const power = getFieldValue("Power");
-  const showPowerWarning = category === "Status" && power.trim() !== "" && power !== "0";
+  const powerDraft = getDraft("Power", power);
+  const showPowerWarning = category === "Status" && powerDraft.trim() !== "" && powerDraft !== "0";
 
   return (
     <div className="panel">
@@ -897,8 +916,14 @@ function MoveDetail({
                     <input
                       className="input"
                       placeholder="Custom target"
-                      value={currentTarget}
-                      onChange={(event) => updateField(index, field.key, event.target.value)}
+                      value={getDraft(field.key, currentTarget)}
+                      onChange={(event) => setDraft(field.key, event.target.value)}
+                      onBlur={() => commitDraft(index, field.key, getDraft(field.key, currentTarget))}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.currentTarget.blur();
+                        }
+                      }}
                     />
                   )}
                 </div>
@@ -926,8 +951,14 @@ function MoveDetail({
                 <input className="input key-label" value={formatKeyLabel("Power")} readOnly tabIndex={-1} />
                 <input
                   className="input"
-                  value={field.value}
-                  onChange={(event) => updateField(index, field.key, event.target.value)}
+                  value={getDraft(field.key, field.value)}
+                  onChange={(event) => setDraft(field.key, event.target.value)}
+                  onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                    }
+                  }}
                 />
                 {showPowerWarning && (
                   <span className="field-warning">Status moves ignore Power; it will be omitted on export.</span>
@@ -942,8 +973,14 @@ function MoveDetail({
               <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
               <input
                 className="input"
-                value={field.value}
-                onChange={(event) => updateField(index, field.key, event.target.value)}
+                value={getDraft(field.key, field.value)}
+                onChange={(event) => setDraft(field.key, event.target.value)}
+                onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
               />
               {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
             </div>
