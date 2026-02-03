@@ -1333,9 +1333,11 @@ function PokemonDetail({
   const [idDraft, setIdDraft] = useState(entry.id);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const validateTimer = useRef<number | null>(null);
+  const [fieldDrafts, setFieldDrafts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setIdDraft(entry.id);
+    setFieldDrafts({});
   }, [entry.id]);
 
   useEffect(() => {
@@ -1382,6 +1384,23 @@ function PokemonDetail({
   };
 
   const getFieldValue = (key: string) => entry.fields.find((field) => field.key === key)?.value ?? "";
+  const getDraftValue = (key: string, fallback: string) => fieldDrafts[key] ?? fallback;
+  const setDraftValue = (key: string, value: string) => {
+    setFieldDrafts((prev) => ({ ...prev, [key]: value }));
+  };
+  const clearDraftValue = (key: string) => {
+    setFieldDrafts((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+  const commitDraftValue = (key: string, value: string) => {
+    updateFieldValue(key, value);
+    clearDraftValue(key);
+  };
+  const draftInputClass = (draftValue: string, baseValue: string) =>
+    draftValue !== baseValue ? "input draft" : "input";
   const setFieldValue = (key: string, value: string) => {
     const index = entry.fields.findIndex((field) => field.key === key);
     if (index === -1) return;
@@ -1509,13 +1528,21 @@ function PokemonDetail({
       <div className="field-list">
         {getOrderedFields(entry.fields, DISPLAY_FIELD_ORDER).map((field, index) => {
           if (field.key === "Name") {
+            const draftValue = getDraftValue(field.key, field.value);
             return (
               <div key={`${field.key}-${index}`} className="field-row" data-field-key="Name">
                 <input className="input key-label" value={formatKeyLabel("Name")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
-                  value={field.value}
-                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
+                  className={draftInputClass(draftValue, field.value)}
+                  value={draftValue}
+                  onChange={(event) => setDraftValue(field.key, event.target.value)}
+                  onBlur={() => commitDraftValue(field.key, draftValue)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue);
+                    }
+                  }}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
@@ -1523,13 +1550,21 @@ function PokemonDetail({
           }
 
           if (field.key === "FormName") {
+            const draftValue = getDraftValue(field.key, field.value);
             return (
               <div key={`${field.key}-${index}`} className="field-row" data-field-key="FormName">
                 <input className="input key-label" value={formatKeyLabel("FormName")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
-                  value={field.value}
-                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
+                  className={draftInputClass(draftValue, field.value)}
+                  value={draftValue}
+                  onChange={(event) => setDraftValue(field.key, event.target.value)}
+                  onBlur={() => commitDraftValue(field.key, draftValue)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue);
+                    }
+                  }}
                 />
               </div>
             );
@@ -1619,15 +1654,23 @@ function PokemonDetail({
           }
 
           if (field.key === "BaseExp" || field.key === "CatchRate" || field.key === "Happiness") {
+            const draftValue = getDraftValue(field.key, field.value);
             const warn =
-              (field.key === "CatchRate" || field.key === "Happiness") && Number(field.value || 0) > 255;
+              (field.key === "CatchRate" || field.key === "Happiness") && Number(draftValue || 0) > 255;
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <input
-                  className="input"
-                  value={field.value}
-                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
+                  className={draftInputClass(draftValue, field.value)}
+                  value={draftValue}
+                  onChange={(event) => setDraftValue(field.key, event.target.value)}
+                  onBlur={() => commitDraftValue(field.key, draftValue)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue);
+                    }
+                  }}
                 />
                 {warn && <span className="field-warning">Values above 255 have no effect.</span>}
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
@@ -2010,15 +2053,25 @@ function PokemonDetail({
           }
 
           if (field.key === "HatchSteps") {
+            const draftValue = getDraftValue(field.key, field.value);
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("HatchSteps")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
-                  value={field.value}
+                  className={draftInputClass(draftValue, field.value)}
+                  value={draftValue}
                   onFocus={() => setFocusedField(field.key)}
-                  onBlur={() => setFocusedField(null)}
-                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
+                  onBlur={() => {
+                    setFocusedField(null);
+                    commitDraftValue(field.key, draftValue);
+                  }}
+                  onChange={(event) => setDraftValue(field.key, event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue);
+                    }
+                  }}
                 />
                 {focusedField === field.key && (
                   <span className="field-hint">As of Scarlet &amp; Violet 1 cycle = 128 steps.</span>
@@ -2029,15 +2082,23 @@ function PokemonDetail({
           }
 
           if (field.key === "Incense") {
+            const draftValue = getDraftValue(field.key, field.value);
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("Incense")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={draftInputClass(draftValue, field.value)}
                   list="item-options"
-                  value={field.value}
+                  value={draftValue}
                   placeholder="(none)"
-                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
+                  onChange={(event) => setDraftValue(field.key, event.target.value)}
+                  onBlur={() => commitDraftValue(field.key, draftValue)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue);
+                    }
+                  }}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
@@ -2061,17 +2122,27 @@ function PokemonDetail({
           }
 
           if (field.key === "Height" || field.key === "Weight") {
+            const draftValue = getDraftValue(field.key, field.value);
             const hint = field.key === "Height" ? "Value in meters." : "Value in kilograms.";
             const showHint = focusedField === field.key;
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <input
-                  className="input"
-                  value={field.value}
+                  className={draftInputClass(draftValue, field.value)}
+                  value={draftValue}
                   onFocus={() => setFocusedField(field.key)}
-                  onBlur={() => setFocusedField(null)}
-                  onChange={(event) => updateFieldValue(field.key, event.target.value.replace(",", "."))}
+                  onBlur={() => {
+                    setFocusedField(null);
+                    commitDraftValue(field.key, draftValue.replace(",", "."));
+                  }}
+                  onChange={(event) => setDraftValue(field.key, event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue.replace(",", "."));
+                    }
+                  }}
                 />
                 {showHint && <span className="field-hint">{hint}</span>}
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
@@ -2140,13 +2211,21 @@ function PokemonDetail({
           }
 
           if (field.key === "Category" || field.key === "Pokedex") {
+            const draftValue = getDraftValue(field.key, field.value);
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <input
-                  className="input"
-                  value={field.value}
-                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
+                  className={draftInputClass(draftValue, field.value)}
+                  value={draftValue}
+                  onChange={(event) => setDraftValue(field.key, event.target.value)}
+                  onBlur={() => commitDraftValue(field.key, draftValue)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue);
+                    }
+                  }}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
@@ -2154,13 +2233,21 @@ function PokemonDetail({
           }
 
           if (field.key === "Generation") {
+            const draftValue = getDraftValue(field.key, field.value);
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("Generation")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
-                  value={field.value}
-                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
+                  className={draftInputClass(draftValue, field.value)}
+                  value={draftValue}
+                  onChange={(event) => setDraftValue(field.key, event.target.value)}
+                  onBlur={() => commitDraftValue(field.key, draftValue)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue);
+                    }
+                  }}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
@@ -2181,15 +2268,23 @@ function PokemonDetail({
           }
 
           if (field.key === "WildItemCommon" || field.key === "WildItemUncommon" || field.key === "WildItemRare") {
+            const draftValue = getDraftValue(field.key, field.value);
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={draftInputClass(draftValue, field.value)}
                   list="item-options"
-                  value={field.value}
+                  value={draftValue}
                   placeholder="(none)"
-                  onChange={(event) => updateFieldValue(field.key, event.target.value)}
+                  onChange={(event) => setDraftValue(field.key, event.target.value)}
+                  onBlur={() => commitDraftValue(field.key, draftValue)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      commitDraftValue(field.key, draftValue);
+                    }
+                  }}
                 />
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
@@ -2207,11 +2302,23 @@ function PokemonDetail({
                   onChange={(event) => updateFieldKey(field.key, event.target.value, field.value)}
                 />
               )}
-              <input
-                className="input"
-                value={field.value}
-                onChange={(event) => updateFieldValue(field.key, event.target.value)}
-              />
+              {(() => {
+                const draftValue = getDraftValue(field.key, field.value);
+                return (
+                  <input
+                    className={draftInputClass(draftValue, field.value)}
+                    value={draftValue}
+                    onChange={(event) => setDraftValue(field.key, event.target.value)}
+                    onBlur={() => commitDraftValue(field.key, draftValue)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        commitDraftValue(field.key, draftValue);
+                      }
+                    }}
+                  />
+                );
+              })()}
               {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
             </div>
           );
@@ -2344,7 +2451,7 @@ const SelectListField = memo(function SelectListField({
             <div key={`${label}-${index}`} className="list-field-row">
               {inputMode === "datalist" ? (
                 <input
-                  className="input"
+                  className={`input${(drafts[index] ?? item) !== item ? " draft" : ""}`}
                   list={resolvedDatalistId}
                   value={drafts[index] ?? item}
                   onChange={(event) =>
@@ -2379,7 +2486,7 @@ const SelectListField = memo(function SelectListField({
           <div className="list-field-row">
             {inputMode === "datalist" ? (
               <input
-                className="input"
+                className={`input${draft !== "" ? " draft" : ""}`}
                 list={resolvedDatalistId}
                 value={draft}
                 placeholder={`Add ${displayLabel}...`}
@@ -2494,7 +2601,7 @@ const ListFieldEditor = memo(function ListFieldEditor({ label, value, options, o
         {items.map((item, index) => (
           <div key={`${label}-${index}`} className="list-field-row">
             <input
-              className="input"
+              className={`input${(drafts[index] ?? item) !== item ? " draft" : ""}`}
               list={`${label}-options`}
               value={drafts[index] ?? item}
               onChange={(event) =>
@@ -2520,7 +2627,7 @@ const ListFieldEditor = memo(function ListFieldEditor({ label, value, options, o
         ))}
         <div className="list-field-row">
           <input
-            className="input"
+            className={`input${draft !== "" ? " draft" : ""}`}
             list={`${label}-options`}
             value={draft}
             placeholder={`Add ${displayLabel}...`}

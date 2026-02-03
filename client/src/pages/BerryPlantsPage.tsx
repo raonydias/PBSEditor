@@ -726,7 +726,7 @@ function BerryPlantDetail({
                   <div className="field-row">
                     <input className="input key-label" value={formatKeyLabel("MinYield")} readOnly tabIndex={-1} />
                     <input
-                      className="input"
+                      className={`input${getDraft("yield-min", yieldMin ?? "") !== (yieldMin ?? "") ? " draft" : ""}`}
                       value={getDraft("yield-min", yieldMin ?? "")}
                       onChange={(event) => setDraft("yield-min", event.target.value)}
                       onBlur={() => {
@@ -746,7 +746,7 @@ function BerryPlantDetail({
                   <div className="field-row">
                     <input className="input key-label" value={formatKeyLabel("MaxYield")} readOnly tabIndex={-1} />
                     <input
-                      className="input"
+                      className={`input${getDraft("yield-max", yieldMax ?? "") !== (yieldMax ?? "") ? " draft" : ""}`}
                       value={getDraft("yield-max", yieldMax ?? "")}
                       onChange={(event) => setDraft("yield-max", event.target.value)}
                       onBlur={() => {
@@ -782,7 +782,7 @@ function BerryPlantDetail({
                 readOnly tabIndex={-1}
               />
               <input
-                className="input"
+                className={`input${getDraft(field.key, field.value) !== field.value ? " draft" : ""}`}
                 value={getDraft(field.key, field.value)}
                 onChange={(event) => setDraft(field.key, event.target.value)}
                 onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}

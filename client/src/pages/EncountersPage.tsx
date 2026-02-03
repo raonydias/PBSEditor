@@ -762,7 +762,7 @@ function EncounterDetail({
         <div className="field-row single">
           <input className="input key-label" value={formatKeyLabel("Name")} readOnly tabIndex={-1} />
           <input
-            className="input"
+            className={`input${nameDraft !== entry.name ? " draft" : ""}`}
             value={nameDraft}
             onChange={(event) => setNameDraft(event.target.value)}
             onBlur={() => onChange({ ...entry, name: nameDraft })}
@@ -874,7 +874,7 @@ function EncounterTypeEditor({
           <div className="stack">
             <input className="input key-label" value={formatKeyLabel("Type")} readOnly tabIndex={-1} />
             <input
-              className="input"
+              className={`input${getDraft("type", value.type) !== value.type ? " draft" : ""}`}
               list="encounter-types"
               value={getDraft("type", value.type)}
               onChange={(event) => setDraft("type", event.target.value)}
@@ -898,7 +898,7 @@ function EncounterTypeEditor({
           <div className="stack">
             <input className="input key-label" value={formatKeyLabel("Probability")} readOnly tabIndex={-1} />
             <input
-              className="input input-mini"
+              className={`input input-mini${getDraft("probability", value.probability) !== value.probability ? " draft" : ""}`}
               value={getDraft("probability", value.probability)}
               onChange={(event) => setDraft("probability", event.target.value)}
               onBlur={() => {
@@ -920,7 +920,7 @@ function EncounterTypeEditor({
               return (
                 <div key={`${index}`} className="field-row encounter-slot-row">
                   <input
-                    className="input input-mini"
+                    className={`input input-mini${getDraft(`slot-${index}-chance`, slot.chance) !== slot.chance ? " draft" : ""}`}
                     placeholder="Chance"
                     value={getDraft(`slot-${index}-chance`, slot.chance)}
                     onChange={(event) => setDraft(`slot-${index}-chance`, event.target.value)}
@@ -936,7 +936,7 @@ function EncounterTypeEditor({
                     }}
                   />
                   <input
-                    className="input"
+                    className={`input${getDraft(`slot-${index}-pokemon`, slot.pokemon) !== slot.pokemon ? " draft" : ""}`}
                     list={`encounter-pokemon-${index}`}
                     placeholder="Select Pokemon"
                     value={getDraft(`slot-${index}-pokemon`, slot.pokemon)}
@@ -958,7 +958,7 @@ function EncounterTypeEditor({
                     ))}
                   </datalist>
                   <input
-                    className="input input-mini"
+                    className={`input input-mini${getDraft(`slot-${index}-form`, slot.formNumber) !== slot.formNumber ? " draft" : ""}`}
                     placeholder="Form"
                     value={getDraft(`slot-${index}-form`, slot.formNumber)}
                     onChange={(event) => setDraft(`slot-${index}-form`, event.target.value)}
@@ -974,7 +974,7 @@ function EncounterTypeEditor({
                     }}
                   />
                   <input
-                    className="input input-mini"
+                    className={`input input-mini${getDraft(`slot-${index}-min`, slot.levelMin) !== slot.levelMin ? " draft" : ""}`}
                     placeholder="Min"
                     value={getDraft(`slot-${index}-min`, slot.levelMin)}
                     onChange={(event) => setDraft(`slot-${index}-min`, event.target.value)}
@@ -990,7 +990,7 @@ function EncounterTypeEditor({
                     }}
                   />
                   <input
-                    className="input input-mini"
+                    className={`input input-mini${getDraft(`slot-${index}-max`, slot.levelMax) !== slot.levelMax ? " draft" : ""}`}
                     placeholder="Max"
                     value={getDraft(`slot-${index}-max`, slot.levelMax)}
                     onChange={(event) => setDraft(`slot-${index}-max`, event.target.value)}

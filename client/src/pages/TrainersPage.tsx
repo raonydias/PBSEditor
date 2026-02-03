@@ -827,7 +827,7 @@ function TrainerDetail({
             {(entry.items.length ? [...entry.items, ""] : [""]).map((item, idx) => (
               <div key={`${idx}-${item}`} className="field-row encounter-slot-row">
                 <input
-                  className="input"
+                  className={`input${(itemDrafts[idx] ?? item) !== item ? " draft" : ""}`}
                   list="trainer-items"
                   value={itemDrafts[idx] ?? item}
                   onChange={(event) =>
@@ -868,7 +868,7 @@ function TrainerDetail({
         <div className="field-row single">
           <input className="input key-label" value={formatKeyLabel("LoseText")} readOnly tabIndex={-1} />
           <input
-            className="input"
+            className={`input${getDraft("LoseText", entry.loseText) !== entry.loseText ? " draft" : ""}`}
             value={getDraft("LoseText", entry.loseText)}
             onChange={(event) => setDraft("LoseText", event.target.value)}
             onBlur={() => {
@@ -1001,7 +1001,7 @@ function TrainerPokemonEditor({
         <div className="field-row single">
           <input className="input key-label" value={formatKeyLabel("Pokemon")} readOnly tabIndex={-1} />
           <input
-            className="input"
+            className={`input${getDraft("pokemonId", value.pokemonId) !== value.pokemonId ? " draft" : ""}`}
             list={`trainer-pokemon-${index}`}
             value={getDraft("pokemonId", value.pokemonId)}
             onChange={(event) => setDraft("pokemonId", event.target.value)}
@@ -1025,7 +1025,7 @@ function TrainerPokemonEditor({
         <div className="field-row single">
           <input className="input key-label" value={formatKeyLabel("Level")} readOnly tabIndex={-1} />
           <input
-            className="input"
+            className={`input${getDraft("level", value.level) !== value.level ? " draft" : ""}`}
             value={getDraft("level", value.level)}
             onChange={(event) => setDraft("level", event.target.value)}
             onBlur={() => {
@@ -1045,7 +1045,7 @@ function TrainerPokemonEditor({
             <div className="field-row single">
               <input className="input key-label" value={formatKeyLabel("Name")} readOnly tabIndex={-1} />
               <input
-                className="input"
+                className={`input${getDraft("name", value.name) !== value.name ? " draft" : ""}`}
                 value={getDraft("name", value.name)}
                 onChange={(event) => setDraft("name", event.target.value)}
                 onBlur={() => {
@@ -1063,7 +1063,7 @@ function TrainerPokemonEditor({
             <div className="field-row single">
               <input className="input key-label" value={formatKeyLabel("Gender")} readOnly tabIndex={-1} />
               <input
-                className="input"
+                className={`input${getDraft("gender", value.gender) !== value.gender ? " draft" : ""}`}
                 value={getDraft("gender", value.gender)}
                 onChange={(event) => setDraft("gender", event.target.value)}
                 onBlur={() => {
@@ -1081,7 +1081,7 @@ function TrainerPokemonEditor({
             <div className="field-row single">
               <input className="input key-label" value={formatKeyLabel("Shiny")} readOnly tabIndex={-1} />
               <input
-                className="input"
+                className={`input${getDraft("shiny", value.shiny) !== value.shiny ? " draft" : ""}`}
                 value={getDraft("shiny", value.shiny)}
                 onChange={(event) => setDraft("shiny", event.target.value)}
                 onBlur={() => {
@@ -1099,7 +1099,7 @@ function TrainerPokemonEditor({
             <div className="field-row single">
               <input className="input key-label" value={formatKeyLabel("SuperShiny")} readOnly tabIndex={-1} />
               <input
-                className="input"
+                className={`input${getDraft("superShiny", value.superShiny) !== value.superShiny ? " draft" : ""}`}
                 value={getDraft("superShiny", value.superShiny)}
                 onChange={(event) => setDraft("superShiny", event.target.value)}
                 onBlur={() => {
@@ -1117,7 +1117,7 @@ function TrainerPokemonEditor({
             <div className="field-row single">
               <input className="input key-label" value={formatKeyLabel("Shadow")} readOnly tabIndex={-1} />
               <input
-                className="input"
+                className={`input${getDraft("shadow", value.shadow) !== value.shadow ? " draft" : ""}`}
                 value={getDraft("shadow", value.shadow)}
                 onChange={(event) => setDraft("shadow", event.target.value)}
                 onBlur={() => {
@@ -1141,7 +1141,7 @@ function TrainerPokemonEditor({
                   return (
                     <div key={`${idx}`} className="field-row encounter-slot-row">
                       <input
-                        className="input"
+                        className={`input${getDraft(`move-${idx}`, move) !== move ? " draft" : ""}`}
                         list={`trainer-move-${index}-${idx}`}
                         value={getDraft(`move-${idx}`, move)}
                         onChange={(event) => setDraft(`move-${idx}`, event.target.value)}
@@ -1170,7 +1170,7 @@ function TrainerPokemonEditor({
             <div className="field-row single">
               <input className="input key-label" value={formatKeyLabel("Ability")} readOnly tabIndex={-1} />
               <input
-                className="input"
+                className={`input${getDraft("ability", value.ability) !== value.ability ? " draft" : ""}`}
                 list={`trainer-ability-${index}`}
                 value={getDraft("ability", value.ability)}
                 onChange={(event) => setDraft("ability", event.target.value)}
@@ -1209,7 +1209,7 @@ function TrainerPokemonEditor({
             <div className="field-row single">
               <input className="input key-label" value={formatKeyLabel("Item")} readOnly tabIndex={-1} />
               <input
-                className="input"
+                className={`input${getDraft("item", value.item) !== value.item ? " draft" : ""}`}
                 list={`trainer-item-${index}`}
                 value={getDraft("item", value.item)}
                 onChange={(event) => setDraft("item", event.target.value)}
@@ -1233,7 +1233,7 @@ function TrainerPokemonEditor({
             <div className="field-row single">
               <input className="input key-label" value={formatKeyLabel("Nature")} readOnly tabIndex={-1} />
               <input
-                className="input"
+                className={`input${getDraft("nature", value.nature) !== value.nature ? " draft" : ""}`}
                 list={`trainer-nature-${index}`}
                 value={getDraft("nature", value.nature)}
                 onChange={(event) => setDraft("nature", event.target.value)}
@@ -1263,7 +1263,7 @@ function TrainerPokemonEditor({
                     <div key={label} className="trainer-stats-row">
                       <div className="stats-label">{label}</div>
                       <input
-                        className="input input-mini"
+                        className={`input input-mini${getDraft(`iv-${exportIndex}`, ivs[exportIndex]) !== ivs[exportIndex] ? " draft" : ""}`}
                         placeholder="IV"
                         value={getDraft(`iv-${exportIndex}`, ivs[exportIndex])}
                         onChange={(event) => setDraft(`iv-${exportIndex}`, event.target.value)}
@@ -1279,7 +1279,7 @@ function TrainerPokemonEditor({
                         }}
                       />
                       <input
-                        className="input input-mini"
+                        className={`input input-mini${getDraft(`ev-${exportIndex}`, evs[exportIndex]) !== evs[exportIndex] ? " draft" : ""}`}
                         placeholder="EV"
                         value={getDraft(`ev-${exportIndex}`, evs[exportIndex])}
                         onChange={(event) => setDraft(`ev-${exportIndex}`, event.target.value)}
@@ -1302,7 +1302,7 @@ function TrainerPokemonEditor({
             <div className="field-row single">
               <input className="input key-label" value={formatKeyLabel("Happiness")} readOnly tabIndex={-1} />
               <input
-                className="input"
+                className={`input${getDraft("happiness", value.happiness) !== value.happiness ? " draft" : ""}`}
                 value={getDraft("happiness", value.happiness)}
                 onChange={(event) => setDraft("happiness", event.target.value)}
                 onBlur={() => {
@@ -1320,7 +1320,7 @@ function TrainerPokemonEditor({
             <div className="field-row single">
               <input className="input key-label" value={formatKeyLabel("Ball")} readOnly tabIndex={-1} />
               <input
-                className="input"
+                className={`input${getDraft("ball", value.ball) !== value.ball ? " draft" : ""}`}
                 list={`trainer-ball-${index}`}
                 value={getDraft("ball", value.ball)}
                 onChange={(event) => setDraft("ball", event.target.value)}
@@ -1551,7 +1551,7 @@ const FreeformListFieldEditor = memo(function FreeformListFieldEditor({
           {items.map((item, index) => (
             <div key={`${label}-${index}`} className="list-field-row">
               <input
-                className="input"
+                className={`input${(drafts[index] ?? item) !== item ? " draft" : ""}`}
                 value={drafts[index] ?? item}
                 onChange={(event) =>
                   setDrafts((prev) => ({ ...prev, [index]: event.target.value }))
@@ -1571,7 +1571,7 @@ const FreeformListFieldEditor = memo(function FreeformListFieldEditor({
           ))}
           <div className="list-field-row">
             <input
-              className="input"
+              className={`input${draft !== "" ? " draft" : ""}`}
               value={draft}
               placeholder={`Add ${displayLabel}...`}
               onChange={(event) => setDraft(event.target.value)}

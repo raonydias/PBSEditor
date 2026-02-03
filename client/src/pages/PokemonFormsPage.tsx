@@ -1533,6 +1533,9 @@ function PokemonFormDetail({
   const getDraftValue = (key: string, fallback: string) => {
     return fieldDrafts[key] ?? fallback;
   };
+
+  const draftInputClass = (draftValue: string, baseValue: string) =>
+    draftValue !== baseValue ? "input draft" : "input";
   const setDraftValue = (key: string, value: string) => {
     setFieldDrafts((prev) => ({ ...prev, [key]: value }));
   };
@@ -1698,7 +1701,7 @@ function PokemonFormDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("FormName")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={draftInputClass(draftValue, field.value)}
                   value={draftValue}
                   onChange={(event) => setDraftValue(field.key, event.target.value)}
                   onBlur={() => commitDraftValue(field.key, draftValue)}
@@ -1760,7 +1763,7 @@ function PokemonFormDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={draftInputClass(draftValue, field.value)}
                   value={draftValue}
                   onChange={(event) => setDraftValue(field.key, event.target.value)}
                   onBlur={() => commitDraftValue(field.key, draftValue)}
@@ -2153,7 +2156,7 @@ function PokemonFormDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("HatchSteps")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={draftInputClass(draftValue, field.value)}
                   value={draftValue}
                   onFocus={() => setFocusedField(field.key)}
                   onBlur={() => {
@@ -2200,7 +2203,7 @@ function PokemonFormDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={draftInputClass(draftValue, field.value)}
                   value={draftValue}
                   onFocus={() => setFocusedField(field.key)}
                   onBlur={() => {
@@ -2287,7 +2290,7 @@ function PokemonFormDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={draftInputClass(draftValue, field.value)}
                   value={draftValue}
                   onChange={(event) => setDraftValue(field.key, event.target.value)}
                   onBlur={() => commitDraftValue(field.key, draftValue)}
@@ -2309,7 +2312,7 @@ function PokemonFormDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("Generation")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={draftInputClass(draftValue, field.value)}
                   value={draftValue}
                   onChange={(event) => setDraftValue(field.key, event.target.value)}
                   onBlur={() => commitDraftValue(field.key, draftValue)}
@@ -2344,7 +2347,7 @@ function PokemonFormDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={draftInputClass(draftValue, field.value)}
                   list="item-options"
                   value={draftValue}
                   placeholder="(none)"
@@ -2368,7 +2371,7 @@ function PokemonFormDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("MegaStone")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={draftInputClass(draftValue, field.value)}
                   list="item-options"
                   value={draftValue}
                   placeholder="(none)"
@@ -2392,7 +2395,7 @@ function PokemonFormDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("MegaMove")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={draftInputClass(draftValue, field.value)}
                   list="move-options"
                   value={draftValue}
                   placeholder="(none)"
@@ -2418,7 +2421,7 @@ function PokemonFormDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("MegaMessage")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={draftInputClass(draftValue, field.value)}
                   value={draftValue}
                   onChange={(event) => setDraftValue(field.key, event.target.value)}
                   onBlur={() => commitDraftValue(field.key, draftValue)}
@@ -2445,7 +2448,7 @@ function PokemonFormDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("UnmegaForm")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={draftInputClass(draftValue, field.value)}
                   inputMode="numeric"
                   value={draftValue}
                   placeholder="(none)"
@@ -2613,7 +2616,7 @@ const SelectListField = memo(function SelectListField({
             <div key={`${label}-${index}`} className="list-field-row">
               {inputMode === "datalist" ? (
                 <input
-                  className="input"
+                  className={`input${(drafts[index] ?? item) !== item ? " draft" : ""}`}
                   list={resolvedDatalistId}
                   value={drafts[index] ?? item}
                   onChange={(event) =>
@@ -2648,7 +2651,7 @@ const SelectListField = memo(function SelectListField({
           <div className="list-field-row">
             {inputMode === "datalist" ? (
               <input
-                className="input"
+                className={`input${draft !== "" ? " draft" : ""}`}
                 list={resolvedDatalistId}
                 value={draft}
                 placeholder={`Add ${displayLabel}...`}

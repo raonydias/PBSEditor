@@ -914,7 +914,7 @@ function MoveDetail({
                   </select>
                   {isCustomTarget && (
                     <input
-                      className="input"
+                      className={`input${getDraft(field.key, currentTarget) !== currentTarget ? " draft" : ""}`}
                       placeholder="Custom target"
                       value={getDraft(field.key, currentTarget)}
                       onChange={(event) => setDraft(field.key, event.target.value)}
@@ -950,7 +950,7 @@ function MoveDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("Power")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={`input${getDraft(field.key, field.value) !== field.value ? " draft" : ""}`}
                   value={getDraft(field.key, field.value)}
                   onChange={(event) => setDraft(field.key, event.target.value)}
                   onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
@@ -972,7 +972,7 @@ function MoveDetail({
             <div key={`${field.key}-${index}`} className="field-row">
               <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
               <input
-                className="input"
+                className={`input${getDraft(field.key, field.value) !== field.value ? " draft" : ""}`}
                 value={getDraft(field.key, field.value)}
                 onChange={(event) => setDraft(field.key, event.target.value)}
                 onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
@@ -1073,7 +1073,7 @@ const ListFieldEditor = memo(function ListFieldEditor({ label, value, options, o
         {items.map((item, index) => (
           <div key={`${label}-${index}`} className="list-field-row">
             <input
-              className="input"
+              className={`input${(drafts[index] ?? item) !== item ? " draft" : ""}`}
               list={`${label}-options`}
               value={drafts[index] ?? item}
               onChange={(event) =>
@@ -1097,7 +1097,7 @@ const ListFieldEditor = memo(function ListFieldEditor({ label, value, options, o
         ))}
         <div className="list-field-row">
           <input
-            className="input"
+            className={`input${draft !== "" ? " draft" : ""}`}
             list={`${label}-options`}
             value={draft}
             placeholder={`Add ${displayLabel}...`}

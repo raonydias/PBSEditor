@@ -1061,7 +1061,7 @@ function ItemDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("Name")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={`input${getDraft(field.key, field.value) !== field.value ? " draft" : ""}`}
                   value={getDraft(field.key, field.value)}
                   onChange={(event) => setDraft(field.key, event.target.value)}
                   onBlur={() => {
@@ -1087,7 +1087,7 @@ function ItemDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("NamePlural")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={`input${getDraft(field.key, field.value) !== field.value ? " draft" : ""}`}
                   value={getDraft(field.key, field.value)}
                   onChange={(event) => setDraft(field.key, event.target.value)}
                   onBlur={() => {
@@ -1111,7 +1111,7 @@ function ItemDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("PortionName")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={`input${getDraft(field.key, field.value) !== field.value ? " draft" : ""}`}
                   value={getDraft(field.key, field.value)}
                   onChange={(event) => setDraft(field.key, event.target.value)}
                   onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
@@ -1131,7 +1131,7 @@ function ItemDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("PortionNamePlural")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={`input${getDraft(field.key, field.value) !== field.value ? " draft" : ""}`}
                   value={getDraft(field.key, field.value)}
                   onChange={(event) => setDraft(field.key, event.target.value)}
                   onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
@@ -1150,7 +1150,7 @@ function ItemDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={`input${getDraft(field.key, field.value) !== field.value ? " draft" : ""}`}
                   value={getDraft(field.key, field.value)}
                   onChange={(event) => setDraft(field.key, event.target.value)}
                   onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
@@ -1171,7 +1171,7 @@ function ItemDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("SellPrice")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={`input${getDraft(field.key, sellPrice) !== sellPrice ? " draft" : ""}`}
                   value={getDraft(field.key, sellPrice)}
                   placeholder={placeholder}
                   onChange={(event) => setDraft(field.key, event.target.value)}
@@ -1204,7 +1204,7 @@ function ItemDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value="BP Price" readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={`input${getDraft(field.key, field.value) !== field.value ? " draft" : ""}`}
                   value={getDraft(field.key, field.value)}
                   onChange={(event) => setDraft(field.key, event.target.value)}
                   onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
@@ -1296,7 +1296,7 @@ function ItemDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("Move")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={`input${getDraft(field.key, field.value) !== field.value ? " draft" : ""}`}
                   list="move-options"
                   value={getDraft(field.key, field.value)}
                   onChange={(event) => setDraft(field.key, event.target.value)}
@@ -1324,7 +1324,7 @@ function ItemDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("Description")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={`input${getDraft(field.key, field.value) !== field.value ? " draft" : ""}`}
                   value={getDraft(field.key, field.value)}
                   onChange={(event) => setDraft(field.key, event.target.value)}
                   onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
@@ -1343,7 +1343,7 @@ function ItemDetail({
             <div key={`${field.key}-${index}`} className="field-row">
               <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
               <input
-                className="input"
+                className={`input${getDraft(field.key, field.value) !== field.value ? " draft" : ""}`}
                 value={getDraft(field.key, field.value)}
                 onChange={(event) => setDraft(field.key, event.target.value)}
                 onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
@@ -1464,7 +1464,7 @@ const ListFieldEditor = memo(function ListFieldEditor({ label, value, options, o
         {items.map((item, index) => (
           <div key={`${label}-${index}`} className="list-field-row">
             <input
-              className="input"
+              className={`input${(drafts[index] ?? item) !== item ? " draft" : ""}`}
               list={`${label}-options`}
               value={drafts[index] ?? item}
               onChange={(event) =>
@@ -1490,7 +1490,7 @@ const ListFieldEditor = memo(function ListFieldEditor({ label, value, options, o
         ))}
         <div className="list-field-row">
           <input
-            className="input"
+            className={`input${draft !== "" ? " draft" : ""}`}
             list={`${label}-options`}
             value={draft}
             placeholder={`Add ${displayLabel}...`}

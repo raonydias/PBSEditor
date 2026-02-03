@@ -859,7 +859,7 @@ function TrainerTypeDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("BaseMoney")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={`input${baseMoneyDraft !== getFieldValue("BaseMoney") ? " draft" : ""}`}
                   value={baseMoneyDraft}
                   onChange={(event) => {
                     setBaseMoneyDraft(event.target.value);
@@ -886,7 +886,7 @@ function TrainerTypeDetail({
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("SkillLevel")} readOnly tabIndex={-1} />
                 <input
-                  className="input"
+                  className={`input${getDraft(field.key, field.value) !== field.value ? " draft" : ""}`}
                   value={getDraft(field.key, field.value)}
                   onChange={(event) => setDraft(field.key, event.target.value)}
                   onBlur={() => {
@@ -951,7 +951,7 @@ function TrainerTypeDetail({
             <div key={`${field.key}-${index}`} className="field-row">
               <input className="input key-label" value={formatKeyLabelIfKnown(field.key)} readOnly tabIndex={-1} />
               <input
-                className="input"
+                className={`input${getDraft(field.key, field.value) !== field.value ? " draft" : ""}`}
                 value={getDraft(field.key, field.value)}
                 onChange={(event) => setDraft(field.key, event.target.value)}
                 onBlur={() => commitDraft(index, field.key, getDraft(field.key, field.value))}
@@ -1050,7 +1050,7 @@ const FreeformListFieldEditor = memo(function FreeformListFieldEditor({ label, v
         {items.map((item, index) => (
           <div key={`${label}-${index}`} className="list-field-row">
             <input
-              className="input"
+              className={`input${(drafts[index] ?? item) !== item ? " draft" : ""}`}
               value={drafts[index] ?? item}
               onChange={(event) =>
                 setDrafts((prev) => ({ ...prev, [index]: event.target.value }))
@@ -1070,7 +1070,7 @@ const FreeformListFieldEditor = memo(function FreeformListFieldEditor({ label, v
         ))}
         <div className="list-field-row">
           <input
-            className="input"
+            className={`input${draft !== "" ? " draft" : ""}`}
             value={draft}
             placeholder={`Add ${displayLabel}...`}
             onChange={(event) => setDraft(event.target.value)}
