@@ -181,7 +181,7 @@ export default function TrainersPage() {
     const nextId = nextIdRaw.trim().toUpperCase();
     const nextName = nextNameRaw.trim();
     if (!nextId) return "ID is required.";
-    if (!/^[A-Z0-9_]+$/.test(nextId)) return "ID must use A-Z, 0-9, or _ only.";
+    if (!/^[A-Za-z0-9_]+$/.test(nextId)) return "ID must use A-Z, 0-9, or _ only.";
     if (!nextName) return "Name is required.";
     if (!/^\d+$/.test(versionRaw)) return "Version must be an integer of at least 0.";
     const nextVersion = Number(versionRaw);
@@ -798,7 +798,7 @@ function TrainerDetail({
             className="input"
             value={idDraft}
             onChange={(event) => {
-              const nextDraft = event.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "");
+              const nextDraft = event.target.value.replace(/[^A-Za-z0-9_]/g, "");
               setIdDraft(nextDraft);
               const errorMessage = onValidateId(entry, nextDraft, nameDraft, versionDraft);
               onSetIdError(errorMessage);

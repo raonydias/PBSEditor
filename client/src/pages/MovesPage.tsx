@@ -863,17 +863,17 @@ function MoveDetail({
             return (
               <div key={`${field.key}-${index}`} className="field-row">
                 <input className="input key-label" value={formatKeyLabel("Type")} readOnly tabIndex={-1} />
-                <select
+                <input
                   className="input"
+                  list="type-options"
                   value={field.value}
                   onChange={(event) => updateField(index, field.key, event.target.value)}
-                >
+                />
+                <datalist id="type-options">
                   {typeOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
+                    <option key={option} value={option} />
                   ))}
-                </select>
+                </datalist>
                 {fieldErrors[field.key] && <span className="field-error">{fieldErrors[field.key]}</span>}
               </div>
             );
