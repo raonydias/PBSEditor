@@ -22,7 +22,7 @@ export default function SettingsModal() {
         </div>
         <div className="field-list">
           <div className="field-row">
-            <input className="input" value="Theme" readOnly />
+            <div className="settings-label">Theme</div>
             <select
               className="input"
               value={settings.theme}
@@ -77,7 +77,7 @@ export default function SettingsModal() {
           </div>
 
           <div className="field-row">
-            <input className="input" value="Export Mode" readOnly />
+            <div className="settings-label">Export Mode</div>
             <select
               className="input"
               value={settings.exportMode}
@@ -126,7 +126,7 @@ export default function SettingsModal() {
           {settings.exportMode === "PBS" && settings.createBackup && (
             <>
               <div className="field-row">
-                <input className="input" value="Backup limit" readOnly />
+                <div className="settings-label">Backup limit</div>
                 <input
                   className="input"
                   type="number"
